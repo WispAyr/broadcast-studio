@@ -1,0 +1,95 @@
+const express = require('express');
+const { v4: uuidv4 } = require('uuid');
+const { db, getAllStudios, getStudioById } = require('../db');
+const { authenticate, requireRole } = require('../middleware/auth');
+
+const router = express.Router();
+
+// All routes require super_admin
+router.use(authenticate, requireRole(['super_admin']));
+
+// GET / - list all studios
+router.get('/', (req, res) => {
+  try {
+    const studios = getAllStudios();
+    res.json(studios);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST / - create studio
+router.post('/', (req, res) => {
+  try {
+    const { name, slug } = req.body;
+    if (!name || !slug) {
+      return res.status(400).json({ error: 'name and slug are required' });
+    }
+
+    const id = uuidv4();
+    db.prepare('INSERT INTO studios (id, name, slug) VALUES (?, ?, ?)').run(id, name, slug);
+
+    const studio = getStudioById(id);
+    res.status(201).json(studio);
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Studio slug already exists' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /:id - get studio
+router.get('/:id', (req, res) => {
+  try {
+    const studio = getStudioById(req.params.id);
+    if (!studio) {
+      return res.status(404).json({ error: 'Studio not found' });
+    }
+    res.json(studio);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /:id - update studio
+router.put('/:id', (req, res) => {
+  try {
+    const studio = getStudioById(req.params.id);
+    if (!studio) {
+      return res.status(404).json({ error: 'Studio not found' });
+    }
+
+    const { name, slug, active } = req.body;
+    db.prepare(`
+      UPDATE studios SET
+        name = COALESCE(?, name),
+        slug = COALESCE(?, slug),
+        active = COALESCE(?, active),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(name || null, slug || null, active !== undefined ? active : null, req.params.id);
+
+    const updated = getStudioById(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /:id - soft delete
+router.delete('/:id', (req, res) => {
+  try {
+    const studio = getStudioById(req.params.id);
+    if (!studio) {
+      return res.status(404).json({ error: 'Studio not found' });
+    }
+
+    db.prepare("UPDATE studios SET active = 0, updated_at = datetime('now') WHERE id = ?").run(req.params.id);
+    res.json({ message: 'Studio deactivated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

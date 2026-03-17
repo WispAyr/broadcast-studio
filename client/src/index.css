@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-950 text-white m-0;
+}
+
+/* Scrollbar hiding utilities */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Full viewport screen display */
+.screen-display {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  cursor: none;
+}
