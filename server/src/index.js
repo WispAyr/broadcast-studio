@@ -27,6 +27,10 @@ app.use('/api/screens', require('./routes/screens'));
 app.use('/api/shows', require('./routes/shows'));
 app.use('/api/layouts', require('./routes/layouts'));
 app.use('/api/modules', require('./routes/modules'));
+app.use('/api/uploads', require('./routes/uploads'));
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
 
 // Timeline routes (inline)
 const { startTimeline, stopTimeline } = require('./timeline');

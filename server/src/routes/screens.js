@@ -1,15 +1,13 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { db, getScreensByStudio, getScreenById, getLayoutById } = require('../db');
-const { authenticate, requireRole } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate, requireRole } = require('../middleware/auth');
 const { getIO } = require('../ws');
 
 const router = express.Router();
 
-router.use(authenticate);
-
 // GET / - list screens
-router.get('/', (req, res) => {
+router.get('/', authenticate, (req, res) => {
   try {
     let screens;
     if (req.user.role === 'super_admin') {
@@ -24,7 +22,7 @@ router.get('/', (req, res) => {
 });
 
 // POST / - create screen
-router.post('/', (req, res) => {
+router.post('/', authenticate, (req, res) => {
   try {
     const { name, screen_number, studio_id } = req.body;
     const studioId = studio_id || req.user.studio_id;
@@ -42,8 +40,8 @@ router.post('/', (req, res) => {
   }
 });
 
-// GET /:id - get screen
-router.get('/:id', (req, res) => {
+// GET /:id - get screen (public for screen display pages)
+router.get('/:id', optionalAuthenticate, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -56,7 +54,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /:id - update screen
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticate, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -81,7 +79,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /:id - delete screen
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticate, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -96,7 +94,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /:id/layout - set screen's current layout
-router.post('/:id/layout', (req, res) => {
+router.post('/:id/layout', authenticate, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -128,7 +126,7 @@ router.post('/:id/layout', (req, res) => {
 });
 
 // POST /sync - sync all studio screens to one layout
-router.post('/sync', (req, res) => {
+router.post('/sync', authenticate, (req, res) => {
   try {
     const { layout_id, studio_id } = req.body;
     const studioId = studio_id || req.user.studio_id;
@@ -157,7 +155,7 @@ router.post('/sync', (req, res) => {
 });
 
 // POST /emergency - emergency override all screens
-router.post('/emergency', (req, res) => {
+router.post('/emergency', authenticate, (req, res) => {
   try {
     const { layout_id, studio_id } = req.body;
     const studioId = studio_id || req.user.studio_id;

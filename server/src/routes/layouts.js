@@ -1,14 +1,12 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { db, getLayoutsByStudio, getLayoutById } = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.use(authenticate);
-
 // GET / - list layouts for studio
-router.get('/', (req, res) => {
+router.get('/', authenticate, (req, res) => {
   try {
     let layouts;
     if (req.user.role === 'super_admin') {
@@ -23,7 +21,7 @@ router.get('/', (req, res) => {
 });
 
 // POST / - create layout
-router.post('/', (req, res) => {
+router.post('/', authenticate, (req, res) => {
   try {
     const { name, grid_cols, grid_rows, modules, studio_id } = req.body;
     const studioId = studio_id || req.user.studio_id;
@@ -43,8 +41,8 @@ router.post('/', (req, res) => {
   }
 });
 
-// GET /:id - get layout
-router.get('/:id', (req, res) => {
+// GET /:id - get layout (public for screen display)
+router.get('/:id', optionalAuthenticate, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {
@@ -57,7 +55,7 @@ router.get('/:id', (req, res) => {
 });
 
 // PUT /:id - update layout
-router.put('/:id', (req, res) => {
+router.put('/:id', authenticate, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {
@@ -85,7 +83,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /:id - delete layout
-router.delete('/:id', (req, res) => {
+router.delete('/:id', authenticate, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {
@@ -99,8 +97,8 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-// GET /:id/preview - return layout with parsed modules
-router.get('/:id/preview', (req, res) => {
+// GET /:id/preview - return layout with parsed modules (public for screen display)
+router.get('/:id/preview', optionalAuthenticate, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {

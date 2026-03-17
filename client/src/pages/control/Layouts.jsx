@@ -1,6 +1,217 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../lib/api';
 import ModulePicker from '../../components/ModulePicker';
+import ModuleRenderer from '../../components/ModuleRenderer';
+
+// Config field definitions per module type for friendly editing
+const MODULE_CONFIG_FIELDS = {
+  clock: [
+    { key: 'format', label: 'Format', type: 'select', options: ['24h', '12h'], default: '24h' },
+    { key: 'showSeconds', label: 'Show Seconds', type: 'checkbox', default: true },
+    { key: 'showDate', label: 'Show Date', type: 'checkbox', default: false },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '3rem' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  countdown: [
+    { key: 'target', label: 'Target Time (ISO)', type: 'text', default: '' },
+    { key: 'duration', label: 'Duration (seconds)', type: 'number', default: 300 },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '3rem' },
+    { key: 'expiredText', label: 'Expired Text', type: 'text', default: 'TIME' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'warningColor', label: 'Warning Color', type: 'color', default: '#f59e0b' },
+  ],
+  text: [
+    { key: 'text', label: 'Text', type: 'textarea', default: '' },
+    { key: 'align', label: 'Align', type: 'select', options: ['center', 'left', 'right'], default: 'center' },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '1.5rem' },
+    { key: 'fontWeight', label: 'Font Weight', type: 'select', options: ['normal', 'bold', '100', '300', '500', '700', '900'], default: 'bold' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  image: [
+    { key: 'src', label: 'Image URL', type: 'text', default: '' },
+    { key: 'fit', label: 'Fit', type: 'select', options: ['contain', 'cover', 'fill'], default: 'contain' },
+    { key: 'alt', label: 'Alt Text', type: 'text', default: '' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  video: [
+    { key: 'src', label: 'Video URL', type: 'text', default: '' },
+    { key: 'autoplay', label: 'Autoplay', type: 'checkbox', default: true },
+    { key: 'loop', label: 'Loop', type: 'checkbox', default: true },
+    { key: 'muted', label: 'Muted', type: 'checkbox', default: true },
+  ],
+  ticker: [
+    { key: 'text', label: 'Ticker Text', type: 'textarea', default: '' },
+    { key: 'speed', label: 'Speed (seconds)', type: 'number', default: 30 },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '1.25rem' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  iframe: [
+    { key: 'src', label: 'URL', type: 'text', default: '' },
+    { key: 'title', label: 'Title', type: 'text', default: '' },
+  ],
+  weather: [
+    { key: 'location', label: 'Location', type: 'text', default: 'Ayr' },
+    { key: 'temperature', label: 'Temperature', type: 'text', default: '15' },
+    { key: 'condition', label: 'Condition', type: 'text', default: 'Partly Cloudy' },
+    { key: 'unit', label: 'Unit', type: 'select', options: ['C', 'F'], default: 'C' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  color: [
+    { key: 'color', label: 'Color', type: 'color', default: '#000000' },
+  ],
+  logo: [
+    { key: 'src', label: 'Logo URL', type: 'text', default: '' },
+    { key: 'text', label: 'Fallback Text', type: 'text', default: '' },
+    { key: 'maxWidth', label: 'Max Width', type: 'text', default: '80%' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  autocue: [
+    { key: 'text', label: 'Script', type: 'textarea', default: '' },
+    { key: 'speed', label: 'Speed (px/s)', type: 'number', default: 40 },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '2rem' },
+    { key: 'mirror', label: 'Mirror', type: 'checkbox', default: false },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  social: [
+    { key: 'autoScroll', label: 'Auto Scroll', type: 'checkbox', default: true },
+    { key: 'scrollSpeed', label: 'Scroll Speed (ms)', type: 'number', default: 5000 },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  breaking_news: [
+    { key: 'headline', label: 'Headline', type: 'textarea', default: '' },
+    { key: 'subtext', label: 'Sub Text / Ticker', type: 'textarea', default: '' },
+    { key: 'style', label: 'Style', type: 'select', options: ['full', 'banner', 'ticker'], default: 'full' },
+    { key: 'urgent', label: 'Urgent Pulse', type: 'checkbox', default: true },
+    { key: 'speed', label: 'Scroll Speed (s)', type: 'number', default: 25 },
+    { key: 'background', label: 'Background', type: 'color', default: '#cc0000' },
+    { key: 'color', label: 'Text Color', type: 'color', default: '#ffffff' },
+  ],
+  travel: [
+    { key: 'title', label: 'Title', type: 'text', default: 'Travel Update' },
+    { key: 'autoScroll', label: 'Auto Scroll', type: 'checkbox', default: true },
+    { key: 'scrollSpeed', label: 'Cycle Speed (ms)', type: 'number', default: 6000 },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  weather_radar: [
+    { key: 'lat', label: 'Latitude', type: 'number', default: 55.46 },
+    { key: 'lon', label: 'Longitude', type: 'number', default: -4.63 },
+    { key: 'zoom', label: 'Zoom', type: 'number', default: 8 },
+    { key: 'src', label: 'Custom URL (optional)', type: 'text', default: '' },
+  ],
+  aircraft_tracker: [
+    { key: 'lat', label: 'Latitude', type: 'number', default: 55.46 },
+    { key: 'lon', label: 'Longitude', type: 'number', default: -4.63 },
+    { key: 'zoom', label: 'Zoom', type: 'number', default: 9 },
+    { key: 'src', label: 'Custom URL (optional)', type: 'text', default: '' },
+  ],
+  camera_feed: [
+    { key: 'src', label: 'Stream URL (HLS/MP4)', type: 'text', default: '' },
+    { key: 'label', label: 'Camera Label', type: 'text', default: '' },
+    { key: 'muted', label: 'Muted', type: 'checkbox', default: true },
+    { key: 'autoplay', label: 'Autoplay', type: 'checkbox', default: true },
+  ],
+  alert_ticker: [
+    { key: 'mode', label: 'Mode', type: 'select', options: ['scroll', 'cycle'], default: 'scroll' },
+    { key: 'speed', label: 'Scroll Speed (s)', type: 'number', default: 30 },
+    { key: 'cycleSpeed', label: 'Cycle Speed (ms)', type: 'number', default: 5000 },
+    { key: 'background', label: 'Background', type: 'color', default: '#1e1e1e' },
+  ],
+};
+
+function ConfigField({ field, value, onChange }) {
+  const val = value !== undefined ? value : field.default;
+
+  switch (field.type) {
+    case 'checkbox':
+      return (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!val}
+            onChange={(e) => onChange(e.target.checked)}
+            className="rounded bg-gray-700 border-gray-600 text-blue-500 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-300">{field.label}</span>
+        </label>
+      );
+    case 'select':
+      return (
+        <div>
+          <label className="text-xs text-gray-500 uppercase block mb-1">{field.label}</label>
+          <select
+            value={val || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          >
+            {field.options.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      );
+    case 'textarea':
+      return (
+        <div>
+          <label className="text-xs text-gray-500 uppercase block mb-1">{field.label}</label>
+          <textarea
+            value={val || ''}
+            onChange={(e) => onChange(e.target.value)}
+            rows={3}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm font-mono focus:outline-none focus:border-blue-500"
+          />
+        </div>
+      );
+    case 'color':
+      return (
+        <div>
+          <label className="text-xs text-gray-500 uppercase block mb-1">{field.label}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={val || '#000000'}
+              onChange={(e) => onChange(e.target.value)}
+              className="w-8 h-8 rounded cursor-pointer border border-gray-700"
+            />
+            <input
+              type="text"
+              value={val || ''}
+              onChange={(e) => onChange(e.target.value)}
+              className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+      );
+    case 'number':
+      return (
+        <div>
+          <label className="text-xs text-gray-500 uppercase block mb-1">{field.label}</label>
+          <input
+            type="number"
+            value={val ?? ''}
+            onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+      );
+    default:
+      return (
+        <div>
+          <label className="text-xs text-gray-500 uppercase block mb-1">{field.label}</label>
+          <input
+            type="text"
+            value={val || ''}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+          />
+        </div>
+      );
+  }
+}
 
 export default function Layouts() {
   const [layouts, setLayouts] = useState([]);
@@ -9,7 +220,9 @@ export default function Layouts() {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModulePicker, setShowModulePicker] = useState(false);
+  const [placingCell, setPlacingCell] = useState(null); // {row, col} when placing via cell click
   const [selectedModule, setSelectedModule] = useState(null);
+  const [showJsonEditor, setShowJsonEditor] = useState(false);
   const [moduleConfigJson, setModuleConfigJson] = useState('{}');
   const saveTimer = useRef(null);
 
@@ -34,8 +247,10 @@ export default function Layouts() {
         .get(`/layouts/${selectedId}`)
         .then((data) => {
           const layout = data.layout || data;
-          setSelectedLayout(layout);
-          setModules(layout.modules || []);
+          const parsedModules = typeof layout.modules === 'string' ? JSON.parse(layout.modules) : (layout.modules || []);
+          setSelectedLayout({ ...layout, grid_columns: layout.grid_cols || layout.grid_columns || 3 });
+          setModules(parsedModules);
+          setSelectedModule(null);
         })
         .catch((err) => console.error('Failed to fetch layout:', err));
     }
@@ -47,11 +262,17 @@ export default function Layouts() {
       saveTimer.current = setTimeout(async () => {
         if (!selectedId) return;
         try {
-          await api.put(`/layouts/${selectedId}`, layoutData);
+          // Map grid_columns back to grid_cols for the API
+          const payload = { ...layoutData };
+          if (payload.grid_columns !== undefined) {
+            payload.grid_cols = payload.grid_columns;
+            delete payload.grid_columns;
+          }
+          await api.put(`/layouts/${selectedId}`, payload);
         } catch (err) {
           console.error('Auto-save failed:', err);
         }
-      }, 1000);
+      }, 800);
     },
     [selectedId]
   );
@@ -59,7 +280,18 @@ export default function Layouts() {
   function updateLayout(updates) {
     const updated = { ...selectedLayout, ...updates };
     setSelectedLayout(updated);
-    autoSave(updates);
+    // Map for API
+    const apiUpdates = { ...updates };
+    if (apiUpdates.grid_columns !== undefined) {
+      apiUpdates.grid_cols = apiUpdates.grid_columns;
+      delete apiUpdates.grid_columns;
+    }
+    autoSave(apiUpdates);
+  }
+
+  function updateModules(newModules) {
+    setModules(newModules);
+    autoSave({ modules: newModules });
   }
 
   async function handleNewLayout() {
@@ -67,7 +299,7 @@ export default function Layouts() {
       const data = await api.post('/layouts', {
         name: 'New Layout',
         grid_rows: 3,
-        grid_columns: 4,
+        grid_cols: 4,
         background: '#000000'
       });
       fetchLayouts();
@@ -92,48 +324,50 @@ export default function Layouts() {
 
   function handleModuleSelect(moduleType) {
     const newModule = {
-      id: 'temp_' + Date.now(),
+      id: 'mod_' + Date.now(),
       module: moduleType.name || moduleType.id,
       module_type: moduleType.name || moduleType.id,
-      x: 0,
-      y: 0,
+      type: moduleType.name || moduleType.id,
+      x: placingCell ? placingCell.col : 0,
+      y: placingCell ? placingCell.row : 0,
       w: 1,
       h: 1,
       config: {}
     };
     const newModules = [...modules, newModule];
-    setModules(newModules);
+    updateModules(newModules);
     setShowModulePicker(false);
-    autoSave({ modules: newModules });
+    setPlacingCell(null);
+    setSelectedModule(newModules.length - 1);
   }
 
   function removeModule(index) {
     const newModules = modules.filter((_, i) => i !== index);
-    setModules(newModules);
-    if (selectedModule === index) {
-      setSelectedModule(null);
-    }
-    autoSave({ modules: newModules });
+    updateModules(newModules);
+    if (selectedModule === index) setSelectedModule(null);
+    else if (selectedModule > index) setSelectedModule(selectedModule - 1);
   }
 
   function updateModulePlacement(index, field, value) {
     const newModules = [...modules];
     newModules[index] = { ...newModules[index], [field]: parseInt(value) || 0 };
-    setModules(newModules);
-    autoSave({ modules: newModules });
+    updateModules(newModules);
   }
 
-  function updateModuleConfig(index) {
-    try {
-      const config = JSON.parse(moduleConfigJson);
-      const newModules = [...modules];
-      newModules[index] = { ...newModules[index], config };
-      setModules(newModules);
-      autoSave({ modules: newModules });
-    } catch {
-      alert('Invalid JSON');
-    }
+  function updateModuleConfigField(index, key, value) {
+    const newModules = [...modules];
+    const newConfig = { ...newModules[index].config, [key]: value };
+    newModules[index] = { ...newModules[index], config: newConfig };
+    updateModules(newModules);
   }
+
+  function handleCellClick(row, col) {
+    setPlacingCell({ row, col });
+    setShowModulePicker(true);
+  }
+
+  const gridRows = selectedLayout?.grid_rows || 3;
+  const gridCols = selectedLayout?.grid_columns || selectedLayout?.grid_cols || 4;
 
   if (loading) {
     return (
@@ -143,10 +377,14 @@ export default function Layouts() {
     );
   }
 
+  const selectedMod = selectedModule !== null ? modules[selectedModule] : null;
+  const modType = selectedMod ? (selectedMod.type || selectedMod.module_type || selectedMod.module) : null;
+  const configFields = modType ? (MODULE_CONFIG_FIELDS[modType] || []) : [];
+
   return (
     <div className="flex h-full">
-      {/* Layout list */}
-      <div className="w-64 border-r border-gray-800 bg-gray-900/50 p-4 overflow-y-auto hide-scrollbar">
+      {/* Layout list sidebar */}
+      <div className="w-56 border-r border-gray-800 bg-gray-900/50 p-4 overflow-y-auto hide-scrollbar shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Layouts</h2>
           <button
@@ -176,179 +414,236 @@ export default function Layouts() {
         </div>
       </div>
 
-      {/* Grid builder */}
-      <div className="flex-1 p-8 overflow-y-auto hide-scrollbar">
+      {/* Main editor area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {selectedLayout ? (
           <>
-            {/* Layout info */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex-1 mr-4">
+            {/* Top bar: layout name + controls */}
+            <div className="px-6 py-4 border-b border-gray-800 shrink-0">
+              <div className="flex items-center justify-between mb-3">
                 <input
                   type="text"
                   value={selectedLayout.name || ''}
                   onChange={(e) => updateLayout({ name: e.target.value })}
-                  className="text-2xl font-bold bg-transparent text-white border-none outline-none w-full"
+                  className="text-xl font-bold bg-transparent text-white border-none outline-none flex-1 mr-4"
                   placeholder="Layout name"
                 />
-                <input
-                  type="text"
-                  value={selectedLayout.description || ''}
-                  onChange={(e) => updateLayout({ description: e.target.value })}
-                  className="text-sm bg-transparent text-gray-400 border-none outline-none w-full mt-1"
-                  placeholder="Description"
-                />
-              </div>
-              <button
-                onClick={handleDeleteLayout}
-                className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded-lg transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-
-            {/* Grid controls */}
-            <div className="flex items-center gap-4 mb-6 bg-gray-900 rounded-lg p-4 border border-gray-800">
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400">Rows:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={selectedLayout.grid_rows || 3}
-                  onChange={(e) => updateLayout({ grid_rows: parseInt(e.target.value) || 3 })}
-                  className="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400">Columns:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
-                  value={selectedLayout.grid_columns || 4}
-                  onChange={(e) => updateLayout({ grid_columns: parseInt(e.target.value) || 4 })}
-                  className="w-16 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400">Background:</label>
-                <input
-                  type="color"
-                  value={selectedLayout.background || '#000000'}
-                  onChange={(e) => updateLayout({ background: e.target.value })}
-                  className="w-8 h-8 rounded cursor-pointer border border-gray-700"
-                />
-              </div>
-              <button
-                onClick={() => setShowModulePicker(true)}
-                className="ml-auto px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                + Add Module
-              </button>
-            </div>
-
-            {/* Grid Preview */}
-            <div className="mb-6">
-              <div
-                className="border border-gray-700 rounded-lg overflow-hidden"
-                style={{
-                  display: 'grid',
-                  gridTemplateRows: `repeat(${selectedLayout.grid_rows || 3}, 80px)`,
-                  gridTemplateColumns: `repeat(${selectedLayout.grid_columns || 4}, 1fr)`,
-                  background: selectedLayout.background || '#000000',
-                  gap: '2px'
-                }}
-              >
-                {modules.map((mod, i) => (
-                  <div
-                    key={mod.id || i}
-                    onClick={() => {
-                      setSelectedModule(i);
-                      setModuleConfigJson(JSON.stringify(mod.config || {}, null, 2));
-                    }}
-                    className={`flex items-center justify-center cursor-pointer transition-colors ${
-                      selectedModule === i
-                        ? 'bg-blue-600/30 border-2 border-blue-500'
-                        : 'bg-gray-800/80 border border-gray-700 hover:bg-gray-700/80'
-                    }`}
-                    style={{
-                      gridRow: `${(mod.y || 0) + 1} / span ${mod.h || 1}`,
-                      gridColumn: `${(mod.x || 0) + 1} / span ${mod.w || 1}`
-                    }}
-                  >
-                    <span className="text-xs text-gray-300 font-medium">
-                      {mod.module_type || mod.module || 'Module'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Module list & config */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Modules ({modules.length})
-              </h3>
-              {modules.map((mod, i) => (
-                <div
-                  key={mod.id || i}
-                  className={`bg-gray-900 rounded-lg border p-4 ${
-                    selectedModule === i ? 'border-blue-500' : 'border-gray-800'
-                  }`}
+                <button
+                  onClick={handleDeleteLayout}
+                  className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-sm rounded-lg transition-colors shrink-0"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white font-medium text-sm">
-                      {mod.module_type || mod.module || 'Module'}
-                    </span>
-                    <button
-                      onClick={() => removeModule(i)}
-                      className="text-red-400 hover:text-red-300 text-xs"
+                  Delete
+                </button>
+              </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Rows</label>
+                  <input
+                    type="number" min="1" max="12"
+                    value={gridRows}
+                    onChange={(e) => updateLayout({ grid_rows: parseInt(e.target.value) || 3 })}
+                    className="w-14 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">Cols</label>
+                  <input
+                    type="number" min="1" max="12"
+                    value={gridCols}
+                    onChange={(e) => updateLayout({ grid_columns: parseInt(e.target.value) || 4 })}
+                    className="w-14 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500">BG</label>
+                  <input
+                    type="color"
+                    value={selectedLayout.background || '#000000'}
+                    onChange={(e) => updateLayout({ background: e.target.value })}
+                    className="w-8 h-8 rounded cursor-pointer border border-gray-700"
+                  />
+                </div>
+                <button
+                  onClick={() => { setPlacingCell(null); setShowModulePicker(true); }}
+                  className="ml-auto px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  + Add Module
+                </button>
+              </div>
+            </div>
+
+            {/* Grid + Config panel */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Grid preview area */}
+              <div className="flex-1 p-6 overflow-auto hide-scrollbar">
+                <div className="mb-3 text-xs text-gray-500">
+                  Click an empty cell to place a module. Click a module to select it.
+                </div>
+                <div
+                  className="border border-gray-700 rounded-lg overflow-hidden"
+                  style={{
+                    display: 'grid',
+                    gridTemplateRows: `repeat(${gridRows}, minmax(80px, 1fr))`,
+                    gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+                    background: selectedLayout.background || '#000000',
+                    gap: '2px',
+                    aspectRatio: `${gridCols} / ${gridRows}`,
+                    maxHeight: '60vh',
+                  }}
+                >
+                  {/* Placed modules */}
+                  {modules.map((mod, i) => (
+                    <div
+                      key={mod.id || i}
+                      onClick={() => {
+                        setSelectedModule(i);
+                        setModuleConfigJson(JSON.stringify(mod.config || {}, null, 2));
+                      }}
+                      className={`relative cursor-pointer transition-all overflow-hidden ${
+                        selectedModule === i
+                          ? 'ring-2 ring-blue-500 ring-inset z-10'
+                          : 'hover:ring-1 hover:ring-gray-500 hover:ring-inset'
+                      }`}
+                      style={{
+                        gridRow: `${(mod.y || 0) + 1} / span ${mod.h || 1}`,
+                        gridColumn: `${(mod.x || 0) + 1} / span ${mod.w || 1}`
+                      }}
                     >
-                      Remove
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {['x', 'y', 'w', 'h'].map((field) => (
-                      <div key={field}>
-                        <label className="text-xs text-gray-500 uppercase">{field}</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={mod[field] || 0}
-                          onChange={(e) => updateModulePlacement(i, field, e.target.value)}
-                          className="w-full px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-                        />
+                      <ModuleRenderer type={mod.type || mod.module_type || mod.module} config={mod.config || {}} />
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-0.5">
+                        <span className="text-xs text-gray-300 font-medium">
+                          {mod.type || mod.module_type || mod.module}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  {selectedModule === i && (
-                    <div className="mt-3">
-                      <label className="text-xs text-gray-500 uppercase">Config (JSON)</label>
-                      <textarea
-                        value={moduleConfigJson}
-                        onChange={(e) => setModuleConfigJson(e.target.value)}
-                        className="w-full mt-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm font-mono focus:outline-none focus:border-blue-500"
-                        rows={4}
-                      />
-                      <button
-                        onClick={() => updateModuleConfig(i)}
-                        className="mt-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
+                    </div>
+                  ))}
+
+                  {/* Empty cells for click-to-place */}
+                  {Array.from({ length: gridRows * gridCols }).map((_, i) => {
+                    const cellRow = Math.floor(i / gridCols);
+                    const cellCol = i % gridCols;
+                    const isOccupied = modules.some(
+                      (m) =>
+                        cellCol >= (m.x || 0) &&
+                        cellCol < (m.x || 0) + (m.w || 1) &&
+                        cellRow >= (m.y || 0) &&
+                        cellRow < (m.y || 0) + (m.h || 1)
+                    );
+                    if (isOccupied) return null;
+                    return (
+                      <div
+                        key={`empty-${i}`}
+                        onClick={() => handleCellClick(cellRow, cellCol)}
+                        className="bg-gray-900/30 border border-dashed border-gray-800 hover:bg-blue-900/20 hover:border-blue-700 cursor-pointer transition-colors flex items-center justify-center"
+                        style={{
+                          gridRow: `${cellRow + 1}`,
+                          gridColumn: `${cellCol + 1}`
+                        }}
                       >
-                        Apply Config
+                        <span className="text-gray-700 text-xs">+</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Module config panel */}
+              {selectedMod && (
+                <div className="w-72 border-l border-gray-800 bg-gray-900/50 overflow-y-auto hide-scrollbar shrink-0">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-white capitalize">
+                        {modType}
+                      </h3>
+                      <button
+                        onClick={() => removeModule(selectedModule)}
+                        className="text-red-400 hover:text-red-300 text-xs"
+                      >
+                        Remove
                       </button>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
 
-            {/* Module Picker Modal */}
-            {showModulePicker && (
-              <ModulePicker
-                onSelect={handleModuleSelect}
-                onClose={() => setShowModulePicker(false)}
-              />
-            )}
+                    {/* Placement controls */}
+                    <div className="mb-4">
+                      <h4 className="text-xs text-gray-500 uppercase mb-2">Position & Size</h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { field: 'x', label: 'Col' },
+                          { field: 'y', label: 'Row' },
+                          { field: 'w', label: 'W' },
+                          { field: 'h', label: 'H' },
+                        ].map(({ field, label }) => (
+                          <div key={field}>
+                            <label className="text-xs text-gray-600">{label}</label>
+                            <input
+                              type="number" min={field === 'w' || field === 'h' ? 1 : 0}
+                              value={selectedMod[field] || (field === 'w' || field === 'h' ? 1 : 0)}
+                              onChange={(e) => updateModulePlacement(selectedModule, field, e.target.value)}
+                              className="w-full px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Module-specific config fields */}
+                    {configFields.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-xs text-gray-500 uppercase mb-2">Configuration</h4>
+                        <div className="space-y-3">
+                          {configFields.map((field) => (
+                            <ConfigField
+                              key={field.key}
+                              field={field}
+                              value={selectedMod.config?.[field.key]}
+                              onChange={(val) => updateModuleConfigField(selectedModule, field.key, val)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* JSON editor toggle */}
+                    <div className="border-t border-gray-800 pt-3">
+                      <button
+                        onClick={() => {
+                          setShowJsonEditor(!showJsonEditor);
+                          setModuleConfigJson(JSON.stringify(selectedMod.config || {}, null, 2));
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                      >
+                        {showJsonEditor ? 'Hide' : 'Show'} JSON Editor
+                      </button>
+                      {showJsonEditor && (
+                        <div className="mt-2">
+                          <textarea
+                            value={moduleConfigJson}
+                            onChange={(e) => setModuleConfigJson(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs font-mono focus:outline-none focus:border-blue-500"
+                            rows={6}
+                          />
+                          <button
+                            onClick={() => {
+                              try {
+                                const config = JSON.parse(moduleConfigJson);
+                                const newModules = [...modules];
+                                newModules[selectedModule] = { ...newModules[selectedModule], config };
+                                updateModules(newModules);
+                              } catch {
+                                alert('Invalid JSON');
+                              }
+                            }}
+                            className="mt-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          >
+                            Apply JSON
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -356,6 +651,14 @@ export default function Layouts() {
           </div>
         )}
       </div>
+
+      {/* Module Picker Modal */}
+      {showModulePicker && (
+        <ModulePicker
+          onSelect={handleModuleSelect}
+          onClose={() => { setShowModulePicker(false); setPlacingCell(null); }}
+        />
+      )}
     </div>
   );
 }

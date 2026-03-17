@@ -9,9 +9,11 @@ export default function Timeline() {
   const [loading, setLoading] = useState(true);
   const [newTime, setNewTime] = useState('');
   const [newLayoutId, setNewLayoutId] = useState('');
+  const [newLabel, setNewLabel] = useState('');
   const [overrideLayoutId, setOverrideLayoutId] = useState('');
   const [isOverriding, setIsOverriding] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [timelineState, setTimelineState] = useState(null);
   const timelineRef = useRef(null);
 
   useEffect(() => {
@@ -29,10 +31,19 @@ export default function Timeline() {
       setShows(allShows);
       setLayouts(layoutsData.layouts || layoutsData || []);
 
-      const active = allShows.find((s) => s.is_active);
+      const active = allShows.find((s) => s.active || s.is_active);
       if (active) {
         setActiveShow(active);
-        setTimeline(active.timeline || []);
+        const tl = typeof active.timeline === 'string' ? JSON.parse(active.timeline) : (active.timeline || []);
+        setTimeline(tl);
+      }
+
+      // Fetch timeline state
+      try {
+        const state = await api.get('/timeline/current');
+        setTimelineState(state);
+      } catch {
+        // Timeline endpoint may require studio_id
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -43,6 +54,8 @@ export default function Timeline() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   async function saveTimeline(newTimeline) {
@@ -61,12 +74,14 @@ export default function Timeline() {
     const entry = {
       time: newTime,
       layout_id: newLayoutId,
-      layout_name: layout ? layout.name : 'Unknown'
+      layout_name: layout ? layout.name : 'Unknown',
+      label: newLabel || (layout ? layout.name : '')
     };
     const newTimeline = [...timeline, entry].sort((a, b) => a.time.localeCompare(b.time));
     saveTimeline(newTimeline);
     setNewTime('');
     setNewLayoutId('');
+    setNewLabel('');
   }
 
   function removeEntry(index) {
@@ -77,7 +92,7 @@ export default function Timeline() {
   async function handleOverride() {
     if (!overrideLayoutId) return;
     try {
-      await api.post('/screens/sync', { layout_id: overrideLayoutId });
+      await api.post('/timeline/override', { layout_id: overrideLayoutId });
       setIsOverriding(true);
     } catch (err) {
       alert('Override failed: ' + err.message);
@@ -85,29 +100,58 @@ export default function Timeline() {
   }
 
   async function handleResumeAutomation() {
-    setIsOverriding(false);
-    setOverrideLayoutId('');
-    // Re-apply timeline by triggering a refresh
-    fetchData();
+    try {
+      await api.post('/timeline/resume', {});
+      setIsOverriding(false);
+      setOverrideLayoutId('');
+      fetchData();
+    } catch (err) {
+      alert('Resume failed: ' + err.message);
+    }
+  }
+
+  async function handleActivateShow(showId) {
+    try {
+      await api.post(`/shows/${showId}/activate`);
+      fetchData();
+    } catch (err) {
+      alert('Failed to activate show: ' + err.message);
+    }
+  }
+
+  async function handleDeactivateShow(showId) {
+    try {
+      await api.post(`/shows/${showId}/deactivate`);
+      setActiveShow(null);
+      setTimeline([]);
+      setIsOverriding(false);
+      fetchData();
+    } catch (err) {
+      alert('Failed to deactivate show: ' + err.message);
+    }
   }
 
   function getCurrentTimePosition() {
-    const now = currentTime;
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const totalMinutes = hours * 60 + minutes;
-    return (totalMinutes / (24 * 60)) * 100;
+    const hours = currentTime.getHours();
+    const minutes = currentTime.getMinutes();
+    return ((hours * 60 + minutes) / (24 * 60)) * 100;
   }
 
   function getTimePosition(timeStr) {
     const [h, m] = timeStr.split(':').map(Number);
-    const totalMinutes = h * 60 + m;
-    return (totalMinutes / (24 * 60)) * 100;
+    return ((h * 60 + m) / (24 * 60)) * 100;
   }
 
   function getLayoutName(layoutId) {
     const layout = layouts.find((l) => l.id === layoutId);
     return layout ? layout.name : 'Unknown';
+  }
+
+  // Determine current active entry
+  const nowTime = currentTime.toTimeString().slice(0, 5);
+  let currentEntry = null;
+  for (const entry of timeline) {
+    if (entry.time <= nowTime) currentEntry = entry;
   }
 
   if (loading) {
@@ -123,10 +167,12 @@ export default function Timeline() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Timeline</h1>
-          {activeShow && (
+          {activeShow ? (
             <p className="text-gray-400 mt-1">
               Active show: <span className="text-green-400">{activeShow.name}</span>
             </p>
+          ) : (
+            <p className="text-gray-400 mt-1">No active show</p>
           )}
         </div>
         <div className="flex gap-3">
@@ -146,9 +192,7 @@ export default function Timeline() {
               >
                 <option value="">Override layout...</option>
                 {layouts.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
+                  <option key={l.id} value={l.id}>{l.name}</option>
                 ))}
               </select>
               <button
@@ -163,24 +207,63 @@ export default function Timeline() {
         </div>
       </div>
 
-      {!activeShow ? (
-        <div className="text-center py-16">
-          <p className="text-gray-500">No active show. Activate a show to use the timeline.</p>
+      {/* Show selector (if no active show) */}
+      {!activeShow && shows.length > 0 && (
+        <div className="mb-8 bg-gray-900 rounded-lg border border-gray-800 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Activate a Show
+          </h3>
+          <div className="space-y-2">
+            {shows.map((show) => (
+              <div key={show.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
+                <div>
+                  <span className="text-white font-medium">{show.name}</span>
+                  {show.description && (
+                    <p className="text-gray-500 text-xs mt-0.5">{show.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleActivateShow(show.id)}
+                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Activate
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      ) : (
+      )}
+
+      {activeShow && (
         <>
-          {/* Current Time */}
+          {/* Current Time + Status */}
           <div className="mb-6 bg-gray-900 rounded-lg border border-gray-800 p-4">
-            <div className="flex items-center gap-3">
-              <span className="text-gray-400 text-sm">Current Time:</span>
-              <span className="text-white text-lg font-mono">
-                {currentTime.toLocaleTimeString()}
-              </span>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="text-gray-400 text-sm">Current Time:</span>
+                <span className="text-white text-lg font-mono">
+                  {currentTime.toLocaleTimeString()}
+                </span>
+              </div>
+              {currentEntry && (
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-sm">Now playing:</span>
+                  <span className="px-2 py-0.5 bg-blue-600/20 text-blue-400 text-xs font-medium rounded-full">
+                    {currentEntry.label || currentEntry.layout_name || getLayoutName(currentEntry.layout_id)}
+                  </span>
+                </div>
+              )}
               {isOverriding && (
                 <span className="px-2 py-0.5 bg-yellow-600/20 text-yellow-400 text-xs font-medium rounded-full">
                   Manual Override Active
                 </span>
               )}
+              <button
+                onClick={() => handleDeactivateShow(activeShow.id)}
+                className="ml-auto px-3 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-medium rounded-lg transition-colors"
+              >
+                Stop Show
+              </button>
             </div>
           </div>
 
@@ -199,21 +282,23 @@ export default function Timeline() {
 
               {/* Timeline bar */}
               <div className="relative h-16 bg-gray-800 rounded-lg overflow-hidden">
-                {/* Timeline entries */}
                 {timeline.map((entry, i) => {
                   const left = getTimePosition(entry.time);
                   const nextEntry = timeline[i + 1];
                   const right = nextEntry ? getTimePosition(nextEntry.time) : 100;
                   const width = right - left;
+                  const isActive = currentEntry === entry;
                   return (
                     <div
                       key={i}
-                      className="absolute top-0 h-full bg-blue-600/40 border-l-2 border-blue-400 flex items-center px-2"
+                      className={`absolute top-0 h-full border-l-2 flex items-center px-2 transition-colors ${
+                        isActive ? 'bg-blue-600/50 border-blue-400' : 'bg-blue-600/25 border-blue-500/50'
+                      }`}
                       style={{ left: `${left}%`, width: `${width}%` }}
-                      title={`${entry.time} - ${entry.layout_name || getLayoutName(entry.layout_id)}`}
+                      title={`${entry.time} - ${entry.label || entry.layout_name || getLayoutName(entry.layout_id)}`}
                     >
                       <span className="text-xs text-white truncate">
-                        {entry.layout_name || getLayoutName(entry.layout_id)}
+                        {entry.label || entry.layout_name || getLayoutName(entry.layout_id)}
                       </span>
                     </div>
                   );
@@ -236,25 +321,34 @@ export default function Timeline() {
               Timeline Entries
             </h3>
             <div className="space-y-2">
-              {timeline.map((entry, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-white font-mono text-sm">{entry.time}</span>
-                    <span className="text-gray-400 text-sm">
-                      {entry.layout_name || getLayoutName(entry.layout_id)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeEntry(i)}
-                    className="text-red-400 hover:text-red-300 text-sm transition-colors"
+              {timeline.map((entry, i) => {
+                const isActive = currentEntry === entry;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between rounded-lg px-4 py-3 ${
+                      isActive ? 'bg-blue-900/30 border border-blue-800' : 'bg-gray-800'
+                    }`}
                   >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-4">
+                      {isActive && <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />}
+                      <span className="text-white font-mono text-sm">{entry.time}</span>
+                      <span className="text-gray-300 text-sm">
+                        {entry.label || entry.layout_name || getLayoutName(entry.layout_id)}
+                      </span>
+                      <span className="text-gray-600 text-xs">
+                        ({getLayoutName(entry.layout_id)})
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeEntry(i)}
+                      className="text-red-400 hover:text-red-300 text-sm transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
               {timeline.length === 0 && (
                 <p className="text-gray-600 text-sm text-center py-4">No timeline entries yet.</p>
               )}
@@ -266,7 +360,7 @@ export default function Timeline() {
             <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
               Add Entry
             </h3>
-            <div className="flex items-end gap-4">
+            <div className="flex items-end gap-4 flex-wrap">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Time</label>
                 <input
@@ -276,7 +370,7 @@ export default function Timeline() {
                   className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-[200px]">
                 <label className="block text-sm text-gray-400 mb-1">Layout</label>
                 <select
                   value={newLayoutId}
@@ -285,11 +379,19 @@ export default function Timeline() {
                 >
                   <option value="">Select a layout...</option>
                   {layouts.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
+                    <option key={l.id} value={l.id}>{l.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="min-w-[150px]">
+                <label className="block text-sm text-gray-400 mb-1">Label (optional)</label>
+                <input
+                  type="text"
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder="e.g. News Hour"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                />
               </div>
               <button
                 onClick={addEntry}

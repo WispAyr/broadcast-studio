@@ -14,6 +14,8 @@ export default function ScreenDisplay() {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState(null);
   const [projectionActive, setProjectionActive] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [reconnectCount, setReconnectCount] = useState(0);
 
   const heartbeatRef = useRef(null);
   const socketRef = useRef(null);
@@ -21,9 +23,22 @@ export default function ScreenDisplay() {
   const canvasRef = useRef(null);
   const sourceCanvasRef = useRef(null);
   const projectionRef = useRef(null);
-  const captureLoopRef = useRef(null);
 
-  // Fetch screen data (public, no auth required - try without token first)
+  // Smooth layout transition
+  const applyLayout = useCallback((newLayout) => {
+    if (!newLayout) return;
+    setTransitioning(true);
+    setTimeout(() => {
+      setLayout(newLayout);
+      const mods = typeof newLayout.modules === 'string'
+        ? JSON.parse(newLayout.modules)
+        : (newLayout.modules || []);
+      setModules(mods);
+      setTimeout(() => setTransitioning(false), 50);
+    }, 300);
+  }, []);
+
+  // Fetch screen data (public, no auth required)
   const fetchScreenData = useCallback(async () => {
     try {
       const res = await fetch(`/api/screens/${id}`);
@@ -32,8 +47,9 @@ export default function ScreenDisplay() {
       const screen = data.screen || data;
 
       if (screen.current_layout) {
-        setLayout(screen.current_layout);
-        setModules(screen.current_layout.modules || []);
+        const l = screen.current_layout;
+        setLayout(l);
+        setModules(typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []));
       } else if (screen.current_layout_id) {
         try {
           const layoutRes = await fetch(`/api/layouts/${screen.current_layout_id}`);
@@ -41,12 +57,13 @@ export default function ScreenDisplay() {
             const layoutData = await layoutRes.json();
             const l = layoutData.layout || layoutData;
             setLayout(l);
-            setModules(l.modules || []);
+            setModules(typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []));
           }
         } catch {
           // Layout fetch failed
         }
       }
+      setError(null);
     } catch (err) {
       setError(err.message);
       // Try with auth token as fallback
@@ -59,7 +76,9 @@ export default function ScreenDisplay() {
           const screen = data.screen || data;
           if (screen.current_layout) {
             setLayout(screen.current_layout);
-            setModules(screen.current_layout.modules || []);
+            setModules(typeof screen.current_layout.modules === 'string'
+              ? JSON.parse(screen.current_layout.modules)
+              : (screen.current_layout.modules || []));
             setError(null);
           }
         }
@@ -73,25 +92,29 @@ export default function ScreenDisplay() {
     fetchScreenData();
   }, [fetchScreenData]);
 
-  // Socket connection
+  // Socket connection with auto-reconnect
   useEffect(() => {
     const socket = connectSocket();
     socketRef.current = socket;
 
     socket.on('connect', () => {
       setConnected(true);
+      setReconnectCount(0);
       socket.emit('register_screen', { screenId: id, studioId: 'default' });
+      // Re-fetch layout on reconnect
+      fetchScreenData();
     });
 
     socket.on('disconnect', () => {
       setConnected(false);
     });
 
+    socket.on('connect_error', () => {
+      setReconnectCount((prev) => prev + 1);
+    });
+
     socket.on('set_layout', (data) => {
-      if (data.layout) {
-        setLayout(data.layout);
-        setModules(data.layout.modules || []);
-      }
+      if (data.layout) applyLayout(data.layout);
     });
 
     socket.on('update_module', (data) => {
@@ -103,17 +126,11 @@ export default function ScreenDisplay() {
     });
 
     socket.on('sync_all', (data) => {
-      if (data.layout) {
-        setLayout(data.layout);
-        setModules(data.layout.modules || []);
-      }
+      if (data.layout) applyLayout(data.layout);
     });
 
     socket.on('emergency_layout', (data) => {
-      if (data.layout) {
-        setLayout(data.layout);
-        setModules(data.layout.modules || []);
-      }
+      if (data.layout) applyLayout(data.layout);
     });
 
     // Heartbeat every 30 seconds
@@ -126,6 +143,7 @@ export default function ScreenDisplay() {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('connect_error');
       socket.off('set_layout');
       socket.off('update_module');
       socket.off('sync_all');
@@ -133,7 +151,7 @@ export default function ScreenDisplay() {
       clearInterval(heartbeatRef.current);
       disconnectSocket();
     };
-  }, [id]);
+  }, [id, applyLayout, fetchScreenData]);
 
   // Initialize WebGL projection mapping
   useEffect(() => {
@@ -143,7 +161,6 @@ export default function ScreenDisplay() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // Create offscreen source canvas
     if (!sourceCanvasRef.current) {
       sourceCanvasRef.current = document.createElement('canvas');
     }
@@ -155,7 +172,6 @@ export default function ScreenDisplay() {
       mapper = new ProjectionMapper(canvas, id);
       projectionRef.current = mapper;
 
-      // Check if there's saved calibration
       const cal = mapper.getCalibration();
       const hasWarp = cal.corners.some((c, i) => {
         const defaults = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }];
@@ -171,7 +187,6 @@ export default function ScreenDisplay() {
         mapper.enableSetup();
       }
     } catch {
-      // WebGL not available, fall back to CSS grid only
       setProjectionActive(false);
     }
 
@@ -204,16 +219,13 @@ export default function ScreenDisplay() {
     const captureAndRender = () => {
       if (!running) return;
 
-      // Use html-to-canvas via foreignObject SVG approach
       const grid = gridRef.current;
       if (grid && sourceCanvas) {
         const ctx = sourceCanvas.getContext('2d');
         const width = sourceCanvas.width;
         const height = sourceCanvas.height;
 
-        // Clone and serialize the grid content
         const clone = grid.cloneNode(true);
-        // Inline critical styles on the clone
         clone.style.width = width + 'px';
         clone.style.height = height + 'px';
         clone.style.position = 'absolute';
@@ -235,26 +247,19 @@ export default function ScreenDisplay() {
           ctx.clearRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
           URL.revokeObjectURL(url);
-
           mapper.setSourceTexture(sourceCanvas);
           mapper.render();
-
-          if (running) {
-            frameId = requestAnimationFrame(captureAndRender);
-          }
+          if (running) frameId = requestAnimationFrame(captureAndRender);
         };
 
         img.onerror = () => {
           URL.revokeObjectURL(url);
-          // On SVG capture failure, draw a solid background as fallback
           const bg = getComputedStyle(grid).backgroundColor || '#000';
           ctx.fillStyle = bg;
           ctx.fillRect(0, 0, width, height);
           mapper.setSourceTexture(sourceCanvas);
           mapper.render();
-          if (running) {
-            frameId = requestAnimationFrame(captureAndRender);
-          }
+          if (running) frameId = requestAnimationFrame(captureAndRender);
         };
 
         img.src = url;
@@ -264,7 +269,6 @@ export default function ScreenDisplay() {
     };
 
     frameId = requestAnimationFrame(captureAndRender);
-    captureLoopRef.current = () => { running = false; if (frameId) cancelAnimationFrame(frameId); };
 
     return () => {
       running = false;
@@ -273,14 +277,15 @@ export default function ScreenDisplay() {
   }, [projectionActive, layout, modules]);
 
   const gridRows = layout?.grid_rows || 3;
-  const gridColumns = layout?.grid_columns || 4;
+  const gridColumns = layout?.grid_cols || layout?.grid_columns || 4;
   const background = layout?.background || '#000000';
 
   return (
     <div className="screen-display" style={{ background, position: 'relative' }}>
-      {/* Layout Grid - always rendered, hidden when projection is warping */}
+      {/* Layout Grid */}
       <div
         ref={gridRef}
+        className={`transition-opacity duration-300 ${transitioning ? 'opacity-0' : 'opacity-100'}`}
         style={{
           display: 'grid',
           gridTemplateRows: `repeat(${gridRows}, 1fr)`,
@@ -289,7 +294,7 @@ export default function ScreenDisplay() {
           height: '100vh',
           background,
           gap: '2px',
-          opacity: projectionActive ? 0 : 1,
+          opacity: projectionActive ? 0 : undefined,
           pointerEvents: projectionActive ? 'none' : 'auto',
           position: projectionActive ? 'absolute' : 'relative',
           top: 0,
@@ -297,16 +302,16 @@ export default function ScreenDisplay() {
           zIndex: 1,
         }}
       >
-        {modules.map((mod) => (
+        {modules.map((mod, i) => (
           <div
-            key={mod.id}
+            key={mod.id || `mod-${i}`}
             style={{
               gridRow: `${(mod.y || 0) + 1} / span ${mod.h || 1}`,
               gridColumn: `${(mod.x || 0) + 1} / span ${mod.w || 1}`,
               overflow: 'hidden'
             }}
           >
-            <ModuleRenderer type={mod.module || mod.module_type} config={mod.config || {}} />
+            <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} />
           </div>
         ))}
       </div>
@@ -327,7 +332,7 @@ export default function ScreenDisplay() {
       />
 
       {/* No layout message */}
-      {!layout && !error && (
+      {!layout && !error && connected && (
         <div className="fixed inset-0 flex items-center justify-center bg-black" style={{ zIndex: 20 }}>
           <div className="text-center">
             <p className="text-gray-500 text-lg">Waiting for layout...</p>
@@ -336,12 +341,22 @@ export default function ScreenDisplay() {
         </div>
       )}
 
-      {/* Disconnection overlay */}
+      {/* Disconnection overlay with reconnect info */}
       {!connected && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/90 z-50">
           <div className="text-center">
             <p className="text-red-500 text-3xl font-bold mb-2">DISCONNECTED</p>
-            <p className="text-gray-400">Reconnecting...</p>
+            <p className="text-gray-400 mb-1">Attempting to reconnect...</p>
+            {reconnectCount > 0 && (
+              <p className="text-gray-600 text-sm">
+                Retry attempt {reconnectCount}
+              </p>
+            )}
+            <div className="mt-4 flex items-center justify-center gap-1">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '600ms' }} />
+            </div>
           </div>
         </div>
       )}
