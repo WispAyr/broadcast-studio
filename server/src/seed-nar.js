@@ -27,10 +27,11 @@ let studioId;
 if (studio) {
   studioId = studio.id;
   console.log(`NAR studio already exists (${studioId}), updating...`);
-  // Clean existing layouts, shows, screens for fresh rebuild
-  db.prepare("DELETE FROM layouts WHERE studio_id = ?").run(studioId);
-  db.prepare("DELETE FROM shows WHERE studio_id = ?").run(studioId);
+  // Clean existing data for fresh rebuild (order matters for FK constraints)
+  db.prepare("UPDATE screens SET current_layout_id = NULL WHERE studio_id = ?").run(studioId);
   db.prepare("DELETE FROM screens WHERE studio_id = ?").run(studioId);
+  db.prepare("DELETE FROM shows WHERE studio_id = ?").run(studioId);
+  db.prepare("DELETE FROM layouts WHERE studio_id = ?").run(studioId);
 } else {
   studioId = uuidv4();
   db.prepare("INSERT INTO studios (id, name, slug, active) VALUES (?, ?, ?, ?)").run(
