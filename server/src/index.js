@@ -28,6 +28,8 @@ app.use('/api/shows', require('./routes/shows'));
 app.use('/api/layouts', require('./routes/layouts'));
 app.use('/api/modules', require('./routes/modules'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/proxy', require('./routes/proxy'));
+app.use('/api/travel', require('./routes/travel'));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));

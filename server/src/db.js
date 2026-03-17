@@ -191,7 +191,13 @@ function seed() {
     { name: 'weather_radar', description: 'Weather radar map', category: 'situational', icon: '\ud83d\udef0' },
     { name: 'aircraft_tracker', description: 'ADS-B aircraft tracker', category: 'situational', icon: '\u2708' },
     { name: 'camera_feed', description: 'Live camera stream', category: 'situational', icon: '\ud83d\udcf7' },
-    { name: 'alert_ticker', description: 'Rolling alert ticker', category: 'situational', icon: '\u26a0' }
+    { name: 'alert_ticker', description: 'Rolling alert ticker', category: 'situational', icon: '\u26a0' },
+    { name: 'time_local', description: 'Time Local Connect clock (14 modes)', category: 'time', icon: '\ud83d\udd70' },
+    { name: 'rss_feed', description: 'RSS feed display (ticker/cards/list)', category: 'data', icon: '\ud83d\udcf0' },
+    { name: 'news_ticker', description: 'Scrolling news ticker from RSS feeds', category: 'data', icon: '\ud83d\udcf0' },
+    { name: 'social_embed', description: 'Embedded social media timeline', category: 'broadcast', icon: '\ud83d\udcf1' },
+    { name: 'web_source', description: 'Generic URL embed with auto-refresh', category: 'media', icon: '\ud83c\udf10' },
+    { name: 'youtube_player', description: 'YouTube video/live/playlist player', category: 'media', icon: '\u25b6\ufe0f' }
   ];
 
   const insertModule = db.prepare(`
@@ -204,6 +210,29 @@ function seed() {
 
   console.log('Database seeded successfully.');
 }
+
+// Ensure new module types exist (runs on every startup, not just seed)
+function ensureModuleTypes() {
+  const newTypes = [
+    { name: 'time_local', description: 'Time Local Connect clock (14 modes)', category: 'time', icon: '🕰' },
+    { name: 'rss_feed', description: 'RSS feed display (ticker/cards/list)', category: 'data', icon: '📰' },
+    { name: 'news_ticker', description: 'Scrolling news ticker from RSS feeds', category: 'data', icon: '📰' },
+    { name: 'social_embed', description: 'Embedded social media timeline', category: 'broadcast', icon: '📱' },
+    { name: 'web_source', description: 'Generic URL embed with auto-refresh', category: 'media', icon: '🌐' },
+    { name: 'youtube_player', description: 'YouTube video/live/playlist player', category: 'media', icon: '▶️' },
+  ];
+
+  const insertOrIgnore = db.prepare(`
+    INSERT OR IGNORE INTO module_types (id, name, description, category, icon, default_config) VALUES (?, ?, ?, ?, ?, '{}')
+  `);
+
+  for (const mod of newTypes) {
+    insertOrIgnore.run(uuidv4(), mod.name, mod.description, mod.category, mod.icon);
+  }
+}
+
+// Run on import to ensure module types are always present
+ensureModuleTypes();
 
 // Helper functions
 function getStudioById(id) {

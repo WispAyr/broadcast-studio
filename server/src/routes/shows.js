@@ -27,7 +27,12 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { name, description, timeline, studio_id } = req.body;
-    const studioId = studio_id || req.user.studio_id;
+    let studioId = studio_id || req.user.studio_id;
+    if (!studioId) {
+      // Default to first studio for super_admin
+      const first = db.prepare('SELECT id FROM studios LIMIT 1').get();
+      if (first) studioId = first.id;
+    }
     if (!name || !studioId) {
       return res.status(400).json({ error: 'name and studio_id are required' });
     }

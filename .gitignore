@@ -1,0 +1,11 @@
+node_modules/
+.vite/
+client/node_modules/
+server/node_modules/
+client/node_modules/.vite/
+server/data/broadcast.db
+server/data/broadcast.db-wal
+server/data/broadcast.db-shm
+server/data/travel-config.json
+.env
+.DS_Store

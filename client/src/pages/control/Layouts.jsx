@@ -53,10 +53,12 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'title', label: 'Title', type: 'text', default: '' },
   ],
   weather: [
-    { key: 'location', label: 'Location', type: 'text', default: 'Ayr' },
-    { key: 'temperature', label: 'Temperature', type: 'text', default: '15' },
-    { key: 'condition', label: 'Condition', type: 'text', default: 'Partly Cloudy' },
+    { key: 'location', label: 'Location Name', type: 'text', default: 'Ayr' },
+    { key: 'lat', label: 'Latitude', type: 'number', default: 55.46 },
+    { key: 'lon', label: 'Longitude', type: 'number', default: -4.63 },
     { key: 'unit', label: 'Unit', type: 'select', options: ['C', 'F'], default: 'C' },
+    { key: 'displayStyle', label: 'Display', type: 'select', options: ['current', 'forecast'], default: 'current' },
+    { key: 'refreshInterval', label: 'Refresh (seconds)', type: 'number', default: 600 },
     { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
     { key: 'background', label: 'Background', type: 'color', default: '#000000' },
   ],
@@ -121,6 +123,216 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'cycleSpeed', label: 'Cycle Speed (ms)', type: 'number', default: 5000 },
     { key: 'background', label: 'Background', type: 'color', default: '#1e1e1e' },
   ],
+  time_local: [
+    { key: 'mode', label: 'Clock Mode', type: 'select', options: [
+      { value: 'broadcast', label: '🎙 Broadcast Clock — segment wheel with sweep hand' },
+      { value: 'studio-led', label: '💚 Studio LED — green dot matrix display' },
+      { value: 'analogue', label: '🕰 Analogue Studio — traditional clock face' },
+      { value: 'flip', label: '📋 Digital Flip — retro split-flap board' },
+      { value: 'minimal', label: '✨ Minimal — ultra-clean massive digits' },
+      { value: 'nixie', label: '🔶 Nixie Tube — warm vintage glow' },
+      { value: 'shack', label: '📡 Radio Shack — UTC, callsign, grid' },
+      { value: 'contest', label: '🏆 Contest Clock — QSO counter, bands' },
+      { value: 'propagation', label: '🌍 Propagation — grey line, solar data' },
+      { value: 'world', label: '🌐 World Clock — multiple timezones' },
+      { value: 'countdown', label: '⏱ Countdown — target date with urgency' },
+      { value: 'binary', label: '💡 Binary Clock — BCD LED columns' },
+      { value: 'spectrum', label: '🌈 Spectrum — rainbow colour sweep' },
+      { value: 'pomodoro', label: '🍅 Pomodoro — work/break timer' },
+    ], default: 'broadcast' },
+    { key: 'theme', label: 'Color Theme', type: 'select', options: [
+      { value: '', label: 'Default (mode-specific)' },
+      { value: 'amber', label: '🟠 Amber' },
+      { value: 'green', label: '🟢 Green' },
+      { value: 'blue', label: '🔵 Blue' },
+      { value: 'red', label: '🔴 Red' },
+      { value: 'white', label: '⚪ White' },
+      { value: 'cyan', label: '🔵 Cyan' },
+      { value: 'purple', label: '🟣 Purple' },
+      { value: 'pink', label: '💗 Pink' },
+      { value: 'matrix', label: '💚 Matrix' },
+    ], default: '' },
+    { key: 'timezone', label: 'Timezone', type: 'select', options: [
+      { value: '', label: 'Local (browser default)' },
+      { value: 'Europe/London', label: '🇬🇧 London (GMT/BST)' },
+      { value: 'Europe/Dublin', label: '🇮🇪 Dublin (GMT/IST)' },
+      { value: 'Europe/Paris', label: '🇫🇷 Paris (CET/CEST)' },
+      { value: 'Europe/Berlin', label: '🇩🇪 Berlin (CET/CEST)' },
+      { value: 'Europe/Madrid', label: '🇪🇸 Madrid (CET/CEST)' },
+      { value: 'Europe/Rome', label: '🇮🇹 Rome (CET/CEST)' },
+      { value: 'Europe/Amsterdam', label: '🇳🇱 Amsterdam (CET/CEST)' },
+      { value: 'Europe/Moscow', label: '🇷🇺 Moscow (MSK)' },
+      { value: 'Europe/Istanbul', label: '🇹🇷 Istanbul (TRT)' },
+      { value: 'America/New_York', label: '🇺🇸 New York (EST/EDT)' },
+      { value: 'America/Chicago', label: '🇺🇸 Chicago (CST/CDT)' },
+      { value: 'America/Denver', label: '🇺🇸 Denver (MST/MDT)' },
+      { value: 'America/Los_Angeles', label: '🇺🇸 Los Angeles (PST/PDT)' },
+      { value: 'America/Toronto', label: '🇨🇦 Toronto (EST/EDT)' },
+      { value: 'America/Sao_Paulo', label: '🇧🇷 São Paulo (BRT)' },
+      { value: 'Asia/Tokyo', label: '🇯🇵 Tokyo (JST)' },
+      { value: 'Asia/Shanghai', label: '🇨🇳 Shanghai (CST)' },
+      { value: 'Asia/Hong_Kong', label: '🇭🇰 Hong Kong (HKT)' },
+      { value: 'Asia/Singapore', label: '🇸🇬 Singapore (SGT)' },
+      { value: 'Asia/Dubai', label: '🇦🇪 Dubai (GST)' },
+      { value: 'Asia/Kolkata', label: '🇮🇳 Mumbai (IST)' },
+      { value: 'Asia/Seoul', label: '🇰🇷 Seoul (KST)' },
+      { value: 'Australia/Sydney', label: '🇦🇺 Sydney (AEST/AEDT)' },
+      { value: 'Australia/Perth', label: '🇦🇺 Perth (AWST)' },
+      { value: 'Pacific/Auckland', label: '🇳🇿 Auckland (NZST/NZDT)' },
+      { value: 'Africa/Johannesburg', label: '🇿🇦 Johannesburg (SAST)' },
+      { value: 'Africa/Cairo', label: '🇪🇬 Cairo (EET)' },
+      { value: 'UTC', label: '🌐 UTC' },
+    ], default: '' },
+    { key: 'label', label: 'Display Label', type: 'text', default: '', placeholder: 'e.g. Studio A, ON AIR, London' },
+    { key: 'callsign', label: 'Callsign (ham modes)', type: 'text', default: '', placeholder: 'e.g. GM3ABC' },
+    { key: 'grid', label: 'Grid Locator (ham modes)', type: 'text', default: '', placeholder: 'e.g. IO75su' },
+    { key: 'target', label: 'Countdown Target', type: 'text', default: '', placeholder: 'ISO date e.g. 2026-12-31T23:59:59' },
+    { key: 'workMinutes', label: 'Pomodoro Work (min)', type: 'number', default: 25 },
+    { key: 'breakMinutes', label: 'Pomodoro Break (min)', type: 'number', default: 5 },
+    { key: 'fullscreen', label: 'Fullscreen Mode', type: 'checkbox', default: true },
+    { key: 'background', label: 'Container Background', type: 'color', default: '#000000' },
+  ],
+  rss_feed: [
+    { key: 'feedUrl', label: 'Feed URL', type: 'text', default: '' },
+    { key: 'displayStyle', label: 'Display Style', type: 'select', options: ['cards', 'list', 'ticker'], default: 'cards' },
+    { key: 'maxItems', label: 'Max Items', type: 'number', default: 10 },
+    { key: 'refreshInterval', label: 'Refresh (seconds)', type: 'number', default: 300 },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  news_ticker: [
+    { key: 'feedUrls', label: 'Feed URLs (comma-separated)', type: 'textarea', default: 'https://feeds.bbci.co.uk/news/rss.xml' },
+    { key: 'speed', label: 'Scroll Speed (px/s)', type: 'number', default: 80 },
+    { key: 'separator', label: 'Separator', type: 'text', default: '  ●  ' },
+    { key: 'showSource', label: 'Show Source', type: 'checkbox', default: true },
+    { key: 'refreshInterval', label: 'Refresh (seconds)', type: 'number', default: 300 },
+    { key: 'fontSize', label: 'Font Size', type: 'text', default: '1.1rem' },
+    { key: 'color', label: 'Color', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'color', default: '#cc0000' },
+  ],
+  social_embed: [
+    { key: 'platform', label: 'Platform', type: 'select', options: ['twitter', 'x', 'facebook', 'instagram'], default: 'twitter' },
+    { key: 'accountUrl', label: 'Account / Page URL', type: 'text', default: '' },
+    { key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], default: 'dark' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  web_source: [
+    { key: 'url', label: 'URL', type: 'text', default: '' },
+    { key: 'refreshInterval', label: 'Auto-Refresh (seconds, 0=off)', type: 'number', default: 0 },
+    { key: 'zoom', label: 'Zoom (%)', type: 'number', default: 100 },
+    { key: 'useProxy', label: 'Use CORS Proxy', type: 'checkbox', default: false },
+    { key: 'scrollX', label: 'Scroll X', type: 'number', default: 0 },
+    { key: 'scrollY', label: 'Scroll Y', type: 'number', default: 0 },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  youtube_player: [
+    { key: 'url', label: 'YouTube URL / Video ID', type: 'text', default: '' },
+    { key: 'autoplay', label: 'Autoplay', type: 'checkbox', default: true },
+    { key: 'mute', label: 'Muted', type: 'checkbox', default: true },
+    { key: 'loop', label: 'Loop', type: 'checkbox', default: false },
+    { key: 'showControls', label: 'Show Controls', type: 'checkbox', default: false },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  // ── New modules ──
+  news_tv: [
+    { key: 'defaultChannel', label: 'Default Channel', type: 'select', options: [
+      { value: 'sky-news', label: '🔵 Sky News' },
+      { value: 'bbc-news', label: '🔴 BBC News' },
+      { value: 'gb-news', label: '🟠 GB News' },
+      { value: 'al-jazeera', label: '🟡 Al Jazeera' },
+      { value: 'france24', label: '🔵 France 24' },
+      { value: 'dw-news', label: '⚪ DW News' },
+      { value: 'euronews', label: '🔵 Euronews' },
+      { value: 'times-radio', label: '⚫ Times Radio' },
+    ], default: 'sky-news' },
+    { key: 'mute', label: 'Muted', type: 'checkbox', default: true },
+    { key: 'showChannelBar', label: 'Show Channel Bar', type: 'checkbox', default: true },
+    { key: 'barPosition', label: 'Bar Position', type: 'select', options: ['bottom', 'top'], default: 'bottom' },
+    { key: 'autoRotate', label: 'Auto-Rotate Channels', type: 'checkbox', default: false },
+    { key: 'rotateIntervalMs', label: 'Rotate Interval (ms)', type: 'number', default: 300000 },
+    { key: 'title', label: 'Title', type: 'text', default: 'NEWS' },
+  ],
+  nar_schedule: [
+    { key: 'accentColor', label: 'Accent Color', type: 'color', default: '#e11d48' },
+    { key: 'title', label: 'Title', type: 'text', default: 'NOW AYRSHIRE RADIO' },
+    { key: 'showThumbnails', label: 'Show Thumbnails', type: 'checkbox', default: true },
+    { key: 'showGenres', label: 'Show Genre Tags', type: 'checkbox', default: true },
+    { key: 'maxUpcoming', label: 'Max Upcoming Shows', type: 'number', default: 4 },
+    { key: 'compact', label: 'Compact Mode', type: 'checkbox', default: false },
+    { key: 'refreshInterval', label: 'Refresh (ms)', type: 'number', default: 60000 },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+    { key: 'color', label: 'Text Color', type: 'color', default: '#ffffff' },
+  ],
+  nar_news: [
+    { key: 'categories', label: 'Category', type: 'select', options: [
+      { value: 'news', label: '📰 News' },
+      { value: 'sport', label: '⚽ Sport' },
+      { value: 'all', label: '📰⚽ News & Sport' },
+    ], default: 'news' },
+    { key: 'layout', label: 'Layout', type: 'select', options: [
+      { value: 'list', label: '📋 List — scrollable headlines' },
+      { value: 'hero', label: '🖼 Hero — full-bleed rotating stories' },
+      { value: 'ticker', label: '📜 Ticker — horizontal scrolling bar' },
+    ], default: 'list' },
+    { key: 'maxItems', label: 'Max Items', type: 'number', default: 8 },
+    { key: 'showImages', label: 'Show Images', type: 'checkbox', default: true },
+    { key: 'showExcerpts', label: 'Show Excerpts', type: 'checkbox', default: true },
+    { key: 'compact', label: 'Compact Mode', type: 'checkbox', default: false },
+    { key: 'autoScroll', label: 'Auto-Scroll (hero mode)', type: 'checkbox', default: true },
+    { key: 'scrollInterval', label: 'Scroll Interval (ms)', type: 'number', default: 8000 },
+    { key: 'accentColor', label: 'Accent Color', type: 'color', default: '#3b82f6' },
+    { key: 'title', label: 'Title Override', type: 'text', default: '', placeholder: 'Leave empty for auto' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+    { key: 'color', label: 'Text Color', type: 'color', default: '#ffffff' },
+  ],
+  nar_sport: [
+    { key: 'layout', label: 'Layout', type: 'select', options: [
+      { value: 'list', label: '📋 List' },
+      { value: 'hero', label: '🖼 Hero' },
+      { value: 'ticker', label: '📜 Ticker' },
+    ], default: 'list' },
+    { key: 'maxItems', label: 'Max Items', type: 'number', default: 8 },
+    { key: 'showImages', label: 'Show Images', type: 'checkbox', default: true },
+    { key: 'compact', label: 'Compact Mode', type: 'checkbox', default: false },
+    { key: 'accentColor', label: 'Accent Color', type: 'color', default: '#f97316' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+  ],
+  nar_partners: [
+    { key: 'layout', label: 'Layout', type: 'select', options: [
+      { value: 'grid', label: '⊞ Grid — rotating pages' },
+      { value: 'single', label: '1️⃣ Single — one at a time' },
+      { value: 'strip', label: '➡️ Strip — horizontal bar' },
+    ], default: 'grid' },
+    { key: 'gridCols', label: 'Grid Columns', type: 'number', default: 3 },
+    { key: 'gridRows', label: 'Grid Rows', type: 'number', default: 3 },
+    { key: 'rotateInterval', label: 'Rotate Interval (ms)', type: 'number', default: 5000 },
+    { key: 'showTitle', label: 'Show Title', type: 'checkbox', default: true },
+    { key: 'title', label: 'Title', type: 'text', default: 'OUR PARTNERS' },
+    { key: 'accentColor', label: 'Accent Color', type: 'color', default: '#8b5cf6' },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+    { key: 'color', label: 'Text Color', type: 'color', default: '#ffffff' },
+  ],
+  travel_screen: [
+    { key: 'title', label: 'Title', type: 'text', default: 'Ayrshire Travel' },
+    { key: 'compactMode', label: 'Compact Mode', type: 'checkbox', default: false },
+    { key: 'refreshInterval', label: 'Refresh (ms)', type: 'number', default: 120000 },
+    { key: 'theme', label: 'Theme', type: 'select', options: ['dark', 'light'], default: 'dark' },
+  ],
+  travel_times: [
+    { key: 'layout', label: 'Layout', type: 'select', options: [
+      { value: 'list', label: '📋 List' },
+      { value: 'grid', label: '⊞ Grid' },
+      { value: 'split', label: '🗺 Split (list + Waze map)' },
+    ], default: 'list' },
+    { key: 'title', label: 'Title', type: 'text', default: 'TRAVEL TIMES' },
+    { key: 'compact', label: 'Compact Mode', type: 'checkbox', default: false },
+    { key: 'showNormalTime', label: 'Show Normal Time', type: 'checkbox', default: true },
+    { key: 'showDelayBadge', label: 'Show Delay Badge', type: 'checkbox', default: true },
+    { key: 'showWazeEmbed', label: 'Show Waze Map', type: 'checkbox', default: false },
+    { key: 'refreshInterval', label: 'Refresh (ms)', type: 'number', default: 180000 },
+    { key: 'background', label: 'Background', type: 'color', default: '#000000' },
+    { key: 'color', label: 'Text Color', type: 'color', default: '#ffffff' },
+  ],
 };
 
 function ConfigField({ field, value, onChange }) {
@@ -148,9 +360,11 @@ function ConfigField({ field, value, onChange }) {
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
           >
-            {field.options.map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {field.options.map((opt) => {
+              const optValue = typeof opt === 'object' ? opt.value : opt;
+              const optLabel = typeof opt === 'object' ? opt.label : opt;
+              return <option key={optValue} value={optValue}>{optLabel}</option>;
+            })}
           </select>
         </div>
       );
@@ -206,7 +420,8 @@ function ConfigField({ field, value, onChange }) {
             type="text"
             value={val || ''}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+            placeholder={field.placeholder || ''}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500 placeholder:text-gray-600"
           />
         </div>
       );

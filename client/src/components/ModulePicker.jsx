@@ -12,7 +12,7 @@ const categoryIcons = {
 const categoryLabels = {
   time: 'Time',
   media: 'Media',
-  data: 'Data',
+  data: 'Data & Feeds',
   broadcast: 'Broadcast',
   situational: 'Situational'
 };
@@ -86,11 +86,15 @@ export default function ModulePicker({ onSelect, onClose }) {
                       className="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors"
                     >
                       <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-sm">
-                        <span
-                          dangerouslySetInnerHTML={{
-                            __html: categoryIcons[category] || '&#9632;'
-                          }}
-                        />
+                        {mod.icon ? (
+                          <span>{mod.icon}</span>
+                        ) : (
+                          <span
+                            dangerouslySetInnerHTML={{
+                              __html: categoryIcons[category] || '&#9632;'
+                            }}
+                          />
+                        )}
                       </div>
                       <div>
                         <p className="text-white text-sm font-medium capitalize">{mod.name}</p>
