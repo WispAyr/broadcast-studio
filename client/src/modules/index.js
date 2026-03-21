@@ -28,6 +28,12 @@ import NARNewsModule from './NARNewsModule';
 import NARPartnersModule from './NARPartnersModule';
 import TravelTimesModule from './TravelTimesModule';
 import TravelScreenModule from './TravelScreenModule';
+import SlideshowModule from './SlideshowModule';
+import LiveTextModule from './LiveTextModule';
+import QRCodeModule from './QRCodeModule';
+import VisualizerModule from './VisualizerModule';
+import RemotionModule from './RemotionModule';
+import CanvaModule from './CanvaModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -65,6 +71,12 @@ const moduleRegistry = {
   nar_sport: NARNewsModule,     // Same module, different default config
   nar_partners: NARPartnersModule,
   travel_times: TravelTimesModule,
+  slideshow: SlideshowModule,
+  live_text: LiveTextModule,
+  qrcode: QRCodeModule,
+  visualizer: VisualizerModule,
+  remotion: RemotionModule,
+  canva: CanvaModule,
 };
 
 export default moduleRegistry;

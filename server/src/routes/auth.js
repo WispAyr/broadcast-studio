@@ -78,6 +78,65 @@ router.post('/register', authenticate, requireRole(['super_admin']), (req, res) 
   }
 });
 
+// GET /users - list all users (super_admin only)
+router.get('/users', authenticate, requireRole(['super_admin']), (req, res) => {
+  try {
+    const users = db.prepare(`
+      SELECT u.id, u.username, u.name, u.role, u.studio_id, u.active, u.created_at, u.updated_at,
+             s.name as studio_name
+      FROM users u
+      LEFT JOIN studios s ON u.studio_id = s.id
+      ORDER BY u.created_at DESC
+    `).all();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /users/:id - update user (super_admin only)
+router.put('/users/:id', authenticate, requireRole(['super_admin']), (req, res) => {
+  try {
+    const { name, role, studio_id, password } = req.body;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let hashedPassword = user.password;
+    if (password) {
+      hashedPassword = bcrypt.hashSync(password, 10);
+    }
+
+    db.prepare(`
+      UPDATE users SET
+        name = COALESCE(?, name),
+        role = COALESCE(?, role),
+        studio_id = ?,
+        password = ?,
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(name || null, role || null, studio_id !== undefined ? studio_id || null : user.studio_id, hashedPassword, req.params.id);
+
+    const updated = db.prepare('SELECT id, username, name, role, studio_id, active, created_at, updated_at FROM users WHERE id = ?').get(req.params.id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /users/:id - delete user (super_admin only)
+router.delete('/users/:id', authenticate, requireRole(['super_admin']), (req, res) => {
+  try {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself' });
+
+    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+    res.json({ message: 'User deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /me
 router.get('/me', authenticate, (req, res) => {
   try {

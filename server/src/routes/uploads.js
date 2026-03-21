@@ -8,13 +8,27 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 const uploadsDir = path.join(__dirname, '..', '..', 'data', 'uploads');
 
-// Ensure uploads directory exists
+// Ensure base uploads directory exists
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Get studio-scoped upload directory
+function getStudioDir(user) {
+  // Super admins without a studio use 'shared', everyone else uses their studio_id
+  const folder = user.studio_id || 'shared';
+  const dir = path.join(uploadsDir, folder);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
+  destination: (req, file, cb) => {
+    const dir = getStudioDir(req.user);
+    cb(null, dir);
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     const name = uuidv4() + ext;
@@ -40,26 +54,39 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
+  const folder = req.user.studio_id || 'shared';
   res.json({
     filename: req.file.filename,
     originalName: req.file.originalname,
     size: req.file.size,
-    url: `/uploads/${req.file.filename}`
+    url: `/uploads/${folder}/${req.file.filename}`
   });
 });
 
-// GET /api/uploads - list uploaded files
+// GET /api/uploads - list uploaded files (scoped to user's studio)
 router.get('/', authenticate, (req, res) => {
   try {
-    const files = fs.readdirSync(uploadsDir)
+    const folder = req.user.studio_id || 'shared';
+    const studioDir = path.join(uploadsDir, folder);
+    
+    if (!fs.existsSync(studioDir)) {
+      return res.json([]);
+    }
+    
+    const files = fs.readdirSync(studioDir)
       .filter(f => !f.startsWith('.'))
       .map(filename => {
-        const stat = fs.statSync(path.join(uploadsDir, filename));
+        const stat = fs.statSync(path.join(studioDir, filename));
+        const ext = path.extname(filename).toLowerCase();
+        const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+        const videoExts = ['.mp4', '.webm', '.mov', '.avi'];
+        const type = imageExts.includes(ext) ? 'image' : videoExts.includes(ext) ? 'video' : 'other';
         return {
           filename,
-          url: `/uploads/${filename}`,
+          url: `/uploads/${folder}/${filename}`,
           size: stat.size,
-          modified: stat.mtime
+          modified: stat.mtime,
+          type
         };
       })
       .sort((a, b) => new Date(b.modified) - new Date(a.modified));
@@ -69,9 +96,10 @@ router.get('/', authenticate, (req, res) => {
   }
 });
 
-// DELETE /api/uploads/:filename - delete an uploaded file
+// DELETE /api/uploads/:filename - delete an uploaded file (scoped to user's studio)
 router.delete('/:filename', authenticate, (req, res) => {
-  const filePath = path.join(uploadsDir, path.basename(req.params.filename));
+  const folder = req.user.studio_id || 'shared';
+  const filePath = path.join(uploadsDir, folder, path.basename(req.params.filename));
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found' });
   }

@@ -1,7 +1,7 @@
 import React from 'react';
 import moduleRegistry from '../modules/index';
 
-export default function ModuleRenderer({ type, config = {} }) {
+export default function ModuleRenderer({ type, config = {}, moduleId }) {
   const Component = moduleRegistry[type];
 
   if (!Component) {
@@ -12,5 +12,5 @@ export default function ModuleRenderer({ type, config = {} }) {
     );
   }
 
-  return <Component config={config} />;
+  return <Component config={config} moduleId={moduleId} />;
 }

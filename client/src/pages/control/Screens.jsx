@@ -1,267 +1,493 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../lib/api';
+
+const DEFAULT_PROFILE = {
+  brightness: 100, contrast: 100, saturation: 100,
+  blackLevel: 0, gamma: 1.0, colorTemp: 'neutral',
+  rotation: 0, flipH: false, flipV: false,
+  contentScale: 100, offsetX: 0, offsetY: 0, contentFit: 'cover',
+};
+
+function Slider({ label, value, onChange, min, max, step = 1, unit = '' }) {
+  return (
+    <div className="mb-3">
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-gray-400">{label}</span>
+        <span className="text-white font-mono">{value}{unit}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
+        className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, children }) {
+  return (
+    <button onClick={onClick}
+      className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${active ? 'bg-gray-800 text-white border-b-2 border-blue-500' : 'text-gray-500 hover:text-gray-300'}`}>
+      {children}
+    </button>
+  );
+}
+
+function buildCssFilter(p) {
+  const parts = [];
+  if (p.brightness !== 100) parts.push(`brightness(${p.brightness}%)`);
+  if (p.contrast !== 100) parts.push(`contrast(${p.contrast}%)`);
+  if (p.saturation !== 100) parts.push(`saturate(${p.saturation}%)`);
+  if (p.blackLevel > 0) parts.push(`brightness(${100 - p.blackLevel}%)`);
+  if (p.gamma !== 1.0) {
+    const g = 1 / p.gamma;
+    parts.push(`contrast(${100 * g}%)`);
+  }
+  if (p.colorTemp === 'warm') parts.push('sepia(15%)');
+  else if (p.colorTemp === 'cool') parts.push('hue-rotate(10deg)');
+  return parts.join(' ') || 'none';
+}
+
+function buildTransform(p) {
+  const parts = [];
+  if (p.rotation) parts.push(`rotate(${p.rotation}deg)`);
+  if (p.flipH) parts.push('scaleX(-1)');
+  if (p.flipV) parts.push('scaleY(-1)');
+  if (p.contentScale && p.contentScale !== 100) parts.push(`scale(${p.contentScale / 100})`);
+  if (p.offsetX || p.offsetY) parts.push(`translate(${p.offsetX || 0}px, ${p.offsetY || 0}px)`);
+  return parts.join(' ') || 'none';
+}
+
+function mergeProfiles(groupProfile, screenConfig) {
+  const base = { ...DEFAULT_PROFILE, ...(groupProfile || {}) };
+  return { ...base, ...(screenConfig?.displayProfile || {}) };
+}
+
+function DisplayPreview({ profile }) {
+  const filter = buildCssFilter(profile);
+  const transform = buildTransform(profile);
+  return (
+    <div className="bg-gray-950 rounded-lg p-4 border border-gray-800">
+      <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Live Preview</p>
+      <div className="relative overflow-hidden rounded" style={{ width: '100%', aspectRatio: '16/9', background: '#111' }}>
+        <div style={{ width: '100%', height: '100%', filter, transform, objectFit: profile.contentFit || 'cover',
+          background: 'linear-gradient(135deg, #1e40af 0%, #7c3aed 50%, #db2777 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '1.2rem', fontWeight: 'bold',
+          transformOrigin: 'center center',
+        }}>
+          Sample Content
+        </div>
+      </div>
+      <p className="text-xs text-gray-600 mt-2 font-mono break-all">filter: {filter}</p>
+      <p className="text-xs text-gray-600 font-mono break-all">transform: {transform}</p>
+    </div>
+  );
+}
+
+function GeneralTab({ screen, formData, setFormData, groups }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Screen Name</label>
+        <input type="text" value={formData.name} onChange={e => setFormData(d => ({ ...d, name: e.target.value }))}
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Orientation</label>
+        <select value={formData.orientation} onChange={e => setFormData(d => ({ ...d, orientation: e.target.value }))}
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+          <option value="landscape">Landscape</option>
+          <option value="portrait">Portrait</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Width</label>
+          <input type="number" value={formData.width} onChange={e => setFormData(d => ({ ...d, width: parseInt(e.target.value) || 1920 }))}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Height</label>
+          <input type="number" value={formData.height} onChange={e => setFormData(d => ({ ...d, height: parseInt(e.target.value) || 1080 }))}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Screen Group</label>
+        <select value={formData.group_id || ''} onChange={e => setFormData(d => ({ ...d, group_id: e.target.value || null }))}
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500">
+          <option value="">No Group</option>
+          {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function DisplayTab({ profile, setProfile, screens, currentScreenId }) {
+  const handleCopyFrom = (sourceId) => {
+    const src = screens.find(s => s.id === sourceId);
+    if (src) {
+      const srcConfig = typeof src.config === 'string' ? JSON.parse(src.config || '{}') : (src.config || {});
+      if (srcConfig.displayProfile) setProfile(srcConfig.displayProfile);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <div className="space-y-1">
+        <Slider label="Brightness" value={profile.brightness} onChange={v => setProfile(p => ({ ...p, brightness: v }))} min={50} max={200} unit="%" />
+        <Slider label="Contrast" value={profile.contrast} onChange={v => setProfile(p => ({ ...p, contrast: v }))} min={50} max={200} unit="%" />
+        <Slider label="Saturation" value={profile.saturation} onChange={v => setProfile(p => ({ ...p, saturation: v }))} min={0} max={200} unit="%" />
+        <Slider label="Black Level" value={profile.blackLevel} onChange={v => setProfile(p => ({ ...p, blackLevel: v }))} min={0} max={50} />
+        <Slider label="Gamma" value={profile.gamma} onChange={v => setProfile(p => ({ ...p, gamma: v }))} min={0.5} max={2.5} step={0.1} />
+
+        <div className="mb-3">
+          <label className="block text-sm text-gray-400 mb-1">Color Temperature</label>
+          <div className="flex gap-2">
+            {['warm', 'neutral', 'cool'].map(t => (
+              <button key={t} onClick={() => setProfile(p => ({ ...p, colorTemp: t }))}
+                className={`flex-1 px-3 py-1.5 rounded text-sm capitalize ${profile.colorTemp === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{t}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm text-gray-400 mb-1">Rotation</label>
+          <div className="flex gap-2">
+            {[0, 90, 180, 270].map(r => (
+              <button key={r} onClick={() => setProfile(p => ({ ...p, rotation: r }))}
+                className={`flex-1 px-3 py-1.5 rounded text-sm ${profile.rotation === r ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>{r}°</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-4 mb-3">
+          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={profile.flipH} onChange={e => setProfile(p => ({ ...p, flipH: e.target.checked }))} className="accent-blue-500" /> Flip H
+          </label>
+          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={profile.flipV} onChange={e => setProfile(p => ({ ...p, flipV: e.target.checked }))} className="accent-blue-500" /> Flip V
+          </label>
+        </div>
+
+        <Slider label="Content Scale" value={profile.contentScale} onChange={v => setProfile(p => ({ ...p, contentScale: v }))} min={50} max={200} unit="%" />
+        <Slider label="Offset X" value={profile.offsetX} onChange={v => setProfile(p => ({ ...p, offsetX: v }))} min={-500} max={500} unit="px" />
+        <Slider label="Offset Y" value={profile.offsetY} onChange={v => setProfile(p => ({ ...p, offsetY: v }))} min={-500} max={500} unit="px" />
+
+        <div className="mb-3">
+          <label className="block text-sm text-gray-400 mb-1">Content Fit</label>
+          <select value={profile.contentFit} onChange={e => setProfile(p => ({ ...p, contentFit: e.target.value }))}
+            className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-blue-500">
+            <option value="cover">Cover</option>
+            <option value="contain">Contain</option>
+            <option value="fill">Fill</option>
+          </select>
+        </div>
+
+        <div className="flex gap-2 mt-4">
+          <button onClick={() => setProfile({ ...DEFAULT_PROFILE })}
+            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded transition-colors">Reset to Defaults</button>
+          <select onChange={e => { if (e.target.value) handleCopyFrom(e.target.value); e.target.value = ''; }}
+            className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-gray-300 text-sm focus:outline-none">
+            <option value="">Copy from...</option>
+            {screens.filter(s => s.id !== currentScreenId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <DisplayPreview profile={profile} />
+      </div>
+    </div>
+  );
+}
+
+function ViewportTab({ profile, formData }) {
+  const w = formData.width || 1920;
+  const h = formData.height || 1080;
+  const aspect = w / h;
+  const filter = buildCssFilter(profile);
+  const transform = buildTransform(profile);
+
+  return (
+    <div>
+      <p className="text-sm text-gray-400 mb-4">Visual preview of content positioning within the screen frame</p>
+      <div className="flex justify-center">
+        <div style={{ width: '100%', maxWidth: 600, aspectRatio: `${aspect}`, position: 'relative', border: '2px solid #374151', borderRadius: 8, background: '#000', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 4, left: 8, color: '#6b7280', fontSize: 10, zIndex: 10 }}>{w}×{h} ({formData.orientation})</div>
+          <div style={{ position: 'absolute', inset: 0, filter, transform, transformOrigin: 'center center', objectFit: profile.contentFit,
+            background: 'linear-gradient(135deg, #1e3a5f 0%, #2d1b4e 50%, #4a1942 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'white', gap: 4 }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Content Area</div>
+            <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>
+              Scale: {profile.contentScale}% | Offset: ({profile.offsetX}, {profile.offsetY}) | Fit: {profile.contentFit}
+            </div>
+          </div>
+          {/* Safe zone guides */}
+          <div style={{ position: 'absolute', inset: '5%', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 4, pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', inset: '10%', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 4, pointerEvents: 'none' }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScreenGroupsPanel({ groups, setGroups, fetchGroups }) {
+  const [editing, setEditing] = useState(null);
+  const [name, setName] = useState('');
+  const [profile, setProfile] = useState({ ...DEFAULT_PROFILE });
+
+  function startEdit(g) {
+    setEditing(g.id);
+    setName(g.name);
+    const p = typeof g.profile === 'string' ? JSON.parse(g.profile || '{}') : (g.profile || {});
+    setProfile({ ...DEFAULT_PROFILE, ...p });
+  }
+
+  async function handleSave() {
+    try {
+      if (editing && editing !== 'new') {
+        await api.put(`/screen-groups/${editing}`, { name, profile });
+      } else {
+        await api.post('/screen-groups', { name, profile });
+      }
+      setEditing(null);
+      setName('');
+      setProfile({ ...DEFAULT_PROFILE });
+      fetchGroups();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Delete this group?')) return;
+    try {
+      await api.delete(`/screen-groups/${id}`);
+      fetchGroups();
+    } catch (err) { alert('Failed: ' + err.message); }
+  }
+
+  return (
+    <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-white">Screen Groups</h2>
+        <button onClick={() => { setEditing('new'); setName(''); setProfile({ ...DEFAULT_PROFILE }); }}
+          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">New Group</button>
+      </div>
+
+      {groups.length === 0 && !editing && <p className="text-gray-500 text-sm">No groups yet.</p>}
+
+      {groups.map(g => (
+        <div key={g.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+          <span className="text-white">{g.name}</span>
+          <div className="flex gap-2">
+            <button onClick={() => startEdit(g)} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded">Edit</button>
+            <button onClick={() => handleDelete(g.id)} className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded">Delete</button>
+          </div>
+        </div>
+      ))}
+
+      {editing && (
+        <div className="mt-4 p-4 bg-gray-800 rounded-lg space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Group Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" />
+          </div>
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Default Display Profile</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Slider label="Brightness" value={profile.brightness} onChange={v => setProfile(p => ({ ...p, brightness: v }))} min={50} max={200} unit="%" />
+              <Slider label="Contrast" value={profile.contrast} onChange={v => setProfile(p => ({ ...p, contrast: v }))} min={50} max={200} unit="%" />
+              <Slider label="Saturation" value={profile.saturation} onChange={v => setProfile(p => ({ ...p, saturation: v }))} min={0} max={200} unit="%" />
+            </div>
+            <DisplayPreview profile={profile} />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleSave} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg">Save Group</button>
+            <button onClick={() => setEditing(null)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Screens() {
   const [screens, setScreens] = useState([]);
   const [layouts, setLayouts] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingScreen, setEditingScreen] = useState(null);
-  const [formData, setFormData] = useState({ name: '', screen_number: 1 });
+  const [selectedScreen, setSelectedScreen] = useState(null);
+  const [activeTab, setActiveTab] = useState('general');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newNumber, setNewNumber] = useState(1);
+  const [showGroups, setShowGroups] = useState(false);
 
-  async function fetchData() {
+  // Form data for the selected screen
+  const [formData, setFormData] = useState({ name: '', orientation: 'landscape', width: 1920, height: 1080, group_id: null });
+  const [displayProfile, setDisplayProfile] = useState({ ...DEFAULT_PROFILE });
+
+  const fetchScreens = useCallback(async () => {
     try {
-      const [screensData, layoutsData] = await Promise.all([
-        api.get('/screens'),
-        api.get('/layouts')
-      ]);
+      const [screensData, layoutsData] = await Promise.all([api.get('/screens'), api.get('/layouts')]);
       setScreens(screensData.screens || screensData || []);
       setLayouts(layoutsData.layouts || layoutsData || []);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchData();
+    } catch (err) { console.error('Failed to fetch:', err); }
+    finally { setLoading(false); }
   }, []);
 
-  function resetForm() {
-    setFormData({ name: '', screen_number: 1 });
-    setShowForm(false);
-    setEditingScreen(null);
+  const fetchGroups = useCallback(async () => {
+    try {
+      const data = await api.get('/screen-groups');
+      setGroups(data.groups || data || []);
+    } catch { setGroups([]); }
+  }, []);
+
+  useEffect(() => { fetchScreens(); fetchGroups(); }, [fetchScreens, fetchGroups]);
+
+  function selectScreen(screen) {
+    setSelectedScreen(screen);
+    setActiveTab('general');
+    const config = typeof screen.config === 'string' ? JSON.parse(screen.config || '{}') : (screen.config || {});
+    setFormData({
+      name: screen.name, orientation: screen.orientation || 'landscape',
+      width: screen.width || 1920, height: screen.height || 1080, group_id: screen.group_id || null,
+    });
+    // Merge group profile with screen overrides
+    const group = groups.find(g => g.id === screen.group_id);
+    const groupProfile = group ? (typeof group.profile === 'string' ? JSON.parse(group.profile || '{}') : (group.profile || {})) : {};
+    setDisplayProfile(mergeProfiles(groupProfile, config));
   }
 
-  async function handleSubmit(e) {
+  async function handleSaveScreen() {
+    if (!selectedScreen) return;
+    try {
+      const config = { displayProfile };
+      await api.put(`/screens/${selectedScreen.id}`, {
+        name: formData.name, orientation: formData.orientation,
+        width: formData.width, height: formData.height,
+        group_id: formData.group_id, config,
+      });
+      fetchScreens();
+      // Update selected screen reference
+      setSelectedScreen(s => ({ ...s, ...formData, config }));
+    } catch (err) { alert('Failed to save: ' + err.message); }
+  }
+
+  async function handleAddScreen(e) {
     e.preventDefault();
     try {
-      if (editingScreen) {
-        await api.put(`/screens/${editingScreen.id}`, formData);
-      } else {
-        await api.post('/screens', formData);
-      }
-      resetForm();
-      fetchData();
-    } catch (err) {
-      alert('Failed to save screen: ' + err.message);
-    }
+      await api.post('/screens', { name: newName, screen_number: newNumber });
+      setShowAddForm(false);
+      setNewName('');
+      setNewNumber(1);
+      fetchScreens();
+    } catch (err) { alert('Failed: ' + err.message); }
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this screen?')) return;
     try {
       await api.delete(`/screens/${id}`);
-      fetchData();
-    } catch (err) {
-      alert('Failed to delete screen: ' + err.message);
-    }
+      if (selectedScreen?.id === id) setSelectedScreen(null);
+      fetchScreens();
+    } catch (err) { alert('Failed: ' + err.message); }
   }
 
   async function handleSetLayout(screenId, layoutId) {
     try {
       await api.put(`/screens/${screenId}`, { current_layout_id: layoutId || null });
-      fetchData();
-    } catch (err) {
-      alert('Failed to set layout: ' + err.message);
-    }
+      fetchScreens();
+    } catch (err) { alert('Failed: ' + err.message); }
   }
 
-  async function handleToggleSync(screen) {
-    const newMode = screen.sync_mode === 'synced' ? 'independent' : 'synced';
-    try {
-      await api.put(`/screens/${screen.id}`, { sync_mode: newMode });
-      fetchData();
-    } catch (err) {
-      alert('Failed to toggle sync mode: ' + err.message);
-    }
-  }
-
-  function startEdit(screen) {
-    setEditingScreen(screen);
-    setFormData({ name: screen.name, screen_number: screen.screen_number });
-    setShowForm(true);
-  }
-
-  function getLayoutName(layoutId) {
-    const layout = layouts.find((l) => l.id === layoutId);
-    return layout ? layout.name : 'None';
-  }
-
-  function openScreenDisplay(screen) {
-    window.open(`/screen/${screen.id}`, '_blank');
-  }
-
-  if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center h-full">
-        <p className="text-gray-400">Loading screens...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8 flex items-center justify-center h-full"><p className="text-gray-400">Loading screens...</p></div>;
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Screens</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowForm(true);
-          }}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          Add Screen
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowGroups(!showGroups)}
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors">
+            {showGroups ? 'Hide' : 'Show'} Groups
+          </button>
+          <button onClick={() => setShowAddForm(true)}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">Add Screen</button>
+        </div>
       </div>
 
-      {/* Form */}
-      {showForm && (
+      {showGroups && <ScreenGroupsPanel groups={groups} setGroups={setGroups} fetchGroups={fetchGroups} />}
+
+      {showAddForm && (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">
-            {editingScreen ? 'Edit Screen' : 'New Screen'}
-          </h2>
-          <form onSubmit={handleSubmit} className="flex items-end gap-4">
+          <form onSubmit={handleAddScreen} className="flex items-end gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-300 mb-1">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-                placeholder="Screen name"
-                required
-              />
+              <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" required />
             </div>
             <div className="w-32">
               <label className="block text-sm font-medium text-gray-300 mb-1">Number</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.screen_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, screen_number: parseInt(e.target.value) || 1 })
-                }
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
-              />
+              <input type="number" min="1" value={newNumber} onChange={e => setNewNumber(parseInt(e.target.value) || 1)}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500" />
             </div>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {editingScreen ? 'Update' : 'Create'}
-            </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg">Create</button>
+            <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg">Cancel</button>
           </form>
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-800">
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                #
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Layout
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Sync
-              </th>
-              <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800">
-            {screens.map((screen) => (
-              <tr key={screen.id} className="hover:bg-gray-800/50 transition-colors">
-                <td className="px-6 py-4 text-white font-medium">{screen.name}</td>
-                <td className="px-6 py-4 text-gray-400">{screen.screen_number}</td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`flex items-center gap-1.5 text-sm ${
-                      screen.is_online ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        screen.is_online ? 'bg-green-400' : 'bg-red-400'
-                      }`}
-                    />
-                    {screen.is_online ? 'Online' : 'Offline'}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <select
-                    value={screen.current_layout_id || ''}
-                    onChange={(e) => handleSetLayout(screen.id, e.target.value)}
-                    className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="">None</option>
-                    {layouts.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => handleToggleSync(screen)}
-                    className={`px-2 py-1 text-xs font-medium rounded ${
-                      screen.sync_mode === 'synced'
-                        ? 'bg-blue-600/20 text-blue-400'
-                        : 'bg-gray-800 text-gray-500'
-                    }`}
-                  >
-                    {screen.sync_mode === 'synced' ? 'Synced' : 'Independent'}
-                  </button>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => openScreenDisplay(screen)}
-                      className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded transition-colors"
-                    >
-                      Open
-                    </button>
-                    <button
-                      onClick={() => startEdit(screen)}
-                      className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(screen.id)}
-                      className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded transition-colors"
-                    >
-                      Delete
-                    </button>
+      <div className="flex gap-6">
+        {/* Screen list */}
+        <div className={`${selectedScreen ? 'w-80 flex-shrink-0' : 'w-full'}`}>
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            {screens.map(screen => (
+              <div key={screen.id} onClick={() => selectScreen(screen)}
+                className={`flex items-center justify-between px-4 py-3 border-b border-gray-800 cursor-pointer transition-colors ${selectedScreen?.id === screen.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'}`}>
+                <div className="flex items-center gap-3">
+                  <span className={`w-2 h-2 rounded-full ${screen.is_online ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <div>
+                    <p className="text-white text-sm font-medium">{screen.name}</p>
+                    <p className="text-gray-500 text-xs">#{screen.screen_number}{screen.group_id ? ` • ${groups.find(g => g.id === screen.group_id)?.name || 'Group'}` : ''}</p>
                   </div>
-                </td>
-              </tr>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select value={screen.current_layout_id || ''} onChange={e => { e.stopPropagation(); handleSetLayout(screen.id, e.target.value); }}
+                    onClick={e => e.stopPropagation()}
+                    className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 text-xs focus:outline-none">
+                    <option value="">No Layout</option>
+                    {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  <button onClick={e => { e.stopPropagation(); window.open(`/screen/${screen.id}`, '_blank'); }}
+                    className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded">Open</button>
+                  <button onClick={e => { e.stopPropagation(); handleDelete(screen.id); }}
+                    className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded">×</button>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-        {screens.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No screens registered yet.</p>
+            {screens.length === 0 && <div className="text-center py-12"><p className="text-gray-500">No screens registered.</p></div>}
+          </div>
+        </div>
+
+        {/* Editor panel */}
+        {selectedScreen && (
+          <div className="flex-1 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-800 px-6 py-3">
+              <div className="flex gap-1">
+                <TabButton active={activeTab === 'general'} onClick={() => setActiveTab('general')}>General</TabButton>
+                <TabButton active={activeTab === 'display'} onClick={() => setActiveTab('display')}>Display</TabButton>
+                <TabButton active={activeTab === 'viewport'} onClick={() => setActiveTab('viewport')}>Viewport</TabButton>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleSaveScreen} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">Save</button>
+                <button onClick={() => setSelectedScreen(null)} className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg transition-colors">Close</button>
+              </div>
+            </div>
+            <div className="p-6">
+              {activeTab === 'general' && <GeneralTab screen={selectedScreen} formData={formData} setFormData={setFormData} groups={groups} />}
+              {activeTab === 'display' && <DisplayTab profile={displayProfile} setProfile={setDisplayProfile} screens={screens} currentScreenId={selectedScreen.id} />}
+              {activeTab === 'viewport' && <ViewportTab profile={displayProfile} formData={formData} />}
+            </div>
           </div>
         )}
       </div>

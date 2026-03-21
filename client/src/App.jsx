@@ -8,8 +8,14 @@ import Shows from './pages/control/Shows';
 import Layouts from './pages/control/Layouts';
 import Screens from './pages/control/Screens';
 import Timeline from './pages/control/Timeline';
+import Media from './pages/control/Media';
 import Settings from './pages/control/Settings';
+import Templates from './pages/control/Templates';
+import TemplateEditor from './pages/control/TemplateEditor';
+import Admin from './pages/control/Admin';
+import AutocueController from './pages/control/AutocueController';
 import ScreenDisplay from './pages/screen/ScreenDisplay';
+import GodView from './pages/GodView';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('broadcast_token');
@@ -35,10 +41,16 @@ export default function App() {
         <Route path="shows" element={<Shows />} />
         <Route path="layouts" element={<Layouts />} />
         <Route path="screens" element={<Screens />} />
+        <Route path="media" element={<Media />} />
         <Route path="timeline" element={<Timeline />} />
+        <Route path="templates" element={<Templates />} />
+        <Route path="templates/:id/edit" element={<TemplateEditor />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="autocue" element={<AutocueController />} />
+        <Route path="admin" element={<Admin />} />
       </Route>
       <Route path="/screen/:id" element={<ScreenDisplay />} />
+      <Route path="/god" element={<GodView />} />
     </Routes>
   );
 }

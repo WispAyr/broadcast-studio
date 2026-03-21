@@ -10,6 +10,21 @@ const { authenticate } = require('./middleware/auth');
 // Run seed on startup
 seed();
 
+// Ensure Blackout layout exists
+(function ensureBlackout() {
+  const { db } = require('./db');
+  const { v4: uuidv4 } = require('uuid');
+  const existing = db.prepare("SELECT id FROM layouts WHERE name LIKE '%Blackout%' LIMIT 1").get();
+  if (!existing) {
+    const id = uuidv4();
+    const studioRow = db.prepare("SELECT id FROM studios LIMIT 1").get();
+    const studioId = studioRow ? studioRow.id : 'default';
+    db.prepare("INSERT INTO layouts (id, studio_id, name, grid_rows, grid_cols, modules) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(id, studioId, '⬛ Blackout', 1, 1, '[]');
+    console.log('Created system Blackout layout:', id);
+  }
+})();
+
 const app = express();
 const server = http.createServer(app);
 
@@ -30,6 +45,10 @@ app.use('/api/modules', require('./routes/modules'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/proxy', require('./routes/proxy'));
 app.use('/api/travel', require('./routes/travel'));
+app.use('/api/templates', require('./routes/templates'));
+app.use('/api/cues', require('./routes/cues'));
+app.use('/api/autocue', require('./routes/autocue'));
+app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));

@@ -23,12 +23,16 @@ function setupWebSocket(server) {
 
     // Screen registration
     socket.on('register_screen', ({ screenId, studioId }) => {
+      // Look up the screen's actual studio from DB
+      const screen = db.prepare('SELECT studio_id FROM screens WHERE id = ?').get(screenId);
+      const resolvedStudio = (screen && screen.studio_id) || studioId || 'default';
+
       socket.join(`screen:${screenId}`);
-      socket.join(`studio:${studioId}`);
+      socket.join(`studio:${resolvedStudio}`);
 
       // Store screen/studio info on socket for disconnect handling
       socket.screenId = screenId;
-      socket.studioId = studioId;
+      socket.studioId = resolvedStudio;
 
       // Mark screen online
       db.prepare("UPDATE screens SET is_online = 1, last_seen = datetime('now') WHERE id = ?").run(screenId);
@@ -62,6 +66,116 @@ function setupWebSocket(server) {
           break;
         default:
           console.log(`Unknown control action: ${action}`);
+      }
+    });
+
+    // Live text update — push new text to a specific module on screen(s)
+    socket.on('update_module_text', ({ screenId, studioId, moduleId, text, subtitle }) => {
+      const payload = { moduleId, text, subtitle };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('update_module_text', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('update_module_text', payload);
+      }
+    });
+
+    // Join a studio room (for dashboard/control clients)
+    socket.on('join_studio', ({ studioId }) => {
+      if (studioId) {
+        socket.join(`studio:${studioId}`);
+        socket.studioId = studioId;
+        console.log(`Socket ${socket.id} joined studio ${studioId}`);
+      }
+    });
+
+    // Layout transition — relay transition metadata to screens
+    socket.on('push_layout_transition', ({ studioId, layoutId, transition, duration, screenId }) => {
+      const payload = { layoutId, transition: transition || 'crossfade', duration: duration || 1 };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('push_layout_transition', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('push_layout_transition', payload);
+      } else {
+        // Broadcast to all screens if no studio/screen specified (e.g. from God View)
+        socket.broadcast.emit('push_layout_transition', payload);
+      }
+    });
+
+    // Overlay system
+    socket.on('push_overlay', ({ studioId, overlay, screenId }) => {
+      const payload = { overlay };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('push_overlay', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('push_overlay', payload);
+      }
+    });
+
+    socket.on('remove_overlay', ({ studioId, overlayType, screenId }) => {
+      const payload = { overlayType };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('remove_overlay', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('remove_overlay', payload);
+      }
+    });
+
+    socket.on('clear_overlays', ({ studioId, screenId }) => {
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('clear_overlays', {});
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('clear_overlays', {});
+      }
+    });
+
+    // Identify screen — flash it so operator can find it
+    socket.on('identify_screen', ({ screenId }) => {
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('identify_screen', {});
+      }
+    });
+
+    // Reload screen — force browser refresh
+    socket.on('reload_screen', ({ screenId }) => {
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('reload_screen', {});
+      }
+    });
+
+    // Visualizer audio data relay — broadcast to ALL connected sockets (screens + dashboards)
+    socket.on('visualizer_audio_data', (data) => {
+      const studioId = data.studioId || socket.studioId;
+      if (studioId) {
+        socket.to(`studio:${studioId}`).emit('visualizer_audio_data', {
+          frequencyData: data.frequencyData,
+          waveformData: data.waveformData,
+          timestamp: data.timestamp,
+        });
+      } else {
+        // Fallback: broadcast to all sockets except sender
+        socket.broadcast.emit('visualizer_audio_data', {
+          frequencyData: data.frequencyData,
+          waveformData: data.waveformData,
+          timestamp: data.timestamp,
+        });
+      }
+    });
+
+    // Autocue control — relay commands to target screen/studio
+    socket.on('autocue_control', ({ screenId, studioId, command, value }) => {
+      const payload = { command, value };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('autocue_control', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('autocue_control', payload);
+      }
+    });
+
+    // Autocue position — relay position from screen back to studio controllers
+    socket.on('autocue_position', (data) => {
+      const studioId = data.studioId || socket.studioId;
+      if (studioId) {
+        socket.to(`studio:${studioId}`).emit('autocue_position', data);
       }
     });
 

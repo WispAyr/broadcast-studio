@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../lib/api';
 
 const categoryIcons = {
@@ -54,9 +55,9 @@ export default function ModulePicker({ onSelect, onClose }) {
     return acc;
   }, {});
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-xl border border-gray-800 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]" onClick={onClose} onMouseDown={e => e.stopPropagation()} style={{ pointerEvents: 'auto' }}>
+      <div className="bg-gray-900 rounded-xl border border-gray-800 w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white">Add Module</h2>
           <button
@@ -82,7 +83,7 @@ export default function ModulePicker({ onSelect, onClose }) {
                   {mods.map((mod) => (
                     <button
                       key={mod.id || mod.name}
-                      onClick={() => onSelect(mod)}
+                      onClick={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onSelect(mod); }}
                       className="flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-left transition-colors"
                     >
                       <div className="w-8 h-8 bg-gray-700 rounded flex items-center justify-center text-sm">
@@ -110,6 +111,7 @@ export default function ModulePicker({ onSelect, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

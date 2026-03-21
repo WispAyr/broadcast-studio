@@ -11,9 +11,26 @@ router.get('/', authenticate, (req, res) => {
   try {
     let screens;
     if (req.user.role === 'super_admin') {
-      screens = db.prepare('SELECT * FROM screens').all();
+      screens = db.prepare(`
+        SELECT sc.*, s.name as studio_name, l.name as layout_name,
+               sg.name as group_name, sg.profile as group_profile
+        FROM screens sc
+        LEFT JOIN studios s ON sc.studio_id = s.id
+        LEFT JOIN layouts l ON sc.current_layout_id = l.id
+        LEFT JOIN screen_groups sg ON sc.group_id = sg.id
+        ORDER BY s.name, sc.screen_number
+      `).all();
     } else {
-      screens = getScreensByStudio(req.user.studio_id);
+      screens = db.prepare(`
+        SELECT sc.*, s.name as studio_name, l.name as layout_name,
+               sg.name as group_name, sg.profile as group_profile
+        FROM screens sc
+        LEFT JOIN studios s ON sc.studio_id = s.id
+        LEFT JOIN layouts l ON sc.current_layout_id = l.id
+        LEFT JOIN screen_groups sg ON sc.group_id = sg.id
+        WHERE sc.studio_id = ?
+        ORDER BY sc.screen_number
+      `).all(req.user.studio_id);
     }
     res.json(screens);
   } catch (err) {
@@ -51,6 +68,14 @@ router.get('/:id', optionalAuthenticate, (req, res) => {
     if (!screen) {
       return res.status(404).json({ error: 'Screen not found' });
     }
+    // Also fetch group profile if screen has a group
+    if (screen.group_id) {
+      const group = db.prepare('SELECT * FROM screen_groups WHERE id = ?').get(screen.group_id);
+      if (group) {
+        screen.group_name = group.name;
+        screen.group_profile = group.profile;
+      }
+    }
     res.json(screen);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -65,17 +90,37 @@ router.put('/:id', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Screen not found' });
     }
 
-    const { name, screen_number, current_layout_id } = req.body;
+    const { name, screen_number, current_layout_id, orientation, width, height, config, group_id } = req.body;
+
+    const configStr = config !== undefined ? (typeof config === 'string' ? config : JSON.stringify(config)) : undefined;
+
     db.prepare(`
       UPDATE screens SET
         name = COALESCE(?, name),
         screen_number = COALESCE(?, screen_number),
         current_layout_id = COALESCE(?, current_layout_id),
+        orientation = COALESCE(?, orientation),
+        width = COALESCE(?, width),
+        height = COALESCE(?, height),
+        config = COALESCE(?, config),
+        group_id = ${group_id !== undefined ? '?' : 'group_id'},
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name || null, screen_number || null, current_layout_id || null, req.params.id);
+    `).run(
+      name || null, screen_number || null, current_layout_id || null,
+      orientation || null, width || null, height || null, configStr || null,
+      ...(group_id !== undefined ? [group_id || null] : []),
+      req.params.id
+    );
 
     const updated = getScreenById(req.params.id);
+
+    // Notify screen display to refresh its display profile
+    getIO().to(`screen:${req.params.id}`).emit('update_display_profile', {
+      screenId: req.params.id,
+      config: config || JSON.parse(updated.config || '{}'),
+    });
+
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -117,7 +162,6 @@ router.post('/:id/layout', authenticate, (req, res) => {
 
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id = ?").run(layout_id, req.params.id);
 
-    // Emit to screen room
     getIO().to(`screen:${req.params.id}`).emit('set_layout', {
       layoutId: layout_id,
       layout: { ...layout, modules: JSON.parse(layout.modules) }
@@ -144,10 +188,8 @@ router.post('/sync', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    // Update all screens in studio
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE studio_id = ?").run(layout_id, studioId);
 
-    // Emit to studio room
     getIO().to(`studio:${studioId}`).emit('sync_all', {
       layoutId: layout_id,
       layout: { ...layout, modules: JSON.parse(layout.modules) }
@@ -174,10 +216,8 @@ router.post('/emergency', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    // Update all screens in studio
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE studio_id = ?").run(layout_id, studioId);
 
-    // Emit emergency to studio room
     getIO().to(`studio:${studioId}`).emit('emergency_layout', {
       layoutId: layout_id,
       layout: { ...layout, modules: JSON.parse(layout.modules) }

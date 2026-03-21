@@ -5,7 +5,8 @@ export default function ScreenPreview({ layout }) {
 
   const gridRows = layout.grid_rows || 3;
   const gridColumns = layout.grid_columns || 4;
-  const modules = layout.modules || [];
+  const rawModules = layout.modules || [];
+  const modules = Array.isArray(rawModules) ? rawModules : Array.isArray(rawModules?.modules) ? rawModules.modules : (rawModules?.layers || []).flatMap(l => l.modules || []);
 
   return (
     <div

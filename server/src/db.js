@@ -72,6 +72,18 @@ db.exec(`
     FOREIGN KEY (studio_id) REFERENCES studios(id)
   );
 
+  CREATE TABLE IF NOT EXISTS autocue_scripts (
+    id TEXT PRIMARY KEY,
+    studio_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Untitled Script',
+    content TEXT DEFAULT '',
+    speed INTEGER DEFAULT 40,
+    font_size TEXT DEFAULT '2rem',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (studio_id) REFERENCES studios(id)
+  );
+
   CREATE TABLE IF NOT EXISTS module_types (
     id TEXT PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
@@ -220,6 +232,10 @@ function ensureModuleTypes() {
     { name: 'social_embed', description: 'Embedded social media timeline', category: 'broadcast', icon: '📱' },
     { name: 'web_source', description: 'Generic URL embed with auto-refresh', category: 'media', icon: '🌐' },
     { name: 'youtube_player', description: 'YouTube video/live/playlist player', category: 'media', icon: '▶️' },
+    { name: 'slideshow', description: 'Image slideshow with transitions', category: 'media', icon: '🎞' },
+    { name: 'live_text', description: 'Live text overlay (lower-third/banner)', category: 'broadcast', icon: '💬' },
+    { name: 'qrcode', description: 'QR code display', category: 'broadcast', icon: '📱' },
+    { name: 'visualizer', description: 'Music visualizer with audio-reactive modes', category: 'broadcast', icon: '🎵' },
   ];
 
   const insertOrIgnore = db.prepare(`

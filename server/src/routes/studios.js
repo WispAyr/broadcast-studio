@@ -8,10 +8,17 @@ const router = express.Router();
 // All routes require super_admin
 router.use(authenticate, requireRole(['super_admin']));
 
-// GET / - list all studios
+// GET / - list all studios with counts
 router.get('/', (req, res) => {
   try {
-    const studios = getAllStudios();
+    const studios = db.prepare(`
+      SELECT s.*,
+        (SELECT COUNT(*) FROM screens sc WHERE sc.studio_id = s.id) as screen_count,
+        (SELECT COUNT(*) FROM layouts l WHERE l.studio_id = s.id) as layout_count,
+        (SELECT COUNT(*) FROM users u WHERE u.studio_id = s.id) as user_count
+      FROM studios s
+      ORDER BY s.created_at DESC
+    `).all();
     res.json(studios);
   } catch (err) {
     res.status(500).json({ error: err.message });
