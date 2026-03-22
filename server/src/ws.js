@@ -179,6 +179,19 @@ function setupWebSocket(server) {
       }
     });
 
+    // Screen state snapshot — when a screen receives a layout, broadcast preview to studio
+    socket.on('screen_state_update', ({ screenId, layoutId, layout }) => {
+      const studioId = socket.studioId;
+      if (studioId) {
+        io.to(`studio:${studioId}`).emit('screen_preview', {
+          screenId,
+          layoutId,
+          layout,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
     // Disconnect handling
     socket.on('disconnect', () => {
       if (socket.screenId) {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { ToastProvider } from './components/Toast';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import ControlLayout from './pages/control/ControlLayout';
@@ -25,6 +26,7 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return (
+    <ToastProvider>
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -52,5 +54,6 @@ export default function App() {
       <Route path="/screen/:id" element={<ScreenDisplay />} />
       <Route path="/god" element={<GodView />} />
     </Routes>
+    </ToastProvider>
   );
 }

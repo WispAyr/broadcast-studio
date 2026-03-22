@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../lib/api';
 import { connectSocket, getSocket } from '../../lib/socket';
 import ScreenPreview from '../../components/ScreenPreview';
+import { useToast } from '../../components/Toast';
 
 export default function Dashboard() {
   const [screens, setScreens] = useState([]);
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const broadcastIntervalRef = useRef(null);
   const levelIntervalRef = useRef(null);
 
+  const toast = useToast();
   const studioId = JSON.parse(localStorage.getItem('broadcast_user') || '{}').studio_id || 'default';
 
   const fetchData = useCallback(async () => {
@@ -49,7 +51,7 @@ export default function Dashboard() {
     });
 
     socket.on('screen_preview', (data) => {
-      setScreens(prev => prev.map(s => s.id === data.screenId ? { ...s, current_layout: data.layout } : s));
+      setScreens(prev => prev.map(s => s.id === data.screenId ? { ...s, current_layout: data.layout, current_layout_id: data.layoutId || s.current_layout_id, _previewUpdated: Date.now() } : s));
     });
 
     const refreshInterval = setInterval(fetchData, 15000);
@@ -75,6 +77,7 @@ export default function Dashboard() {
       await api.post(`/screens/${screenId}/layout`, { layout_id: layoutId });
       setLayoutDropdownOpen(null);
       setBlackoutActive(false);
+      toast?.('Layout pushed', 'success');
       fetchData();
     } catch (err) { alert('Failed to push layout: ' + err.message); }
   }
@@ -85,6 +88,7 @@ export default function Dashboard() {
       await api.post('/screens/sync', { layout_id: layoutId });
       const bl = layouts.find(l => l.id === layoutId);
       setBlackoutActive(bl?.name?.includes('Blackout') || false);
+      toast?.('All screens synced', 'success');
       fetchData();
     } catch (err) { alert('Failed: ' + err.message); }
   }
@@ -207,7 +211,30 @@ export default function Dashboard() {
   })();
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center h-full"><p className="text-gray-400">Loading dashboard...</p></div>;
+    return (
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="h-7 w-32 bg-gray-800 rounded animate-pulse" />
+            <div className="h-4 w-48 bg-gray-800/50 rounded animate-pulse mt-2" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3].map(i => (
+            <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+              <div className="bg-gray-950 p-4" style={{ minHeight: 160 }}>
+                <div className="w-48 h-28 bg-gray-800 rounded animate-pulse mx-auto" />
+              </div>
+              <div className="p-4">
+                <div className="h-5 w-32 bg-gray-800 rounded animate-pulse mb-2" />
+                <div className="h-3 w-24 bg-gray-800/50 rounded animate-pulse mb-1" />
+                <div className="h-3 w-20 bg-gray-800/50 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -287,7 +314,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Layout Hotbar ──────────────────────────── */}
-      <div className="fixed bottom-0 left-60 right-0 z-40" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 80%, transparent 100%)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+      <div className="fixed bottom-0 left-0 lg:left-64 right-0 z-40" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 80%, transparent 100%)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="px-4 py-3">
           <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
             {layouts.filter(l => !l.name?.includes('Blackout')).map((layout, i) => {

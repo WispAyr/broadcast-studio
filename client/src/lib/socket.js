@@ -4,7 +4,15 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io({ autoConnect: false });
+    socket = io({
+      autoConnect: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.2,
+      timeout: 10000,
+    });
   }
   return socket;
 }

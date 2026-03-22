@@ -95,10 +95,23 @@ export default function ControlLayout() {
     );
   }
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen bg-gray-950">
+      {/* Mobile hamburger */}
+      <button onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-300">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
+        </svg>
+      </button>
+
+      {/* Sidebar overlay for mobile */}
+      {sidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-30" onClick={() => setSidebarOpen(false)} />}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+      <aside className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:relative z-40 w-64 bg-gray-900 border-r border-gray-800 flex flex-col h-full transition-transform duration-200`}>
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-xl font-bold text-white">Broadcast Studio</h1>
           <p className="text-sm text-gray-400 mt-1">{studioName}</p>
@@ -109,6 +122,7 @@ export default function ControlLayout() {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive

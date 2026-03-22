@@ -108,6 +108,8 @@ export default function ScreenDisplay() {
   const [identifyFlash, setIdentifyFlash] = useState(false);
   const [displayProfile, setDisplayProfile] = useState(null);
   const [transitionDurationMs, setTransitionDurationMs] = useState(600);
+  const [disconnectBehavior, setDisconnectBehavior] = useState('message'); // 'message' | 'black' | 'freeze'
+  const [screenDimensions, setScreenDimensions] = useState(null); // {width, height}
 
   const heartbeatRef = useRef(null);
   const socketRef = useRef(null);
@@ -166,14 +168,19 @@ export default function ScreenDisplay() {
           // Layout fetch failed
         }
       }
-      // Load display profile
+      // Load display profile + disconnect behavior + dimensions
       if (screen.config) {
         const cfg = typeof screen.config === 'string' ? JSON.parse(screen.config || '{}') : screen.config;
         if (cfg.displayProfile) {
-          // Merge with group profile if available
           const gp = screen.group_profile ? (typeof screen.group_profile === 'string' ? JSON.parse(screen.group_profile) : screen.group_profile) : {};
           setDisplayProfile({ ...gp, ...cfg.displayProfile });
         }
+        if (cfg.disconnectBehavior) setDisconnectBehavior(cfg.disconnectBehavior);
+        if (cfg.screenType === 'led' || cfg.screenType === 'video_wall') setDisconnectBehavior(prev => prev === 'message' ? 'black' : prev);
+      }
+      // Store configured dimensions
+      if (screen.width && screen.height) {
+        setScreenDimensions({ width: screen.width, height: screen.height });
       }
       setError(null);
     } catch (err) {
@@ -478,6 +485,7 @@ export default function ScreenDisplay() {
 
   return (
     <div className="screen-display" style={{ background, position: 'relative',
+      ...(screenDimensions ? { width: screenDimensions.width, height: screenDimensions.height, overflow: 'hidden' } : {}),
       ...(displayProfile ? {
         filter: [
           displayProfile.brightness !== undefined && displayProfile.brightness !== 100 ? `brightness(${displayProfile.brightness}%)` : '',
@@ -663,16 +671,24 @@ export default function ScreenDisplay() {
         </div>
       )}
 
-      {/* Disconnection overlay with reconnect info */}
-      {!connected && (
+      {/* Disconnection handling — behavior-dependent */}
+      {!connected && disconnectBehavior === 'black' && (
+        <div className="fixed inset-0 bg-black z-50">
+          {/* Subtle reconnect indicator — tiny dot in corner */}
+          <div className="absolute bottom-2 right-2 w-2 h-2 rounded-full bg-red-500 animate-pulse opacity-30" />
+        </div>
+      )}
+      {!connected && disconnectBehavior === 'freeze' && (
+        /* freeze = keep last frame visible, just show subtle indicator */
+        <div className="fixed bottom-2 right-2 z-50 w-2 h-2 rounded-full bg-amber-500 animate-pulse opacity-40" />
+      )}
+      {!connected && disconnectBehavior === 'message' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/90 z-50">
           <div className="text-center">
             <p className="text-red-500 text-3xl font-bold mb-2">DISCONNECTED</p>
             <p className="text-gray-400 mb-1">Attempting to reconnect...</p>
             {reconnectCount > 0 && (
-              <p className="text-gray-600 text-sm">
-                Retry attempt {reconnectCount}
-              </p>
+              <p className="text-gray-600 text-sm">Retry attempt {reconnectCount}</p>
             )}
             <div className="mt-4 flex items-center justify-center gap-1">
               <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />

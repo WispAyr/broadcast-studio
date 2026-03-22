@@ -250,6 +250,30 @@ function ensureModuleTypes() {
 // Run on import to ensure module types are always present
 ensureModuleTypes();
 
+// Schema migrations — add missing columns safely
+(function runMigrations() {
+  const cols = db.prepare("PRAGMA table_info(screens)").all().map(c => c.name);
+  if (!cols.includes('config')) db.exec("ALTER TABLE screens ADD COLUMN config TEXT DEFAULT '{}'");
+  if (!cols.includes('orientation')) db.exec("ALTER TABLE screens ADD COLUMN orientation TEXT DEFAULT 'landscape'");
+  if (!cols.includes('width')) db.exec("ALTER TABLE screens ADD COLUMN width INTEGER");
+  if (!cols.includes('height')) db.exec("ALTER TABLE screens ADD COLUMN height INTEGER");
+  if (!cols.includes('group_id')) db.exec("ALTER TABLE screens ADD COLUMN group_id TEXT");
+
+  // Screen groups table
+  db.exec(`CREATE TABLE IF NOT EXISTS screen_groups (
+    id TEXT PRIMARY KEY,
+    studio_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    profile TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (studio_id) REFERENCES studios(id)
+  )`);
+
+  // Layouts: ensure background column exists
+  const layoutCols = db.prepare("PRAGMA table_info(layouts)").all().map(c => c.name);
+  if (!layoutCols.includes('background')) db.exec("ALTER TABLE layouts ADD COLUMN background TEXT DEFAULT '#000000'");
+})();
+
 // Helper functions
 function getStudioById(id) {
   return db.prepare('SELECT * FROM studios WHERE id = ?').get(id);

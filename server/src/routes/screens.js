@@ -162,10 +162,22 @@ router.post('/:id/layout', authenticate, (req, res) => {
 
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id = ?").run(layout_id, req.params.id);
 
+    const parsedLayout = { ...layout, modules: JSON.parse(layout.modules) };
     getIO().to(`screen:${req.params.id}`).emit('set_layout', {
       layoutId: layout_id,
-      layout: { ...layout, modules: JSON.parse(layout.modules) }
+      layout: parsedLayout
     });
+
+    // Broadcast preview update to studio dashboards
+    const screenData = getScreenById(req.params.id);
+    if (screenData) {
+      getIO().to(`studio:${screenData.studio_id}`).emit('screen_preview', {
+        screenId: req.params.id,
+        layoutId: layout_id,
+        layout: parsedLayout,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.json({ message: 'Layout set', screen_id: req.params.id, layout_id });
   } catch (err) {
@@ -190,10 +202,22 @@ router.post('/sync', authenticate, (req, res) => {
 
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE studio_id = ?").run(layout_id, studioId);
 
+    const parsedLayout = { ...layout, modules: JSON.parse(layout.modules) };
     getIO().to(`studio:${studioId}`).emit('sync_all', {
       layoutId: layout_id,
-      layout: { ...layout, modules: JSON.parse(layout.modules) }
+      layout: parsedLayout
     });
+
+    // Broadcast preview to all studio screens
+    const studioScreens = getScreensByStudio(studioId);
+    for (const s of studioScreens) {
+      getIO().to(`studio:${studioId}`).emit('screen_preview', {
+        screenId: s.id,
+        layoutId: layout_id,
+        layout: parsedLayout,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.json({ message: 'All screens synced', studio_id: studioId, layout_id });
   } catch (err) {
