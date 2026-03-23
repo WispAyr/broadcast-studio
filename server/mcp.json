@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "broadcast-studio": {
+      "command": "node",
+      "args": ["server/src/mcp.js"],
+      "cwd": "/root/broadcast-studio"
+    }
+  }
+}

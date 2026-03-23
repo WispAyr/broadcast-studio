@@ -253,4 +253,40 @@ router.post('/emergency', authenticate, (req, res) => {
   }
 });
 
+// POST /overlay - push overlay via REST (for MCP server)
+router.post('/overlay', authenticate, (req, res) => {
+  try {
+    const { screen_id, studio_id, overlay } = req.body;
+    if (!overlay) return res.status(400).json({ error: 'overlay is required' });
+    const payload = { overlay };
+    if (screen_id) {
+      getIO().to(`screen:${screen_id}`).emit('push_overlay', payload);
+    } else if (studio_id) {
+      getIO().to(`studio:${studio_id}`).emit('push_overlay', payload);
+    } else {
+      return res.status(400).json({ error: 'screen_id or studio_id required' });
+    }
+    res.json({ message: 'Overlay pushed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /clear-overlays - clear overlays via REST (for MCP server)
+router.post('/clear-overlays', authenticate, (req, res) => {
+  try {
+    const { screen_id, studio_id } = req.body;
+    if (screen_id) {
+      getIO().to(`screen:${screen_id}`).emit('clear_overlays', {});
+    } else if (studio_id) {
+      getIO().to(`studio:${studio_id}`).emit('clear_overlays', {});
+    } else {
+      return res.status(400).json({ error: 'screen_id or studio_id required' });
+    }
+    res.json({ message: 'Overlays cleared' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
