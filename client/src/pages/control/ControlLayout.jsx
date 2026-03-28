@@ -66,6 +66,7 @@ const iconMap = {
 export default function ControlLayout() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [studioName, setStudioName] = useState('');
 
   useEffect(() => {
@@ -95,7 +96,6 @@ export default function ControlLayout() {
     );
   }
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-950">

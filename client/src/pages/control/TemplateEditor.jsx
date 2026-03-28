@@ -1,12 +1,56 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
+import MediaPicker from '../../components/MediaPicker';
 
 // ─── Constants ───
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 const GRID_SIZE = 20;
 const EASING_OPTIONS = ['linear', 'easeIn', 'easeOut', 'easeInOut', 'spring', 'bounce'];
+
+const FONT_LIST = [
+  { name: '1994 Stencil', family: "'Black Ops One'", google: 'Black+Ops+One' },
+  { name: 'Inter', family: 'Inter', google: 'Inter' },
+  { name: 'Roboto', family: 'Roboto', google: 'Roboto' },
+  { name: 'Montserrat', family: 'Montserrat', google: 'Montserrat' },
+  { name: 'Oswald', family: 'Oswald', google: 'Oswald' },
+  { name: 'Poppins', family: 'Poppins', google: 'Poppins' },
+  { name: 'Bebas Neue', family: "'Bebas Neue'", google: 'Bebas+Neue' },
+  { name: 'Raleway', family: 'Raleway', google: 'Raleway' },
+  { name: 'Playfair Display', family: "'Playfair Display'", google: 'Playfair+Display' },
+  { name: 'Anton', family: 'Anton', google: 'Anton' },
+  { name: 'Bangers', family: 'Bangers', google: 'Bangers' },
+  { name: 'Russo One', family: "'Russo One'", google: 'Russo+One' },
+  { name: 'Orbitron', family: 'Orbitron', google: 'Orbitron' },
+  { name: 'Rajdhani', family: 'Rajdhani', google: 'Rajdhani' },
+  { name: 'Teko', family: 'Teko', google: 'Teko' },
+  { name: 'Permanent Marker', family: "'Permanent Marker'", google: 'Permanent+Marker' },
+  { name: 'Press Start 2P', family: "'Press Start 2P'", google: 'Press+Start+2P' },
+  { name: 'Audiowide', family: 'Audiowide', google: 'Audiowide' },
+  { name: 'Righteous', family: 'Righteous', google: 'Righteous' },
+];
+
+const TEXT_ANIMATIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'fadeIn', label: 'Fade In' },
+  { value: 'fadeOut', label: 'Fade Out' },
+  { value: 'slideUp', label: 'Slide Up' },
+  { value: 'slideDown', label: 'Slide Down' },
+  { value: 'slideLeft', label: 'Slide Left' },
+  { value: 'slideRight', label: 'Slide Right' },
+  { value: 'scaleIn', label: 'Scale In' },
+  { value: 'scaleOut', label: 'Scale Out' },
+  { value: 'typewriter', label: 'Typewriter' },
+  { value: 'charReveal', label: 'Char Reveal' },
+  { value: 'wordReveal', label: 'Word Reveal' },
+  { value: 'glitch', label: 'Glitch' },
+  { value: 'blur', label: 'Blur In' },
+  { value: 'splitLines', label: 'Split Lines' },
+];
+
+const VERT_ALIGN_OPTIONS = ['top', 'center', 'bottom'];
+const TEXT_TRANSFORM_OPTIONS = ['none', 'uppercase', 'lowercase', 'capitalize'];
 const SHAPE_TYPES = ['rectangle', 'circle', 'triangle', 'star', 'polygon', 'line'];
 const ICON_MAP = {
   mic: 'M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8',
@@ -79,13 +123,15 @@ function defaultElement(type) {
     keyframes: { '0': { x: 100, y: 100, width: 400, height: 200, rotation: 0, opacity: 1, scale: 1 } },
     easing: { default: 'easeInOut' },
     style: { fill: '#ffffff', stroke: '', strokeWidth: 0, borderRadius: 0, shadow: '', blur: 0 },
-    textConfig: { content: 'Hello World', fontFamily: 'Inter', fontSize: 64, fontWeight: 700, align: 'center', letterSpacing: 0 },
+    textConfig: { content: 'Hello World', fontFamily: 'Inter', fontSize: 64, fontWeight: 700, align: 'center', vertAlign: 'center', letterSpacing: 0, lineHeight: 1.2, kerning: 0, textTransform: 'none', wordSpacing: 0, animIn: 'none', animOut: 'none', animDuration: 0.5, animDelay: 0, animStagger: 0.05, padding: 0, whiteSpace: 'nowrap' },
     shapeConfig: { shape: 'rectangle' },
     imageConfig: { src: '', fit: 'contain' },
+    videoConfig: { src: '', fit: 'cover', loop: true, autoplay: true, muted: true },
     particleConfig: { count: 50, color: '#ff6600', speed: 2, size: 4, spread: 360 },
     iconConfig: { icon: 'star' },
     gradientConfig: { stops: [{ color: '#1a1a2e', pos: 0 }, { color: '#16213e', pos: 50 }, { color: '#0f3460', pos: 100 }], angle: 135 },
   };
+  if (type === 'video') {    base.keyframes['0'] = { x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, rotation: 0, opacity: 1, scale: 1 };    base.name = 'VJ Loop';  }
   if (type === 'gradient') {
     base.keyframes['0'] = { x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, rotation: 0, opacity: 1, scale: 1 };
     base.name = 'Gradient BG';
@@ -109,6 +155,7 @@ function defaultElement(type) {
 }
 
 // ─── Canvas Element Renderer ───
+// Video element with proper cleanup to prevent ghost framesfunction VideoElement({ src, fit, autoplay, loop, muted, style: outerStyle }) {  const videoRef = useRef(null);  useEffect(() => {    return () => {      if (videoRef.current) {        videoRef.current.pause();        videoRef.current.removeAttribute("src");        videoRef.current.load();      }    };  }, []);  useEffect(() => {    if (videoRef.current && src) {      videoRef.current.src = src;      if (autoplay !== false) videoRef.current.play().catch(() => {});    }  }, [src]);  return <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: fit || "cover" }}    autoPlay={autoplay !== false} loop={loop !== false} muted={muted !== false} playsInline />;}
 function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
   const props = getElementAtFrame(el, frame);
   if (!el.visible) return null;
@@ -139,22 +186,29 @@ function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
 
   if (el.type === 'text') {
     const tc = el.textConfig || {};
+    const fontDef = FONT_LIST.find(f => f.name === tc.fontFamily || f.family === tc.fontFamily);
+    const fontFam = fontDef ? fontDef.family : (tc.fontFamily || 'Inter');
+    const vAlign = tc.vertAlign || 'center';
     content = (
       <div style={{
         ...style,
         color: elStyle.fill || '#fff',
-        fontFamily: tc.fontFamily || 'Inter',
+        fontFamily: fontFam,
         fontSize: (tc.fontSize || 64) * scale,
         fontWeight: tc.fontWeight || 700,
         textAlign: tc.align || 'center',
-        letterSpacing: tc.letterSpacing || 0,
+        letterSpacing: (tc.letterSpacing || 0) + (tc.kerning || 0),
+        lineHeight: tc.lineHeight || 1.2,
+        wordSpacing: tc.wordSpacing || 0,
+        textTransform: tc.textTransform || 'none',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: vAlign === 'top' ? 'flex-start' : vAlign === 'bottom' ? 'flex-end' : 'center',
         justifyContent: tc.align === 'left' ? 'flex-start' : tc.align === 'right' ? 'flex-end' : 'center',
         textShadow: elStyle.shadow || 'none',
         filter: elStyle.blur ? `blur(${elStyle.blur}px)` : 'none',
         overflow: 'hidden',
-        whiteSpace: 'nowrap',
+        whiteSpace: tc.whiteSpace || 'nowrap',
+        padding: tc.padding ? tc.padding * scale : 0,
       }} onMouseDown={handleMouseDown}>
         {tc.content || 'Text'}
       </div>
@@ -193,6 +247,7 @@ function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
         {ic.src ? <img src={ic.src} style={{ width: '100%', height: '100%', objectFit: ic.fit || 'contain' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: 14 * scale }}>No image</div>}
       </div>
     );
+  } else if (el.type === 'video') {    const vc = el.videoConfig || {};    content = (      <div style={{ ...style, overflow: 'hidden', borderRadius: elStyle.borderRadius || 0, background: '#000' }} onMouseDown={handleMouseDown}>        {vc.src ? (          <video src={vc.src} style={{ width: '100%', height: '100%', objectFit: vc.fit || 'cover' }}            autoPlay={vc.autoplay !== false} loop={vc.loop !== false} muted playsInline />        ) : (          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontSize: 14 * scale, flexDirection: 'column', gap: 4 }}>            <span style={{ fontSize: 24 * scale }}>🎬</span>            <span>No video</span>          </div>        )}      </div>    );
   } else if (el.type === 'icon') {
     const iconName = el.iconConfig?.icon || 'star';
     const path = ICON_MAP[iconName] || ICON_MAP.star;
@@ -346,6 +401,8 @@ export default function TemplateEditor() {
   const [zoom, setZoom] = useState(0.45);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [videoLibrary, setVideoLibrary] = useState([]);
   const [history, setHistory] = useState([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -363,6 +420,15 @@ export default function TemplateEditor() {
       pushHistory(t.elements || []);
     }).catch(() => navigate('/control/templates'));
   }, [id]);
+
+  // Load video library for mini palette
+  useEffect(() => {
+    const token = localStorage.getItem('broadcast_token');
+    fetch('/api/uploads', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json())
+      .then(files => setVideoLibrary(files.filter(f => /\.(mp4|webm|mov|avi)$/i.test(f.filename))))
+      .catch(() => {});
+  }, []);
 
   // Play animation
   useEffect(() => {
@@ -546,6 +612,7 @@ export default function TemplateEditor() {
           { type: 'image', label: '🖼', title: 'Add Image' },
           { type: 'icon', label: '★', title: 'Add Icon' },
           { type: 'particles', label: '✨', title: 'Add Particles' },
+          { type: 'video', label: '🎬', title: 'Add Video / VJ Loop' },
           { type: 'gradient', label: '🌈', title: 'Add Gradient' },
         ].map(({ type, label, title }) => (
           <button key={type} onClick={() => addElement(type)} className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white text-sm" title={title}>{label}</button>
@@ -587,7 +654,7 @@ export default function TemplateEditor() {
                     className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs ${selectedId === el.id ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'}`}
                     onClick={() => { setSelectedId(el.id); setSelectedKeyframe(Object.keys(el.keyframes).map(Number).sort((a,b)=>a-b)[0] || 0); }}
                   >
-                    <span className="opacity-60">{el.type === 'text' ? 'T' : el.type === 'shape' ? '■' : el.type === 'image' ? '🖼' : el.type === 'icon' ? '★' : el.type === 'particles' ? '✨' : '🌈'}</span>
+                    <span className="opacity-60">{el.type === 'text' ? 'T' : el.type === 'shape' ? '■' : el.type === 'image' ? '🖼' : el.type === 'icon' ? '★' : el.type === 'video' ? '🎬' : el.type === 'particles' ? '✨' : '🌈'}</span>
                     <span className="truncate flex-1">{el.name}</span>
                     <button
                       onClick={e => { e.stopPropagation(); updateElements(elements.map(x => x.id === el.id ? { ...x, visible: !x.visible } : x)); }}
@@ -706,11 +773,100 @@ export default function TemplateEditor() {
                   <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Text</h4>
                   <div className="space-y-1.5">
                     <PropInput label="Content" value={selectedEl.textConfig?.content} type="textarea" onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, content: v } }))} />
-                    <PropInput label="Font" value={selectedEl.textConfig?.fontFamily} type="text" onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, fontFamily: v } }))} />
-                    <PropInput label="Size" value={selectedEl.textConfig?.fontSize} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, fontSize: v } }))} min={1} />
-                    <PropInput label="Weight" value={selectedEl.textConfig?.fontWeight} type="select" options={[100, 200, 300, 400, 500, 600, 700, 800, 900]} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, fontWeight: parseInt(v) } }))} />
-                    <PropInput label="Align" value={selectedEl.textConfig?.align} type="select" options={['left', 'center', 'right']} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, align: v } }))} />
-                    <PropInput label="Spacing" value={selectedEl.textConfig?.letterSpacing} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, letterSpacing: v } }))} />
+
+                    {/* Font selector with preview */}
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-500 mb-1">Font Family</label>
+                      <select
+                        value={selectedEl.textConfig?.fontFamily || 'Inter'}
+                        onChange={e => {
+                          const font = FONT_LIST.find(f => f.name === e.target.value);
+                          if (font && font.google) {
+                            const link = document.createElement('link');
+                            link.href = 'https://fonts.googleapis.com/css2?family=' + font.google + ':wght@100;200;300;400;500;600;700;800;900&display=swap';
+                            link.rel = 'stylesheet';
+                            if (!document.querySelector('link[href*="' + font.google + '"]')) document.head.appendChild(link);
+                          }
+                          updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, fontFamily: e.target.value } }));
+                        }}
+                        className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      >
+                        {FONT_LIST.map(f => (
+                          <option key={f.name} value={f.name}>{f.name}</option>
+                        ))}
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {selectedEl.textConfig?.fontFamily === 'custom' && (
+                        <input type="text" placeholder="Font family name..." className="mt-1 w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"
+                          onChange={e => updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, fontFamily: e.target.value } }))} />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <PropInput label="Size" value={selectedEl.textConfig?.fontSize} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, fontSize: v } }))} min={1} />
+                      <PropInput label="Weight" value={selectedEl.textConfig?.fontWeight} type="select" options={[100, 200, 300, 400, 500, 600, 700, 800, 900]} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, fontWeight: parseInt(v) } }))} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <PropInput label="H Align" value={selectedEl.textConfig?.align} type="select" options={['left', 'center', 'right']} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, align: v } }))} />
+                      <PropInput label="V Align" value={selectedEl.textConfig?.vertAlign || 'center'} type="select" options={VERT_ALIGN_OPTIONS} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, vertAlign: v } }))} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <PropInput label="Letter Spacing" value={selectedEl.textConfig?.letterSpacing} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, letterSpacing: v } }))} step={0.5} />
+                      <PropInput label="Kerning" value={selectedEl.textConfig?.kerning || 0} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, kerning: v } }))} step={0.1} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <PropInput label="Line Height" value={selectedEl.textConfig?.lineHeight || 1.2} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, lineHeight: v } }))} step={0.1} min={0.5} max={4} />
+                      <PropInput label="Word Spacing" value={selectedEl.textConfig?.wordSpacing || 0} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, wordSpacing: v } }))} step={1} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <PropInput label="Transform" value={selectedEl.textConfig?.textTransform || 'none'} type="select" options={TEXT_TRANSFORM_OPTIONS} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, textTransform: v } }))} />
+                      <PropInput label="Padding" value={selectedEl.textConfig?.padding || 0} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, padding: v } }))} min={0} />
+                    </div>
+
+                    <div className="mb-1">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={(selectedEl.textConfig?.whiteSpace || 'nowrap') === 'normal'}
+                          onChange={e => updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, whiteSpace: e.target.checked ? 'normal' : 'nowrap' } }))}
+                          className="accent-blue-500" /> Word Wrap
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Text Animations */}
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mt-3 mb-2">Text Animation</h4>
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-0.5">Animate In</label>
+                        <select value={selectedEl.textConfig?.animIn || 'none'}
+                          onChange={e => updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, animIn: e.target.value } }))}
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500">
+                          {TEXT_ANIMATIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-0.5">Animate Out</label>
+                        <select value={selectedEl.textConfig?.animOut || 'none'}
+                          onChange={e => updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, animOut: e.target.value } }))}
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500">
+                          {TEXT_ANIMATIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <PropInput label="Duration" value={selectedEl.textConfig?.animDuration || 0.5} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, animDuration: v } }))} step={0.1} min={0.1} max={5} />
+                      <PropInput label="Delay" value={selectedEl.textConfig?.animDelay || 0} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, animDelay: v } }))} step={0.1} min={0} max={10} />
+                      <PropInput label="Stagger" value={selectedEl.textConfig?.animStagger || 0.05} onChange={v => updateSelectedElement(e => ({ ...e, textConfig: { ...e.textConfig, animStagger: v } }))} step={0.01} min={0} max={1} />
+                    </div>
+
+                    {(selectedEl.textConfig?.animIn !== 'none' || selectedEl.textConfig?.animOut !== 'none') && (
+                      <p className="text-xs text-blue-400/60 mt-1">Animation previews in Remotion render. Canvas shows static preview.</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -728,6 +884,84 @@ export default function TemplateEditor() {
                   <div className="space-y-1.5">
                     <PropInput label="URL" value={selectedEl.imageConfig?.src} type="text" onChange={v => updateSelectedElement(e => ({ ...e, imageConfig: { ...e.imageConfig, src: v } }))} />
                     <PropInput label="Fit" value={selectedEl.imageConfig?.fit} type="select" options={['contain', 'cover', 'fill']} onChange={v => updateSelectedElement(e => ({ ...e, imageConfig: { ...e.imageConfig, fit: v } }))} />
+                  </div>
+                </div>
+              )}
+
+              {selectedEl.type === 'video' && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Video / VJ Loop</h4>
+                  <div className="space-y-1.5">
+                    {/* Mini video palette */}
+                    {videoLibrary.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-500 mb-1.5">Quick Select</p>
+                        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+                          {videoLibrary.slice(0, 12).map(f => (
+                            <button
+                              key={f.filename}
+                              onClick={() => updateSelectedElement(e => ({ ...e, videoConfig: { ...e.videoConfig, src: f.url } }))}
+                              className={'flex-shrink-0 w-16 h-10 rounded overflow-hidden border-2 transition-all hover:border-blue-400 ' + (selectedEl.videoConfig?.src === f.url ? 'border-blue-500 ring-1 ring-blue-500/30' : 'border-gray-700')}
+                              title={f.filename}
+                            >
+                              <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                                <span className="text-xs">🎬</span>
+                              </div>
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => setMediaPickerOpen(true)}
+                            className="flex-shrink-0 w-16 h-10 rounded border-2 border-dashed border-gray-700 hover:border-gray-500 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors"
+                            title="Browse media library"
+                          >
+                            <span className="text-xs">+</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-1.5 items-end">
+                      <div className="flex-1">
+                        <PropInput label="URL" value={selectedEl.videoConfig?.src} type="text" onChange={v => updateSelectedElement(e => ({ ...e, videoConfig: { ...e.videoConfig, src: v } }))} />
+                      </div>
+                      <button onClick={() => setMediaPickerOpen(true)} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 mb-px" title="Browse">📂</button>
+                    </div>
+                    <MediaPicker open={mediaPickerOpen} onClose={() => setMediaPickerOpen(false)} onSelect={(url) => { updateSelectedElement(e => ({ ...e, videoConfig: { ...e.videoConfig, src: url } })); setMediaPickerOpen(false); }} />
+                    <PropInput label="Fit" value={selectedEl.videoConfig?.fit} type="select" options={['contain', 'cover', 'fill']} onChange={v => updateSelectedElement(e => ({ ...e, videoConfig: { ...e.videoConfig, fit: v } }))} />
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={selectedEl.videoConfig?.loop !== false} onChange={e => updateSelectedElement(el => ({ ...el, videoConfig: { ...el.videoConfig, loop: e.target.checked } }))} className="accent-blue-500" /> Loop
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={selectedEl.videoConfig?.autoplay !== false} onChange={e => updateSelectedElement(el => ({ ...el, videoConfig: { ...el.videoConfig, autoplay: e.target.checked } }))} className="accent-blue-500" /> Autoplay
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={selectedEl.videoConfig?.muted !== false} onChange={e => updateSelectedElement(el => ({ ...el, videoConfig: { ...el.videoConfig, muted: e.target.checked } }))} className="accent-blue-500" /> Muted
+                      </label>
+                    </div>
+                    <button
+                      className="w-full mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition-colors flex items-center justify-center gap-1.5"
+                      onClick={() => {
+                        const src = selectedEl.videoConfig?.src;
+                        if (!src) return alert('Set a video URL first');
+                        const vid = document.createElement('video');
+                        vid.crossOrigin = 'anonymous';
+                        vid.preload = 'metadata';
+                        vid.onloadedmetadata = function() {
+                          const dur = Math.round(vid.duration * 10) / 10;
+                          if (dur && dur > 0 && isFinite(dur)) {
+                            if (confirm('Match composition duration to video length (' + dur + 's)?')) {
+                              setTemplate(t => ({ ...t, duration: dur }));
+                              setDirty(true);
+                            }
+                          } else { alert('Could not detect video duration'); }
+                          vid.src = '';
+                        };
+                        vid.onerror = function() { alert('Failed to load video. Check the URL.'); };
+                        vid.src = src;
+                      }}
+                    >
+                      🎬 Match Duration to Video
+                    </button>
                   </div>
                 </div>
               )}
