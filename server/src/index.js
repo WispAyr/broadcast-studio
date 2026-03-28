@@ -39,6 +39,7 @@ app.use(express.json());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/studios', require('./routes/studios'));
 app.use('/api/screens', require('./routes/screens'));
+app.use('/api/screen-groups', require('./routes/screen-groups'));
 app.use('/api/shows', require('./routes/shows'));
 app.use('/api/layouts', require('./routes/layouts'));
 app.use('/api/modules', require('./routes/modules'));
