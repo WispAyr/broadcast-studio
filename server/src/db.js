@@ -213,7 +213,7 @@ function seed() {
   ];
 
   const insertModule = db.prepare(`
-    INSERT INTO module_types (id, name, description, category, icon, default_config) VALUES (?, ?, ?, ?, ?, '{}')
+    INSERT OR IGNORE INTO module_types (id, name, description, category, icon, default_config) VALUES (?, ?, ?, ?, ?, '{}')
   `);
 
   for (const mod of moduleTypes) {
