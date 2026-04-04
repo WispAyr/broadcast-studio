@@ -15,7 +15,10 @@ function setupWebSocket(server) {
     cors: {
       origin: '*',
       methods: ['GET', 'POST']
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
   });
 
   io.on('connection', (socket) => {

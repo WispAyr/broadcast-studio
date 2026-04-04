@@ -1,3 +1,4 @@
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env") });
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -53,6 +54,7 @@ app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
+app.use('/player', express.static(path.join(__dirname, '..', 'public', 'player')));
 
 // Timeline routes (inline)
 const { startTimeline, stopTimeline } = require('./timeline');
@@ -129,6 +131,14 @@ app.post('/api/timeline/resume', authenticate, (req, res) => {
 
 // Serve static files from client build
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
+
+// Nuro streams endpoint
+app.get('/api/nuro', (req, res) => {
+  res.json({ version: '2.0', label: 'Broadcast Studio', icon: '\U0001f399', description: 'Audio broadcast production', streams: [
+    { label: 'System Status', type: 'gauge', value: 100 },
+  ]});
+});
+
 app.use(express.static(clientDist));
 
 // SPA fallback - any non-API route serves index.html
@@ -139,7 +149,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
-const PORT = 3945;
+const PORT = process.env.PORT || 3945;
 server.listen(PORT, () => {
   console.log(`Broadcast Studio running on port ${PORT}`);
 });

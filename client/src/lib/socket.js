@@ -6,12 +6,13 @@ export function getSocket() {
   if (!socket) {
     socket = io({
       autoConnect: false,
+      transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 30000,
       randomizationFactor: 0.2,
-      timeout: 10000,
+      timeout: 20000,
     });
   }
   return socket;

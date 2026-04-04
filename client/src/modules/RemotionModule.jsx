@@ -1,231 +1,129 @@
-import React, { useState, useMemo } from 'react';
-import { Player } from '@remotion/player';
-import compositions, { getCompositionList, getCompositionCategories, getComposition } from '../compositions';
+import React, { useState, useEffect, useRef } from "react";
 
 export default function RemotionModule({ config = {} }) {
   const {
-    compositionId = '',
+    compositionId = "",
+    serverUrl = "",
+    src = "",
+    width = 1920,
+    height = 1080,
     loop = true,
-    autoPlay = true,
-    playbackRate = 1,
-    durationOverride = 0,
-    showControls = false,
-    inputProps = {},
+    autoplay = true,
+    muted = true,
+    background = "#000",
+    inputProps = "{}",
   } = config;
 
-  const comp = getComposition(compositionId);
+  // If a direct video src is provided, render as video
+  const videoSrc = src || "";
+  
+  // If serverUrl + compositionId, build Remotion Player URL
+  const remotionUrl = serverUrl && compositionId
+    ? `${serverUrl.replace(/\/$/, "")}/api/render?compositionId=${encodeURIComponent(compositionId)}&width=${width}&height=${height}&inputProps=${encodeURIComponent(typeof inputProps === "string" ? inputProps : JSON.stringify(inputProps))}`
+    : "";
 
-  if (!comp) {
+  // Prefer direct src, then remotion URL
+  const mediaSrc = videoSrc || remotionUrl;
+
+  if (!mediaSrc && !compositionId) {
     return (
-      <div style={{
-        width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 16,
-        background: '#0a0a0a', color: '#666', fontFamily: "'Inter', sans-serif",
-      }}>
-        <span style={{ fontSize: 48 }}>🎬</span>
-        <span style={{ fontSize: 16, fontWeight: 500 }}>Remotion Module</span>
-        <span style={{ fontSize: 13, color: '#444' }}>Select a composition in config</span>
+      <div className="w-full h-full flex items-center justify-center" style={{ background }}>
+        <div className="text-center">
+          <span className="text-4xl block mb-2">🎬</span>
+          <span className="text-gray-500 text-sm">Remotion Composition</span>
+          <span className="text-gray-600 text-xs block mt-1">Set compositionId + serverUrl or video src</span>
+        </div>
       </div>
     );
   }
 
-  const { component: Comp, meta, schema } = comp;
-  const fps = meta.fps || 30;
-  const duration = durationOverride > 0 ? durationOverride : meta.defaultDuration || 5;
-  const durationInFrames = Math.ceil(duration * fps);
+  // If we have a remotion server URL but no direct src, embed as iframe
+  if (!videoSrc && remotionUrl) {
+    return (
+      <div className="w-full h-full" style={{ background }}>
+        <iframe
+          src={remotionUrl}
+          className="w-full h-full border-0"
+          allow="autoplay"
+          title={`Remotion: ${compositionId}`}
+        />
+      </div>
+    );
+  }
 
-  // Merge schema defaults with user inputProps
-  const mergedProps = useMemo(() => {
-    const defaults = {};
-    if (schema) {
-      Object.entries(schema).forEach(([key, def]) => {
-        defaults[key] = def.default;
-      });
-    }
-    return { ...defaults, ...inputProps };
-  }, [schema, inputProps]);
-
+  // Direct video playback
   return (
-    <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: 'transparent' }}>
-      <Player
-        component={Comp}
-        inputProps={mergedProps}
-        durationInFrames={durationInFrames}
-        compositionWidth={meta.width || 1920}
-        compositionHeight={meta.height || 1080}
-        fps={fps}
+    <div className="w-full h-full" style={{ background }}>
+      <video
+        src={mediaSrc}
+        autoPlay={autoplay}
         loop={loop}
-        autoPlay={autoPlay}
-        playbackRate={playbackRate}
-        controls={showControls}
-        style={{ width: '100%', height: '100%' }}
-        renderLoading={() => (
-          <div style={{ width: '100%', height: '100%', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#333', fontSize: 14 }}>Loading...</span>
-          </div>
-        )}
+        muted={muted}
+        playsInline
+        className="w-full h-full object-cover"
       />
     </div>
   );
 }
 
-// Config component for the layout editor
-export function RemotionModuleConfig({ config, onChange }) {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const categories = getCompositionCategories();
-  const allComps = getCompositionList();
-  const comp = config.compositionId ? getComposition(config.compositionId) : null;
-
-  const filtered = selectedCategory === 'all'
-    ? allComps
-    : allComps.filter(c => c.category === selectedCategory);
-
-  const catNames = [...new Set(allComps.map(c => c.category))];
+// Config panel for the layout editor
+export function RemotionModuleConfig({ config = {}, onChange }) {
+  const update = (key, value) => onChange({ ...config, [key]: value });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Composition picker */}
-      <label style={{ fontSize: 12, color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Composition</label>
-
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setSelectedCategory('all')}
-          style={{
-            padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-            background: selectedCategory === 'all' ? '#3b82f6' : '#1f2937', color: selectedCategory === 'all' ? '#fff' : '#9ca3af',
-          }}
-        >All</button>
-        {catNames.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            style={{
-              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600,
-              background: selectedCategory === cat ? '#3b82f6' : '#1f2937', color: selectedCategory === cat ? '#fff' : '#9ca3af',
-              textTransform: 'capitalize',
-            }}
-          >{cat}</button>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-        {filtered.map(c => (
-          <button
-            key={c.id}
-            onClick={() => {
-              const compData = getComposition(c.id);
-              const defaults = {};
-              if (compData?.schema) {
-                Object.entries(compData.schema).forEach(([k, v]) => { defaults[k] = v.default; });
-              }
-              onChange({ ...config, compositionId: c.id, inputProps: defaults });
-            }}
-            style={{
-              padding: '8px 10px', borderRadius: 8, border: config.compositionId === c.id ? '2px solid #3b82f6' : '1px solid #374151',
-              background: config.compositionId === c.id ? '#1e3a5f' : '#111827',
-              cursor: 'pointer', textAlign: 'left',
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#e5e7eb' }}>{c.name}</div>
-            <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>{c.description?.substring(0, 50)}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* Input props editor */}
-      {comp && comp.schema && (
-        <>
-          <div style={{ borderTop: '1px solid #1f2937', marginTop: 4, paddingTop: 8 }}>
-            <label style={{ fontSize: 12, color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Properties</label>
-          </div>
-          {Object.entries(comp.schema).map(([key, def]) => (
-            <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <label style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{def.label || key}</label>
-              {def.type === 'color' ? (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input
-                    type="color"
-                    value={config.inputProps?.[key] || def.default}
-                    onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: e.target.value } })}
-                    style={{ width: 32, height: 28, border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                  />
-                  <input
-                    type="text"
-                    value={config.inputProps?.[key] || def.default}
-                    onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: e.target.value } })}
-                    style={{ flex: 1, background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '4px 8px', color: '#e5e7eb', fontSize: 12 }}
-                  />
-                </div>
-              ) : def.type === 'select' ? (
-                <select
-                  value={config.inputProps?.[key] || def.default}
-                  onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: e.target.value } })}
-                  style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '6px 8px', color: '#e5e7eb', fontSize: 12 }}
-                >
-                  {def.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              ) : def.type === 'textarea' ? (
-                <textarea
-                  value={config.inputProps?.[key] || def.default}
-                  onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: e.target.value } })}
-                  rows={3}
-                  style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '6px 8px', color: '#e5e7eb', fontSize: 12, resize: 'vertical' }}
-                />
-              ) : def.type === 'number' ? (
-                <input
-                  type="number"
-                  value={config.inputProps?.[key] ?? def.default}
-                  min={def.min}
-                  max={def.max}
-                  onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: Number(e.target.value) } })}
-                  style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '6px 8px', color: '#e5e7eb', fontSize: 12, width: 80 }}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={config.inputProps?.[key] || def.default}
-                  onChange={e => onChange({ ...config, inputProps: { ...config.inputProps, [key]: e.target.value } })}
-                  style={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '6px 8px', color: '#e5e7eb', fontSize: 12 }}
-                />
-              )}
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* Playback settings */}
-      <div style={{ borderTop: '1px solid #1f2937', marginTop: 4, paddingTop: 8 }}>
-        <label style={{ fontSize: 12, color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Playback</label>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ca3af', cursor: 'pointer' }}>
-          <input type="checkbox" checked={config.loop !== false} onChange={e => onChange({ ...config, loop: e.target.checked })} />
-          Loop
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9ca3af', cursor: 'pointer' }}>
-          <input type="checkbox" checked={config.autoPlay !== false} onChange={e => onChange({ ...config, autoPlay: e.target.checked })} />
-          Auto-play
-        </label>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <label style={{ fontSize: 11, color: '#9ca3af', minWidth: 60 }}>Speed</label>
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">Server URL</label>
         <input
-          type="range" min={0.1} max={3} step={0.1}
-          value={config.playbackRate || 1}
-          onChange={e => onChange({ ...config, playbackRate: Number(e.target.value) })}
-          style={{ flex: 1 }}
+          type="text"
+          value={config.serverUrl || ""}
+          onChange={(e) => update("serverUrl", e.target.value)}
+          placeholder="http://localhost:3500"
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs"
         />
-        <span style={{ fontSize: 11, color: '#6b7280', minWidth: 30 }}>{config.playbackRate || 1}x</span>
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <label style={{ fontSize: 11, color: '#9ca3af', minWidth: 60 }}>Duration</label>
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">Composition ID</label>
         <input
-          type="number" min={1} max={300}
-          value={config.durationOverride || (comp?.meta?.defaultDuration || 5)}
-          onChange={e => onChange({ ...config, durationOverride: Number(e.target.value) })}
-          style={{ width: 60, background: '#1f2937', border: '1px solid #374151', borderRadius: 6, padding: '4px 8px', color: '#e5e7eb', fontSize: 12 }}
+          type="text"
+          value={config.compositionId || ""}
+          onChange={(e) => update("compositionId", e.target.value)}
+          placeholder="MyComposition"
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs"
         />
-        <span style={{ fontSize: 11, color: '#6b7280' }}>seconds</span>
+      </div>
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">Video Source (direct URL)</label>
+        <input
+          type="text"
+          value={config.src || ""}
+          onChange={(e) => update("src", e.target.value)}
+          placeholder="/uploads/video.mp4"
+          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Width</label>
+          <input type="number" value={config.width || 1920} onChange={(e) => update("width", parseInt(e.target.value))}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 block mb-1">Height</label>
+          <input type="number" value={config.height || 1080} onChange={(e) => update("height", parseInt(e.target.value))}
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-xs" />
+        </div>
+      </div>
+      <div className="flex gap-3">
+        <label className="flex items-center gap-1.5 text-xs text-gray-300">
+          <input type="checkbox" checked={config.loop !== false} onChange={(e) => update("loop", e.target.checked)} className="rounded" /> Loop
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-gray-300">
+          <input type="checkbox" checked={config.muted !== false} onChange={(e) => update("muted", e.target.checked)} className="rounded" /> Muted
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-gray-300">
+          <input type="checkbox" checked={config.autoplay !== false} onChange={(e) => update("autoplay", e.target.checked)} className="rounded" /> Autoplay
+        </label>
       </div>
     </div>
   );

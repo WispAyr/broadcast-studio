@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = 'broadcast-studio-jwt-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'broadcast-studio-jwt-2026';
 
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -8,7 +8,7 @@ function authenticate(req, res, next) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(' ' )[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
@@ -25,7 +25,7 @@ function optionalAuthenticate(req, res, next) {
     return next();
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(' ' )[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
