@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'broadcast-studio',
-    cwd: '/opt/broadcast-studio/server',
+    cwd: '/root/broadcast-studio/server',
     script: 'src/index.js',
     env: {
       NODE_ENV: 'production',
