@@ -7,8 +7,37 @@ const { authenticate, requireRole, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Simple in-memory rate limiter for login (5 attempts per 15 min per IP)
+const loginAttempts = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
+
+function checkLoginRate(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record || (now - record.windowStart > LOGIN_WINDOW_MS)) {
+    loginAttempts.set(ip, { windowStart: now, count: 1 });
+    return true;
+  }
+  record.count++;
+  if (record.count > LOGIN_MAX_ATTEMPTS) return false;
+  return true;
+}
+
+// Cleanup stale entries every 30 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of loginAttempts) {
+    if (now - record.windowStart > LOGIN_WINDOW_MS) loginAttempts.delete(ip);
+  }
+}, 30 * 60 * 1000);
+
 // POST /login
 router.post('/login', (req, res) => {
+  const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+  if (!checkLoginRate(clientIp)) {
+    return res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+  }
   try {
     const { username, password } = req.body;
     if (!username || !password) {

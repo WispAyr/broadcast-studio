@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { connectSocket, getSocket } from '../lib/socket';
+import { useAudioBroadcast } from '../lib/useAudioBroadcast';
 import api from '../lib/api';
 
-const STUDIO_ID = 'bc4a8a1c-b27c-49e4-a9f2-b67da9b2a35e';
+const storedUser = JSON.parse(localStorage.getItem('broadcast_user') || '{}');
+const STUDIO_ID = storedUser.studio_id || null; // resolved dynamically below if null
 const TRANSITIONS = ['crossfade', 'slide', 'zoom', 'dissolve', 'wipe', 'cut'];
 
 function formatLastSeen(ts) {
@@ -284,14 +286,8 @@ export default function GodView() {
   const [blackoutActive, setBlackoutActive] = useState(false);
   const [showPvwPgm, setShowPvwPgm] = useState(true);
 
-  // Audio broadcast
-  const [audioBroadcast, setAudioBroadcast] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const audioStreamRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
-  const broadcastIntervalRef = useRef(null);
-  const levelIntervalRef = useRef(null);
+  // Audio broadcast (shared hook)
+  const { active: audioBroadcast, level: audioLevel, toggle: toggleAudioBroadcast } = useAudioBroadcast(STUDIO_ID);
 
   // Modals
   const [showQuickText, setShowQuickText] = useState(false);
@@ -386,69 +382,6 @@ export default function GodView() {
       });
     }
     setBlackoutActive(true);
-  }
-
-  async function toggleAudioBroadcast() {
-    if (audioBroadcast) {
-      if (broadcastIntervalRef.current) clearInterval(broadcastIntervalRef.current);
-      if (levelIntervalRef.current) clearInterval(levelIntervalRef.current);
-      if (audioStreamRef.current) audioStreamRef.current.getTracks().forEach(t => t.stop());
-      if (audioCtxRef.current) audioCtxRef.current.close();
-      audioStreamRef.current = null;
-      audioCtxRef.current = null;
-      analyserRef.current = null;
-      setAudioBroadcast(false);
-      setAudioLevel(0);
-      return;
-    }
-    try {
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        stream.getVideoTracks().forEach(t => t.stop());
-        if (stream.getAudioTracks().length === 0) throw new Error('No audio');
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-      audioStreamRef.current = stream;
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      audioCtxRef.current = ctx;
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.8;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-
-      const socket = getSocket();
-      broadcastIntervalRef.current = setInterval(() => {
-        if (!analyserRef.current) return;
-        const freq = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(freq);
-        const binSize = Math.floor(freq.length / 128);
-        const downsampled = [];
-        for (let i = 0; i < 128; i++) {
-          let sum = 0;
-          for (let j = 0; j < binSize; j++) sum += freq[i * binSize + j];
-          downsampled.push(Math.round(sum / binSize));
-        }
-        socket.emit('visualizer_audio_data', { studioId: STUDIO_ID, frequencyData: downsampled, timestamp: Date.now() });
-      }, 50);
-
-      levelIntervalRef.current = setInterval(() => {
-        if (!analyserRef.current) return;
-        const freq = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(freq);
-        let sum = 0;
-        for (let i = 0; i < freq.length; i++) sum += freq[i];
-        setAudioLevel(Math.min(1, (sum / freq.length / 255) * 3));
-      }, 100);
-
-      setAudioBroadcast(true);
-      stream.getAudioTracks()[0]?.addEventListener('ended', () => toggleAudioBroadcast());
-    } catch (err) {
-      alert('Failed to capture audio: ' + err.message);
-    }
   }
 
   function pushQuickText(text, subtitle) {

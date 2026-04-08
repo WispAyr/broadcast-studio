@@ -1,5 +1,34 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/auth');
+const { URL } = require('url');
+
+// Block requests to private/internal networks (SSRF protection)
+function isPrivateUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    const host = parsed.hostname.toLowerCase();
+    // Block localhost
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0') return true;
+    // Block file:// protocol
+    if (parsed.protocol === 'file:') return true;
+    // Block cloud metadata endpoints
+    if (host === '169.254.169.254' || host === 'metadata.google.internal') return true;
+    // Block RFC1918 private ranges
+    const parts = host.split('.');
+    if (parts.length === 4 && parts.every(p => /^\d+$/.test(p))) {
+      const [a, b] = parts.map(Number);
+      if (a === 10) return true;                          // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true;   // 172.16.0.0/12
+      if (a === 192 && b === 168) return true;             // 192.168.0.0/16
+    }
+    // Block link-local
+    if (host.startsWith('169.254.')) return true;
+    return false;
+  } catch {
+    return true; // Invalid URL = block
+  }
+}
 
 // Simple in-memory cache
 const cache = new Map();
@@ -25,9 +54,10 @@ function setCache(key, data) {
 }
 
 // RSS proxy: /api/proxy/rss?url=
-router.get('/rss', async (req, res) => {
+router.get('/rss', authenticate, async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url parameter required' });
+  if (isPrivateUrl(url)) return res.status(403).json({ error: 'Blocked: private/internal URL' });
 
   try {
     const cacheKey = `rss:${url}`;
@@ -55,9 +85,10 @@ router.get('/rss', async (req, res) => {
 });
 
 // Generic fetch proxy: /api/proxy/fetch?url=
-router.get('/fetch', async (req, res) => {
+router.get('/fetch', authenticate, async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url parameter required' });
+  if (isPrivateUrl(url)) return res.status(403).json({ error: 'Blocked: private/internal URL' });
 
   try {
     const cacheKey = `fetch:${url}`;
@@ -88,7 +119,7 @@ router.get('/fetch', async (req, res) => {
 });
 
 // Weather proxy using Open-Meteo: /api/proxy/weather?lat=&lon=
-router.get('/weather', async (req, res) => {
+router.get('/weather', authenticate, async (req, res) => {
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: 'lat and lon parameters required' });
 
@@ -265,7 +296,7 @@ function formatDur(seconds) {
   return m > 0 ? `${h} hr ${m} mins` : `${h} hr`;
 }
 
-router.get('/travel-times', async (req, res) => {
+router.get('/travel-times', authenticate, async (req, res) => {
   const { origins, destinations } = req.query;
   if (!origins || !destinations) {
     return res.status(400).json({ error: 'origins and destinations parameters required' });
@@ -355,7 +386,7 @@ router.get('/travel-times', async (req, res) => {
 
 // YouTube live stream resolver: /api/proxy/youtube-live?channel=HANDLE
 // Scrapes the channel page to find the current live video ID
-router.get('/youtube-live', async (req, res) => {
+router.get('/youtube-live', authenticate, async (req, res) => {
   const { channel } = req.query;
   if (!channel) return res.status(400).json({ error: 'channel parameter required' });
 

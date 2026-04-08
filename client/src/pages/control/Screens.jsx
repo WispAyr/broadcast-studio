@@ -405,7 +405,10 @@ export default function Screens() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Screens</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Screens</h1>
+          <p className="text-sm text-gray-500 mt-1">{screens.length} screen{screens.length !== 1 ? 's' : ''} registered</p>
+        </div>
         <div className="flex gap-2">
           <button onClick={() => setShowGroups(!showGroups)}
             className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors">
@@ -441,31 +444,39 @@ export default function Screens() {
         {/* Screen list */}
         <div className={`${selectedScreen ? 'w-80 flex-shrink-0' : 'w-full'}`}>
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            {screens.map(screen => (
+            {screens.map((screen, idx) => (
               <div key={screen.id} onClick={() => selectScreen(screen)}
-                className={`flex items-center justify-between px-4 py-3 border-b border-gray-800 cursor-pointer transition-colors ${selectedScreen?.id === screen.id ? 'bg-gray-800' : 'hover:bg-gray-800/50'}`}>
+                className={`flex items-center justify-between px-4 py-3.5 cursor-pointer transition-all ${
+                  selectedScreen?.id === screen.id
+                    ? 'bg-blue-600/10 border-l-2 border-l-blue-500'
+                    : 'hover:bg-gray-800/50 border-l-2 border-l-transparent'
+                } ${idx < screens.length - 1 ? 'border-b border-gray-800/60' : ''}`}>
                 <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${screen.is_online ? 'bg-green-400' : 'bg-red-400'}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${screen.is_online ? 'bg-green-400 shadow-sm shadow-green-400/40' : 'bg-gray-600'}`} />
                   <div>
                     <p className="text-white text-sm font-medium">{screen.name}</p>
-                    <p className="text-gray-500 text-xs">#{screen.screen_number}{screen.group_id ? ` • ${groups.find(g => g.id === screen.group_id)?.name || 'Group'}` : ''}</p>
+                    <p className="text-gray-600 text-xs">#{screen.screen_number}{screen.group_id ? ` · ${groups.find(g => g.id === screen.group_id)?.name || 'Group'}` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <select value={screen.current_layout_id || ''} onChange={e => { e.stopPropagation(); handleSetLayout(screen.id, e.target.value); }}
                     onClick={e => e.stopPropagation()}
-                    className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 text-xs focus:outline-none">
+                    className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 text-xs focus:outline-none focus:border-blue-500">
                     <option value="">No Layout</option>
                     {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
                   <button onClick={e => { e.stopPropagation(); window.open(`/screen/${screen.id}`, '_blank'); }}
-                    className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded">Open</button>
+                    className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs rounded-md transition-colors" title="Open screen">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </button>
                   <button onClick={e => { e.stopPropagation(); handleDelete(screen.id); }}
-                    className="px-2 py-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs rounded">×</button>
+                    className="px-2.5 py-1.5 bg-transparent hover:bg-red-600/15 text-gray-600 hover:text-red-400 text-xs rounded-md transition-colors" title="Delete screen">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
                 </div>
               </div>
             ))}
-            {screens.length === 0 && <div className="text-center py-12"><p className="text-gray-500">No screens registered.</p></div>}
+            {screens.length === 0 && <div className="text-center py-12"><p className="text-gray-500 text-sm">No screens registered.</p></div>}
           </div>
         </div>
 

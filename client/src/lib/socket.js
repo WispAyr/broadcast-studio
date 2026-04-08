@@ -4,6 +4,7 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
+    const token = localStorage.getItem('broadcast_token');
     socket = io({
       autoConnect: false,
       transports: ['websocket'],
@@ -13,6 +14,7 @@ export function getSocket() {
       reconnectionDelayMax: 30000,
       randomizationFactor: 0.2,
       timeout: 20000,
+      auth: token ? { token } : {},
     });
   }
   return socket;

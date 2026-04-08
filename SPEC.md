@@ -23,8 +23,28 @@ Producer (Control Panel UI)
 - **Backend:** Node.js, Express, Socket.IO, better-sqlite3
 - **Frontend:** React + Vite + Tailwind CSS
 - **Database:** SQLite (single file, `server/data/broadcast.db`)
+- **Testing:** Jest (server-side)
 - **Dark theme:** gray-950 backgrounds (consistent with our other apps)
 - **Port:** 3945
+
+## Security Architecture
+
+### Authentication
+- **API:** JWT Bearer tokens on all protected routes via `authenticate` middleware
+- **WebSocket:** JWT verified during Socket.IO handshake (`auth.token`). Unauthenticated sockets are rejected.
+- **Login Rate Limiting:** 5 attempts per IP per 15-minute window (in-memory). Returns `429` when exceeded.
+- **Roles:** `super_admin > admin > producer > viewer`. Enforced via `requireRole()` middleware.
+- **JWT Secret:** Must be set via `JWT_SECRET` environment variable. Server will crash on startup if missing.
+
+### SSRF Protection
+All proxy routes (`/rss`, `/fetch`, `/weather`, `/travel-times`, `/youtube-live`) include:
+- `authenticate` middleware (requires valid JWT)
+- `isPrivateUrl()` blocklist: RFC1918 ranges, localhost, `::1`, link-local, AWS/GCP metadata endpoints
+
+### Client-Side Safety
+- **Error Boundaries:** All `<ModuleRenderer>` instances wrapped in `ErrorBoundary`. A crashing module shows a fallback, not a white screen.
+- **ProtectedRoute:** `/control/*` and `/god` wrapped in auth guards. Redirects to `/login` without token.
+- **Code Splitting:** React.lazy for non-critical routes (269KB initial vs 661KB monolithic).
 
 ## Multi-Tenancy
 Each tenant is a "Studio". Studios are isolated:
@@ -140,10 +160,14 @@ CREATE TABLE module_types (
 
 ## WebSocket Events
 
+> **Authentication:** All WebSocket connections require a valid JWT token in `socket.handshake.auth.token`. The token is verified during the connection handshake. All producer/control events require an authenticated socket — unauthenticated emit handlers are rejected.
+
 ### Client → Server
 - `register_screen` - Screen connects: `{screenId, studioId}`
 - `screen_heartbeat` - Keep-alive from screen
-- `control_action` - Producer action: `{action, target, data}`
+- `join_studio` - Producer joins studio room: `{studioId}` *(requires auth)*
+- `control_action` - Producer action: `{action, target, data}` *(requires auth)*
+- `visualizer_audio_data` - Audio broadcast data: `{studioId, frequencyData, timestamp}` *(requires auth)*
 
 ### Server → Client (Screen)
 - `set_layout` - Push new layout to screen
@@ -330,10 +354,15 @@ broadcast-studio/
 │   │   ├── components/
 │   │   │   ├── ScreenPreview.jsx
 │   │   │   ├── LayoutGrid.jsx
-│   │   │   └── ModulePicker.jsx
+│   │   │   ├── ModulePicker.jsx
+│   │   │   ├── ConfirmDialog.jsx    # Reusable confirmation dialog
+│   │   │   ├── ErrorBoundary.jsx    # Module crash isolation
+│   │   │   └── Toast.jsx
 │   │   └── lib/
 │   │       ├── api.js
-│   │       └── socket.js      # Socket.IO client wrapper
+│   │       ├── socket.js            # Socket.IO client wrapper
+│   │       ├── useAudioBroadcast.js  # Shared audio capture hook
+│   │       └── useSocketStatus.js    # WebSocket conn. indicator
 │   ├── index.html
 │   ├── tailwind.config.js
 │   ├── vite.config.js
@@ -342,6 +371,17 @@ broadcast-studio/
 └── README.md
 ```
 
+## Testing
+
+```bash
+cd server && npm test
+```
+
+Test suites (Jest):
+- `__tests__/auth.test.js` — JWT verification, expired tokens, wrong secrets, role-based access
+- `__tests__/ssrf.test.js` — Private IP blocking, cloud metadata, public URL allowance
+- `__tests__/rate-limit.test.js` — Login attempt counting, window expiry, IP isolation
+
 ## CRITICAL CONSTRAINTS
 - SQLite only (better-sqlite3), NOT MongoDB
 - Dark theme (gray-950 backgrounds)
@@ -349,5 +389,6 @@ broadcast-studio/
 - Reuse Socket.IO patterns (similar to Sentinel's ws.js approach)
 - All module components should be functional even if basic (show something, not just a placeholder div)
 - The screen display page must work standalone — a browser loads `/screen/1` and it just works
-- JWT secret: `broadcast-studio-jwt-2026`
+- JWT secret **must** be set via `JWT_SECRET` environment variable (no hardcoded fallback)
 - No external APIs needed initially — modules can use mock data where needed (weather, travel etc.)
+

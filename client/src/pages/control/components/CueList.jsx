@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../../lib/api';
 
-export default function CueList({ layouts, onPushLayout, collapsed, setCollapsed, transitionType, transitionDuration }) {
+export default function CueList({ layouts, onPushLayout, collapsed: controlledCollapsed, setCollapsed: controlledSetCollapsed, transitionType, transitionDuration, compact = false, inShell = false }) {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+  const setCollapsed = controlledSetCollapsed || setInternalCollapsed;
   const [cueLists, setCueLists] = useState([]);
   const [activeCueList, setActiveCueList] = useState(null);
   const [currentCueIndex, setCurrentCueIndex] = useState(-1);

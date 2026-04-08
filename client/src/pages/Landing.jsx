@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // ─── Animated grid background ───
@@ -113,40 +113,30 @@ function UseCaseCard({ icon, title, description }) {
   );
 }
 
-// ─── Pricing card ───
-function PricingCard({ name, price, period, features, cta, highlight }) {
-  return (
-    <div className={`rounded-2xl p-8 border ${highlight ? 'bg-blue-950/30 border-blue-500/40 shadow-xl shadow-blue-500/5' : 'bg-gray-900/40 border-gray-800/50'}`}>
-      {highlight && (
-        <div className="text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">Most Popular</div>
-      )}
-      <h3 className="text-2xl font-bold text-white mb-1">{name}</h3>
-      <div className="mb-6">
-        <span className="text-4xl font-bold text-white">{price}</span>
-        {period && <span className="text-gray-500 ml-1">{period}</span>}
-      </div>
-      <ul className="space-y-3 mb-8">
-        {features.map((f, i) => (
-          <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
-            <span className="text-green-400">✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-      <Link to={highlight ? '/login' : '/login'}
-        className={`block w-full text-center py-3 rounded-xl font-semibold transition-all ${highlight ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20' : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700'}`}>
-        {cta}
-      </Link>
-    </div>
-  );
-}
-
 // ─── Stat counter ───
 function StatCounter({ value, label }) {
   return (
     <div className="text-center">
       <div className="text-3xl md:text-4xl font-bold text-white">{value}</div>
       <div className="text-gray-500 text-sm mt-1">{label}</div>
+    </div>
+  );
+}
+
+// ─── Capability card (replaces pricing) ───
+function CapabilityCard({ icon, title, features }) {
+  return (
+    <div className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-6 hover:border-gray-700/80 transition-all">
+      <div className="text-3xl mb-3">{icon}</div>
+      <h3 className="text-xl font-bold text-white mb-4">{title}</h3>
+      <ul className="space-y-2.5">
+        {features.map((f, i) => (
+          <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
+            <span className="text-green-400 text-xs">✓</span>
+            {f}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -173,12 +163,12 @@ export default function Landing() {
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-gray-400 hover:text-white text-sm transition-colors">Features</a>
             <a href="#use-cases" className="text-gray-400 hover:text-white text-sm transition-colors">Use Cases</a>
-            <a href="#pricing" className="text-gray-400 hover:text-white text-sm transition-colors">Pricing</a>
+            <a href="#capabilities" className="text-gray-400 hover:text-white text-sm transition-colors">Capabilities</a>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login" className="text-gray-400 hover:text-white text-sm font-medium transition-colors">Sign In</Link>
             <Link to="/login" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-blue-600/10">
-              Start Free
+              Open Dashboard →
             </Link>
           </div>
         </div>
@@ -217,7 +207,7 @@ export default function Landing() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link to="/login"
               className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-blue-600/20 text-lg text-center">
-              Start Free →
+              Open Dashboard →
             </Link>
             <a href="#features"
               className="px-8 py-4 bg-gray-800/60 hover:bg-gray-800 text-white font-semibold rounded-xl border border-gray-700/50 transition-all text-lg text-center backdrop-blur-sm">
@@ -233,10 +223,10 @@ export default function Landing() {
       {/* ═══ Stats bar ═══ */}
       <section className="border-y border-gray-800/50 bg-gray-900/20 py-12">
         <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
-          <StatCounter value="∞" label="Screens supported" />
+          <StatCounter value="50+" label="Module types" />
           <StatCounter value="<50ms" label="Push latency" />
-          <StatCounter value="30+" label="Module types" />
-          <StatCounter value="24/7" label="Uptime" />
+          <StatCounter value="6" label="Transition modes" />
+          <StatCounter value="∞" label="Screens supported" />
         </div>
       </section>
 
@@ -253,26 +243,26 @@ export default function Landing() {
               description="Manage unlimited screens from one dashboard. Push layouts, sync content, and monitor status in real-time." />
             <FeatureCard icon="📡" title="Real-Time Updates"
               description="Instant push via WebSocket. Changes appear on screens in milliseconds, not seconds. Sub-50ms latency." />
-            <FeatureCard icon="🎬" title="Show Mode"
-              description="Pre-program sequences, run live shows with one click. Timeline automation with per-minute precision." />
+            <FeatureCard icon="🎬" title="God View"
+              description="Full broadcast mixer with PVW/PGM, TAKE/CUT, overlay panel, keyboard shortcuts, and audio level metering." />
             <FeatureCard icon="📐" title="Flexible Layouts"
-              description="Split screens, overlays, picture-in-picture. Grid-based layout builder with drag-and-drop modules." />
-            <FeatureCard icon="🎨" title="30+ Module Types"
-              description="Clocks, tickers, media, web pages, Remotion video, weather, RSS, social feeds, camera feeds, and custom HTML." />
+              description="Split screens, overlays, picture-in-picture. Grid-based layout system with drag-and-drop modules." />
+            <FeatureCard icon="🎨" title="50+ Compositions"
+              description="Clocks, tickers, weather, live text, camera feeds, Remotion compositions, and custom HTML." />
             <FeatureCard icon="🏢" title="Multi-Tenant Studios"
               description="Isolated studios for different teams or events. Each with their own screens, shows, layouts, and users." />
-            <FeatureCard icon="📱" title="Control from Anywhere"
-              description="Phone, tablet, laptop — any browser. Responsive producer panel works on any device." />
+            <FeatureCard icon="🎭" title="Live Overlays"
+              description="Lower thirds, tickers, announcements, now playing — push overlays without changing the underlying layout." />
             <FeatureCard icon="🔒" title="Role-Based Access"
               description="Super admin, admin, producer, viewer. Fine-grained permissions for your team." />
             <FeatureCard icon="🖼️" title="LED Wall Support"
-              description="Custom resolutions, aspect ratios, and graceful disconnect handling. LED walls go dark, not error." />
+              description="Custom resolutions, projection mapping, and graceful disconnect handling. LED walls go dark, not error." />
             <FeatureCard icon="🎥" title="Remotion Integration"
-              description="Render dynamic video compositions in real-time. 50+ pre-built templates for lower thirds, stingers, and more." />
-            <FeatureCard icon="⚡" title="Low Latency"
-              description="Socket.IO powered with aggressive reconnection. Changes appear in milliseconds, never miss a beat." />
-            <FeatureCard icon="🌐" title="Cloud or On-Premise"
-              description="Deploy anywhere. Self-hosted with full control, or use our managed cloud. Your data, your rules." />
+              description="Render dynamic video compositions in real-time. Pre-built templates for lower thirds, stingers, and more." />
+            <FeatureCard icon="🎵" title="Audio Broadcast"
+              description="Capture system audio or microphone and broadcast visualizer data to screen modules in real time." />
+            <FeatureCard icon="🌐" title="Self-Hosted"
+              description="Deploy on your own infrastructure. Full control over your data, no dependencies on external services." />
           </div>
         </div>
       </section>
@@ -298,8 +288,34 @@ export default function Landing() {
               description="Presenter monitors, guest displays, autocue, clocks, and live tally. Full studio control." />
             <UseCaseCard icon="🖥️" title="Control Rooms"
               description="Multi-feed monitoring walls, alert tickers, dashboards. Purpose-built for operations." />
-            <UseCaseCard icon="🛍" title="Retail Displays"
-              description="Product showcases, promotions, wayfinding. Schedule content by time of day." />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ Capabilities (replaces fake pricing) ═══ */}
+      <section id="capabilities" className="py-20 md:py-28">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything included</h2>
+            <p className="text-gray-500 text-lg">Self-hosted, open-source, no licensing fees. Deploy and go.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <CapabilityCard
+              icon="🎛️"
+              title="Control"
+              features={['Unlimited screens', 'Unlimited studios', 'God View mixer', 'Keyboard shortcuts', 'Role-based access']}
+            />
+            <CapabilityCard
+              icon="🎨"
+              title="Content"
+              features={['50+ module types', '6 transition modes', 'Live overlays', 'Audio visualiser', 'Remotion compositions']}
+            />
+            <CapabilityCard
+              icon="⚡"
+              title="Infrastructure"
+              features={['Self-hosted', 'SQLite (zero config)', 'WebSocket real-time', 'Proxy cache layer', 'Projection mapping']}
+            />
           </div>
         </div>
       </section>
@@ -307,44 +323,9 @@ export default function Landing() {
       {/* ═══ Social Proof ═══ */}
       <section className="py-16">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-gray-500 text-sm uppercase tracking-wider mb-4">Trusted by</p>
-          <p className="text-xl text-gray-300 italic mb-3">"Used at live events across Scotland"</p>
-          <p className="text-gray-500 text-sm">Now Ayrshire Radio · Local Connect Systems · Live venues</p>
-        </div>
-      </section>
-
-      {/* ═══ Pricing ═══ */}
-      <section id="pricing" className="py-20 md:py-28">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple pricing</h2>
-            <p className="text-gray-500 text-lg">Start free. Scale when you need to.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <PricingCard
-              name="Free"
-              price="£0"
-              period="/month"
-              features={['1 studio', '3 screens', 'All module types', 'Real-time control', 'Community support']}
-              cta="Get Started"
-            />
-            <PricingCard
-              name="Pro"
-              price="£29"
-              period="/month"
-              features={['Unlimited studios', 'Unlimited screens', 'Show automation', 'LED wall support', 'Priority support', 'Custom branding']}
-              cta="Start Free Trial"
-              highlight
-            />
-            <PricingCard
-              name="Enterprise"
-              price="Custom"
-              period=""
-              features={['Everything in Pro', 'On-premise deployment', 'SLA guarantee', 'Custom integrations', 'Dedicated account manager', 'Training & onboarding']}
-              cta="Contact Us"
-            />
-          </div>
+          <p className="text-gray-500 text-sm uppercase tracking-wider mb-4">Built and used by</p>
+          <p className="text-xl text-gray-300 italic mb-3">"Powering live screens at events across Scotland"</p>
+          <p className="text-gray-500 text-sm">Now Ayrshire Radio · Local Connect Systems</p>
         </div>
       </section>
 
@@ -352,10 +333,10 @@ export default function Landing() {
       <section className="py-20 border-t border-gray-800/30">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to take control?</h2>
-          <p className="text-gray-400 text-lg mb-8">Set up your first screen in under 2 minutes. No credit card required.</p>
+          <p className="text-gray-400 text-lg mb-8">Self-host in minutes. No account required — just deploy and sign in.</p>
           <Link to="/login"
             className="inline-block px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-blue-600/20 text-lg">
-            Start Free →
+            Open Dashboard →
           </Link>
         </div>
       </section>
@@ -379,7 +360,7 @@ export default function Landing() {
               <h4 className="text-gray-300 font-semibold text-sm mb-4">Product</h4>
               <ul className="space-y-2">
                 <li><a href="#features" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Features</a></li>
-                <li><a href="#pricing" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Pricing</a></li>
+                <li><a href="#capabilities" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Capabilities</a></li>
                 <li><a href="#use-cases" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Use Cases</a></li>
               </ul>
             </div>

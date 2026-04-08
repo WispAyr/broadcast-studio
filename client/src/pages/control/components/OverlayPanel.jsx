@@ -34,7 +34,10 @@ const activeColorMap = {
   cyan: 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-600/30',
 };
 
-export default function OverlayPanel({ activeOverlays, setActiveOverlays, collapsed, setCollapsed }) {
+export default function OverlayPanel({ activeOverlays, setActiveOverlays, collapsed: controlledCollapsed, setCollapsed: controlledSetCollapsed, compact = false, inShell = false }) {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+  const setCollapsed = controlledSetCollapsed || setInternalCollapsed;
   const [configOverlay, setConfigOverlay] = useState(null);
   const [overlayConfig, setOverlayConfig] = useState({});
 
@@ -78,17 +81,8 @@ export default function OverlayPanel({ activeOverlays, setActiveOverlays, collap
     setOverlayConfig({});
   }
 
-  return (
-    <div className={`bg-gray-900/80 border border-gray-800 rounded-xl transition-all ${collapsed ? 'w-10' : 'w-64'}`}>
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full px-2 py-2 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1"
-      >
-        {collapsed ? '◀' : '▶'} {!collapsed && 'Overlays'}
-      </button>
-
-      {!collapsed && (
-        <div className="px-2 pb-3 space-y-1.5">
+  const content = (
+    <div className={compact ? 'px-1.5 pb-2 space-y-1' : 'px-2 pb-3 space-y-1.5'}>
           {OVERLAY_TYPES.map(ov => {
             const isActive = !!activeOverlays[ov.id];
             return (
@@ -115,75 +109,92 @@ export default function OverlayPanel({ activeOverlays, setActiveOverlays, collap
             </button>
           )}
         </div>
-      )}
+      );
 
       {/* Config modal */}
-      {configOverlay && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 w-full max-w-sm">
-            <h3 className="text-white font-semibold mb-3">{configOverlay.icon} {configOverlay.label}</h3>
+  const configModal = configOverlay && (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 w-full max-w-sm">
+        <h3 className="text-white font-semibold mb-3">{configOverlay.icon} {configOverlay.label}</h3>
 
-            {(configOverlay.id === 'lower_third') && (
-              <>
-                <input value={overlayConfig.name || ''} onChange={e => setOverlayConfig(p => ({ ...p, name: e.target.value }))}
-                  placeholder="Name" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
-                <input value={overlayConfig.title || ''} onChange={e => setOverlayConfig(p => ({ ...p, title: e.target.value }))}
-                  placeholder="Title" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
-              </>
-            )}
+        {(configOverlay.id === 'lower_third') && (
+          <>
+            <input value={overlayConfig.name || ''} onChange={e => setOverlayConfig(p => ({ ...p, name: e.target.value }))}
+              placeholder="Name" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input value={overlayConfig.title || ''} onChange={e => setOverlayConfig(p => ({ ...p, title: e.target.value }))}
+              placeholder="Title" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
+          </>
+        )}
 
-            {configOverlay.id === 'countdown' && (
-              <input type="datetime-local" value={overlayConfig.targetTime || ''} onChange={e => setOverlayConfig(p => ({ ...p, targetTime: e.target.value }))}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
-            )}
+        {configOverlay.id === 'countdown' && (
+          <input type="datetime-local" value={overlayConfig.targetTime || ''} onChange={e => setOverlayConfig(p => ({ ...p, targetTime: e.target.value }))}
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
+        )}
 
-            {configOverlay.id === 'ticker' && (
-              <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
-                placeholder="Scrolling text..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
-            )}
+        {configOverlay.id === 'ticker' && (
+          <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+            placeholder="Scrolling text..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
+        )}
 
-            {configOverlay.id === 'coming_up' && (
-              <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
-                placeholder="Coming up next..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
-            )}
+        {configOverlay.id === 'coming_up' && (
+          <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+            placeholder="Coming up next..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
+        )}
 
-            {configOverlay.id === 'now_playing' && (
-              <>
-                <input value={overlayConfig.artist || ''} onChange={e => setOverlayConfig(p => ({ ...p, artist: e.target.value }))}
-                  placeholder="Artist" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
-                <input value={overlayConfig.song || ''} onChange={e => setOverlayConfig(p => ({ ...p, song: e.target.value }))}
-                  placeholder="Song" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
-              </>
-            )}
+        {configOverlay.id === 'now_playing' && (
+          <>
+            <input value={overlayConfig.artist || ''} onChange={e => setOverlayConfig(p => ({ ...p, artist: e.target.value }))}
+              placeholder="Artist" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input value={overlayConfig.song || ''} onChange={e => setOverlayConfig(p => ({ ...p, song: e.target.value }))}
+              placeholder="Song" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
+          </>
+        )}
 
-            {configOverlay.id === 'announcement' && (
-              <>
-                <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
-                  placeholder="Announcement text..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
-                <input type="number" value={overlayConfig.duration || 5} onChange={e => setOverlayConfig(p => ({ ...p, duration: parseInt(e.target.value) }))}
-                  placeholder="Duration (seconds)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" min="1" max="60" />
-              </>
-            )}
+        {configOverlay.id === 'announcement' && (
+          <>
+            <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+              placeholder="Announcement text..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input type="number" value={overlayConfig.duration || 5} onChange={e => setOverlayConfig(p => ({ ...p, duration: parseInt(e.target.value) }))}
+              placeholder="Duration (seconds)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" min="1" max="60" />
+          </>
+        )}
 
-            {(configOverlay.id === 'cg_text') && (
-              <textarea value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
-                placeholder="CG text content..." rows={3} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3 resize-none" autoFocus />
-            )}
+        {(configOverlay.id === 'cg_text') && (
+          <textarea value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+            placeholder="CG text content..." rows={3} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3 resize-none" autoFocus />
+        )}
 
-            {configOverlay.id === 'logo_bug' && (
-              <input value={overlayConfig.url || ''} onChange={e => setOverlayConfig(p => ({ ...p, url: e.target.value }))}
-                placeholder="Logo URL..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
-            )}
+        {configOverlay.id === 'logo_bug' && (
+          <input value={overlayConfig.url || ''} onChange={e => setOverlayConfig(p => ({ ...p, url: e.target.value }))}
+            placeholder="Logo URL..." className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
+        )}
 
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => { setConfigOverlay(null); setOverlayConfig({}); }}
-                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg">Cancel</button>
-              <button onClick={confirmPush}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg">Push</button>
-            </div>
-          </div>
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => { setConfigOverlay(null); setOverlayConfig({}); }}
+            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg">Cancel</button>
+          <button onClick={confirmPush}
+            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg">Push</button>
         </div>
-      )}
+      </div>
+    </div>
+  );
+
+  // When rendered inside a PanelShell, just return the content
+  if (inShell) {
+    return <>{content}{configModal}</>;
+  }
+
+  // Standalone rendering with self-managed collapse
+  return (
+    <div className={`bg-gray-900/80 border border-gray-800 rounded-xl transition-all ${collapsed ? 'w-10' : 'w-64'}`}>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full px-2 py-2 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1"
+      >
+        {collapsed ? '◀' : '▶'} {!collapsed && 'Overlays'}
+      </button>
+      {!collapsed && content}
+      {configModal}
     </div>
   );
 }

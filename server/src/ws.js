@@ -1,5 +1,7 @@
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 const { db } = require('./db');
+const { JWT_SECRET } = require('./middleware/auth');
 
 let io = null;
 
@@ -21,8 +23,35 @@ function setupWebSocket(server) {
     transports: ['websocket', 'polling'],
   });
 
+  // Auth middleware — verify JWT if provided. Screen display pages
+  // can connect without a token (they identify via register_screen),
+  // but control actions will check socket.user before executing.
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    if (token) {
+      try {
+        socket.user = jwt.verify(token, JWT_SECRET);
+      } catch {
+        // Invalid token — still allow connection but mark as unauthenticated
+        socket.user = null;
+      }
+    } else {
+      socket.user = null;
+    }
+    next();
+  });
+
+  // Helper: require authenticated user for control actions
+  function requireAuth(socket, action) {
+    if (!socket.user) {
+      console.warn(`Unauthorized ${action} attempt from ${socket.id}`);
+      return false;
+    }
+    return true;
+  }
+
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
+    console.log(`Socket connected: ${socket.id} (auth: ${socket.user ? socket.user.username : 'none'})`);
 
     // Screen registration
     socket.on('register_screen', ({ screenId, studioId }) => {
@@ -55,8 +84,9 @@ function setupWebSocket(server) {
       db.prepare("UPDATE screens SET last_seen = datetime('now') WHERE id = ?").run(screenId);
     });
 
-    // Control actions from producers
+    // Control actions from producers (auth required)
     socket.on('control_action', ({ action, screenId, studioId, layoutId, data }) => {
+      if (!requireAuth(socket, 'control_action')) return;
       switch (action) {
         case 'set_layout':
           io.to(`screen:${screenId}`).emit('set_layout', { layoutId, data });
@@ -72,13 +102,25 @@ function setupWebSocket(server) {
       }
     });
 
-    // Live text update — push new text to a specific module on screen(s)
+    // Live text update — push new text to a specific module on screen(s) (auth required)
     socket.on('update_module_text', ({ screenId, studioId, moduleId, text, subtitle }) => {
+      if (!requireAuth(socket, 'update_module_text')) return;
       const payload = { moduleId, text, subtitle };
       if (screenId) {
         io.to(`screen:${screenId}`).emit('update_module_text', payload);
       } else if (studioId) {
         io.to(`studio:${studioId}`).emit('update_module_text', payload);
+      }
+    });
+
+    // Dynamic module config update — relay config changes to screens (auth required)
+    socket.on('update_module_config', ({ studioId, moduleId, config, screenId }) => {
+      if (!requireAuth(socket, 'update_module_config')) return;
+      const payload = { moduleId, config };
+      if (screenId) {
+        io.to(`screen:${screenId}`).emit('update_module_config', payload);
+      } else if (studioId) {
+        io.to(`studio:${studioId}`).emit('update_module_config', payload);
       }
     });
 
@@ -91,8 +133,9 @@ function setupWebSocket(server) {
       }
     });
 
-    // Layout transition — relay transition metadata to screens
+    // Layout transition — relay transition metadata to screens (auth required)
     socket.on('push_layout_transition', ({ studioId, layoutId, transition, duration, screenId }) => {
+      if (!requireAuth(socket, 'push_layout_transition')) return;
       const payload = { layoutId, transition: transition || 'crossfade', duration: duration || 1 };
       if (screenId) {
         io.to(`screen:${screenId}`).emit('push_layout_transition', payload);
@@ -104,8 +147,9 @@ function setupWebSocket(server) {
       }
     });
 
-    // Overlay system
+    // Overlay system (auth required)
     socket.on('push_overlay', ({ studioId, overlay, screenId }) => {
+      if (!requireAuth(socket, 'push_overlay')) return;
       const payload = { overlay };
       if (screenId) {
         io.to(`screen:${screenId}`).emit('push_overlay', payload);
@@ -115,6 +159,7 @@ function setupWebSocket(server) {
     });
 
     socket.on('remove_overlay', ({ studioId, overlayType, screenId }) => {
+      if (!requireAuth(socket, 'remove_overlay')) return;
       const payload = { overlayType };
       if (screenId) {
         io.to(`screen:${screenId}`).emit('remove_overlay', payload);
@@ -124,6 +169,7 @@ function setupWebSocket(server) {
     });
 
     socket.on('clear_overlays', ({ studioId, screenId }) => {
+      if (!requireAuth(socket, 'clear_overlays')) return;
       if (screenId) {
         io.to(`screen:${screenId}`).emit('clear_overlays', {});
       } else if (studioId) {
@@ -131,22 +177,25 @@ function setupWebSocket(server) {
       }
     });
 
-    // Identify screen — flash it so operator can find it
+    // Identify screen — flash it so operator can find it (auth required)
     socket.on('identify_screen', ({ screenId }) => {
+      if (!requireAuth(socket, 'identify_screen')) return;
       if (screenId) {
         io.to(`screen:${screenId}`).emit('identify_screen', {});
       }
     });
 
-    // Reload screen — force browser refresh
+    // Reload screen — force browser refresh (auth required)
     socket.on('reload_screen', ({ screenId }) => {
+      if (!requireAuth(socket, 'reload_screen')) return;
       if (screenId) {
         io.to(`screen:${screenId}`).emit('reload_screen', {});
       }
     });
 
-    // Visualizer audio data relay — broadcast to ALL connected sockets (screens + dashboards)
+    // Visualizer audio data relay (auth required)
     socket.on('visualizer_audio_data', (data) => {
+      if (!requireAuth(socket, 'visualizer_audio_data')) return;
       const studioId = data.studioId || socket.studioId;
       if (studioId) {
         socket.to(`studio:${studioId}`).emit('visualizer_audio_data', {
@@ -164,8 +213,9 @@ function setupWebSocket(server) {
       }
     });
 
-    // Autocue control — relay commands to target screen/studio
+    // Autocue control (auth required)
     socket.on('autocue_control', ({ screenId, studioId, command, value }) => {
+      if (!requireAuth(socket, 'autocue_control')) return;
       const payload = { command, value };
       if (screenId) {
         io.to(`screen:${screenId}`).emit('autocue_control', payload);

@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "test": "jest --forceExit",
     "mcp": "node src/mcp.js"
   },
   "dependencies": {
@@ -17,5 +18,8 @@
     "multer": "^2.1.1",
     "socket.io": "^4.7.5",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
   }
 }

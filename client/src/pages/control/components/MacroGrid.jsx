@@ -27,7 +27,7 @@ const DEFAULT_MACROS = Array.from({ length: 8 }, (_, i) => ({
   shortcut: `F${i + 1}`,
 }));
 
-export default function MacroGrid({ layouts, onPushLayout, onBlackout }) {
+export default function MacroGrid({ layouts, onPushLayout, onBlackout, compact = false }) {
   const [macros, setMacros] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('broadcast_macros')) || DEFAULT_MACROS;
@@ -91,14 +91,14 @@ export default function MacroGrid({ layouts, onPushLayout, onBlackout }) {
 
   return (
     <div className="mt-4">
-      <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Macros</h3>
-      <div className="grid grid-cols-4 gap-2">
+      {!compact && <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Macros</h3>}
+      <div className={compact ? 'grid grid-cols-4 gap-1.5' : 'grid grid-cols-4 gap-2'}>
         {macros.map((macro, i) => (
           <button
             key={macro.id}
             onClick={() => executeMacro(macro)}
             onContextMenu={e => { e.preventDefault(); setEditingMacro(i); }}
-            className={`relative px-3 py-3 rounded-xl border text-sm font-bold transition-all shadow-lg ${MACRO_COLORS[macro.color] || MACRO_COLORS.gray}`}
+            className={`relative ${compact ? 'px-2 py-2 rounded-lg' : 'px-3 py-3 rounded-xl'} border text-sm font-bold transition-all shadow-lg ${MACRO_COLORS[macro.color] || MACRO_COLORS.gray}`}
             title={`${macro.name} (${macro.shortcut}) — Right-click to edit`}
           >
             <div className="text-white text-sm truncate">{macro.name}</div>

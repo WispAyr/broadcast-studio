@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { connectSocket, disconnectSocket } from '../../lib/socket';
 import ModuleRenderer from '../../components/ModuleRenderer';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import { ProjectionMapper } from '../../lib/webgl-projection';
 import { getLayers, getChromaStyles } from '../../lib/layers';
 import ChromaFilter from '../../components/ChromaFilter';
@@ -484,7 +485,7 @@ export default function ScreenDisplay() {
   const background = layout?.background || '#000000';
 
   return (
-    <div className="screen-display" style={{ background, position: 'relative',
+    <div className="screen-display" style={{ background, position: 'relative', cursor: 'none',
       ...(screenDimensions ? { width: screenDimensions.width, height: screenDimensions.height, overflow: 'hidden' } : {}),
       ...(displayProfile ? {
         filter: [
@@ -539,7 +540,9 @@ export default function ScreenDisplay() {
               gridColumn: `${(mod.x || 0) + 1} / span ${mod.w || 1}`,
               overflow: 'hidden'
             }}>
+              <ErrorBoundary silent name={mod.type || 'module'}>
               <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} />
+            </ErrorBoundary>
             </div>
           ))}
         </div>
@@ -594,7 +597,9 @@ export default function ScreenDisplay() {
                     zIndex: mod.layer || 0,
                   }}
                 >
+                  <ErrorBoundary silent name={mod.type || 'module'}>
                   <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
+                  </ErrorBoundary>
                 </div>
               ))}
               {/* Grid modules in this layer */}
@@ -616,7 +621,9 @@ export default function ScreenDisplay() {
                         overflow: 'hidden',
                       }}
                     >
+                    <ErrorBoundary silent name={mod.type || 'module'}>
                       <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
+                    </ErrorBoundary>
                     </div>
                   ))}
                 </div>
