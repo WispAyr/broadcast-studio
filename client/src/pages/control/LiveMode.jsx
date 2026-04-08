@@ -119,51 +119,41 @@ export default function LiveMode() {
         audioLevel={audioLevel}
       />
 
-      {/* Zone grid */}
-      <div className="flex-1 min-h-0" style={{
-        display: 'grid',
-        gridTemplateAreas: [
-          `"${hasLeft ? 'left ' : ''}${hasTop ? 'top' : 'center'} ${hasRight ? ' right' : ''}"`,
-          `"${hasLeft ? 'left ' : ''}center${hasRight ? ' right' : ''}"`,
-          hasBottom ? `"${hasLeft ? 'left ' : ''}bottom${hasRight ? ' right' : ''}"` : null,
-        ].filter(Boolean).join('\n'),
-        gridTemplateColumns: [hasLeft && '280px', '1fr', hasRight && '280px'].filter(Boolean).join(' '),
-        gridTemplateRows: [hasTop && 'auto', '1fr', hasBottom && 'auto'].filter(Boolean).join(' '),
-        gap: '2px',
-      }}>
-        {/* TOP ZONE */}
-        {hasTop && (
-          <div style={{ gridArea: 'top' }} className="flex items-center gap-2 px-2 py-1.5 bg-gray-900/50 border-b border-gray-800/50">
-            {isVisible('clockTally') && (
-              <ClockTally screensOnline={onlineCount} blackoutActive={blackoutActive} />
-            )}
-            {isVisible('transitions') && (
-              <TransitionControls
+      {/* Top zone */}
+      {hasTop && (
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-900/50 border-b border-gray-800/50 shrink-0">
+          {isVisible('clockTally') && (
+            <ClockTally screensOnline={onlineCount} blackoutActive={blackoutActive} />
+          )}
+          {isVisible('transitions') && (
+            <TransitionControls
+              transitionType={transitionType}
+              setTransitionType={setTransitionType}
+              transitionDuration={transitionDuration}
+              setTransitionDuration={setTransitionDuration}
+            />
+          )}
+          {isVisible('pvwPgm') && (
+            <div className="flex-1">
+              <PreviewProgram
+                compact
+                previewLayout={previewLayout}
+                programLayout={programLayout}
+                onTake={() => previewLayout && handleHotbarPush(previewLayout.id)}
+                onCut={() => previewLayout && handleHotbarPush(previewLayout.id)}
                 transitionType={transitionType}
-                setTransitionType={setTransitionType}
                 transitionDuration={transitionDuration}
-                setTransitionDuration={setTransitionDuration}
               />
-            )}
-            {isVisible('pvwPgm') && (
-              <div className="flex-1">
-                <PreviewProgram
-                  compact
-                  previewLayout={previewLayout}
-                  programLayout={programLayout}
-                  onTake={() => previewLayout && handleHotbarPush(previewLayout.id)}
-                  onCut={() => previewLayout && handleHotbarPush(previewLayout.id)}
-                  transitionType={transitionType}
-                  transitionDuration={transitionDuration}
-                />
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* LEFT ZONE */}
+      {/* Middle row: left | center | right */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left zone */}
         {hasLeft && (
-          <div style={{ gridArea: 'left' }} className="flex flex-col gap-1 p-1 border-r border-gray-800/50 overflow-y-auto">
+          <div className="w-[280px] shrink-0 flex flex-col gap-1 p-1 border-r border-gray-800/50 overflow-y-auto">
             {isVisible('cueList') && (
               <PanelShell title="Cue List" icon="📋" color="yellow" onClose={() => setPanelVisible('cueList', false)}>
                 <CueList
@@ -179,16 +169,16 @@ export default function LiveMode() {
           </div>
         )}
 
-        {/* CENTER ZONE */}
-        <div style={{ gridArea: 'center' }} className="min-h-0 min-w-0 overflow-hidden">
+        {/* Center zone */}
+        <div className="flex-1 min-w-0 overflow-hidden">
           {isVisible('screens') && (
             <LiveScreenGrid screens={screens} layouts={layouts} onPushLayout={handleHotbarPush} fetchData={fetchData} />
           )}
         </div>
 
-        {/* RIGHT ZONE */}
+        {/* Right zone */}
         {hasRight && (
-          <div style={{ gridArea: 'right' }} className="flex flex-col gap-1 p-1 border-l border-gray-800/50 overflow-y-auto">
+          <div className="w-[280px] shrink-0 flex flex-col gap-1 p-1 border-l border-gray-800/50 overflow-y-auto">
             {isVisible('overlays') && (
               <PanelShell title="Overlays" icon="🎭" color="purple" onClose={() => setPanelVisible('overlays', false)}>
                 <OverlayPanel
@@ -220,21 +210,21 @@ export default function LiveMode() {
             ))}
           </div>
         )}
-
-        {/* BOTTOM ZONE */}
-        {hasBottom && (
-          <div className="border-t border-gray-800/50"
-            style={{ gridArea: 'bottom', background: 'linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%)' }}>
-            <LayoutHotbar
-              layouts={layouts}
-              liveLayoutId={liveLayoutId}
-              onPush={handleHotbarPush}
-              onBlackout={() => setBlackoutConfirmOpen(true)}
-              blackoutActive={blackoutActive}
-            />
-          </div>
-        )}
       </div>
+
+      {/* Bottom zone */}
+      {hasBottom && (
+        <div className="shrink-0 border-t border-gray-800/50"
+          style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%)' }}>
+          <LayoutHotbar
+            layouts={layouts}
+            liveLayoutId={liveLayoutId}
+            onPush={handleHotbarPush}
+            onBlackout={() => setBlackoutConfirmOpen(true)}
+            blackoutActive={blackoutActive}
+          />
+        </div>
+      )}
 
       {/* Blackout confirm */}
       <ConfirmDialog
