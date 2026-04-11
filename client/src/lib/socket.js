@@ -7,11 +7,11 @@ export function getSocket() {
     const token = localStorage.getItem('broadcast_token');
     socket = io({
       autoConnect: false,
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // polling fallback for restrictive proxies
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 30000,
+      reconnectionDelayMax: 10000, // was 30s — faster recovery
       randomizationFactor: 0.2,
       timeout: 20000,
       auth: token ? { token } : {},

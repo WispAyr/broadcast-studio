@@ -97,6 +97,17 @@ CREATE TABLE screens (
 );
 ```
 
+### Counters
+Persistent key/value store for live event counters (e.g. Kiltwalk walker count).
+Values survive server restarts — no longer held in-memory only.
+```sql
+CREATE TABLE counters (
+  id TEXT PRIMARY KEY,       -- matches moduleId used in UI
+  value INTEGER DEFAULT 0,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
 ### Shows
 ```sql
 CREATE TABLE shows (
@@ -193,9 +204,18 @@ CREATE TABLE module_types (
 
 ### Screens
 - CRUD `/api/screens`
+- `GET /api/screens/deploy` - **Public** (no auth) — minimal screen list for venue deploy page
 - `POST /api/screens/:id/layout` - Set screen layout
 - `POST /api/screens/sync` - Sync all screens to one layout
 - `POST /api/screens/emergency` - Emergency layout override
+
+### Counters
+> Persistent across server restarts via SQLite `counters` table.
+- `GET /api/counter/all` — All counter values (used by screens on reconnect to resync)
+- `GET /api/counter/:id` — Single counter value
+- `POST /api/counter/:id/bump` — Increment by `{delta}` (default 1)
+- `POST /api/counter/:id/set` — Set absolute `{value}`
+- `POST /api/counter/:id/reset` — Reset to 0
 
 ### Shows
 - CRUD `/api/shows`
@@ -216,13 +236,23 @@ CREATE TABLE module_types (
 
 ## Frontend Pages
 
-### Control Panel (`/control`)
+### Control Panel (`/control/*`) — requires login
 - **Dashboard** - Live screen monitors (thumbnails/status of all screens)
 - **Shows** - Manage shows, activate/deactivate
 - **Layouts** - Create/edit layouts with drag-drop grid builder
 - **Screens** - Manage screens, assign layouts
 - **Timeline** - Visual timeline editor
 - **Settings** - Studio settings, users
+
+### Deploy Page (`/deploy`) — **public, no login required**
+Standalone venue deployment page. Lists all screens grouped by studio with:
+- Live online/offline status (auto-refreshes every 10s)
+- **Launch Player** button — opens `/screen/:id` in a new tab
+- **Kiosk button** — opens a frameless window and requests fullscreen
+- **QR code** — scan to open the player on any device
+- **Copy URL** — one-click copy of the full player URL
+
+Uses `GET /api/screens/deploy` (public endpoint — no token needed).
 
 ### Screen Display (`/screen/:id`)
 - Full-screen, no chrome
@@ -283,11 +313,18 @@ One-click override that:
 4. Logged with timestamp
 
 ## Key Behaviors
-- Screens auto-reconnect on WebSocket disconnect
-- Screens show "DISCONNECTED" overlay when server unreachable
+- Screens auto-reconnect on WebSocket disconnect (reconnectionDelayMax: 10s)
+- Screens show "DISCONNECTED" overlay when server unreachable (behavior: message/black/freeze per screen config)
 - Control panel shows real-time screen status (online/offline/last seen)
 - All state changes logged for audit
 - Layouts saved instantly (no "save" button needed in editor)
+
+### Player Resilience
+- **localStorage layout cache** — on every layout receive the player writes to `localStorage`. On browser restart or power cycle, the cached layout is rendered immediately before the WebSocket connects. Screen is never blank on cold start.
+- **Counter persistence** — counter values are stored in SQLite, not just in-memory. Server restarts no longer wipe live event counts. Cache is warmed from DB on startup.
+- **Counter resync on reconnect** — when a screen reconnects it calls `GET /api/counter/all` to restore up-to-date module counts.
+- **Transport fallback** — Socket.IO client uses `['websocket', 'polling']` so screens work behind proxies that don't support WS upgrades.
+- **Heartbeat: 10s** — reduced from 30s. Server pingTimeout: 30s, pingInterval: 10s. Zombie/stale screens detected within ~40s.
 
 ## Seed Data
 Create a default studio "Now Ayrshire Radio" with slug "now-ayrshire":
@@ -330,9 +367,14 @@ broadcast-studio/
 │   │   │   │   ├── Layouts.jsx      # Drag-drop layout builder
 │   │   │   │   ├── Screens.jsx
 │   │   │   │   ├── Timeline.jsx
-│   │   │   │   └── Settings.jsx
+│   │   │   │   ├── Settings.jsx
+│   │   │   │   ├── EgpkScenes.jsx   # EGPK event scene control
+│   │   │   │   ├── AutocueController.jsx
+│   │   │   │   ├── Admin.jsx
+│   │   │   │   └── Deploy.jsx       # Public venue deploy page (/deploy)
 │   │   │   └── screen/
-│   │   │       └── ScreenDisplay.jsx  # Full-screen renderer
+│   │   │       ├── ScreenDisplay.jsx  # Full-screen renderer (with localStorage cache + resilience)
+│   │   │       └── ScreenOnboard.jsx  # PIN/QR onboarding flow
 │   │   ├── modules/
 │   │   │   ├── index.js        # Module registry
 │   │   │   ├── ClockModule.jsx
@@ -368,6 +410,7 @@ broadcast-studio/
 │   ├── vite.config.js
 │   └── package.json
 ├── SPEC.md
+├── TODO.md          # Known bugs and diagnosed issues
 └── README.md
 ```
 

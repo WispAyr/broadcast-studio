@@ -34,6 +34,7 @@ import QRCodeModule from './QRCodeModule';
 import VisualizerModule from './VisualizerModule';
 import RemotionModule from './RemotionModule';
 import CanvaModule from './CanvaModule';
+import TemplateModule from './TemplateModule';
 
 
 import KiltwalkerCounterModule from './KiltwalkerCounterModule';
@@ -89,6 +90,7 @@ const moduleRegistry = {
   visualizer: VisualizerModule,
   remotion: RemotionModule,
   canva: CanvaModule,
+  template: TemplateModule,    // Live template composition player
   // Kiltwalk event modules
   kiltwalk_finish: KiltwalkerCounterModule,
   'kiltwalk-finisher-counter': KiltwalkerCounterModule,

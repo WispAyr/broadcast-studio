@@ -93,6 +93,12 @@ db.exec(`
     default_config TEXT DEFAULT '{}',
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS counters (
+    id TEXT PRIMARY KEY,
+    value INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Seed function
@@ -319,6 +325,49 @@ function getAllModuleTypes() {
   return db.prepare('SELECT * FROM module_types ORDER BY name').all();
 }
 
+// Counter helpers — persistent across server restarts
+function getCounter(id) {
+  const row = db.prepare('SELECT value FROM counters WHERE id = ?').get(id);
+  return row ? row.value : 0;
+}
+
+function setCounter(id, value) {
+  db.prepare(`
+    INSERT INTO counters (id, value, updated_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(id, value);
+  // Keep in-memory cache in sync
+  if (!global._counterState) global._counterState = {};
+  global._counterState[id] = value;
+  return value;
+}
+
+function bumpCounter(id, delta = 1) {
+  const current = getCounter(id);
+  return setCounter(id, current + delta);
+}
+
+function resetCounter(id) {
+  return setCounter(id, 0);
+}
+
+function getAllCounters() {
+  return db.prepare('SELECT id, value FROM counters').all();
+}
+
+// Warm up in-memory counter cache from DB on startup
+(function warmCounterCache() {
+  try {
+    if (!global._counterState) global._counterState = {};
+    const rows = db.prepare('SELECT id, value FROM counters').all();
+    for (const row of rows) {
+      global._counterState[row.id] = row.value;
+    }
+    if (rows.length > 0) console.log(`[counters] Restored ${rows.length} counter(s) from DB`);
+  } catch { /* table may not exist yet on first run */ }
+})();
+
 module.exports = {
   db,
   seed,
@@ -332,5 +381,10 @@ module.exports = {
   getLayoutById,
   getShowsByStudio,
   getShowById,
-  getAllModuleTypes
+  getAllModuleTypes,
+  getCounter,
+  setCounter,
+  bumpCounter,
+  resetCounter,
+  getAllCounters
 };

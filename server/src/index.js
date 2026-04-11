@@ -61,7 +61,7 @@ app.use('/player', express.static(path.join(__dirname, '..', 'public', 'player')
 
 // Timeline routes (inline)
 const { startTimeline, stopTimeline } = require('./timeline');
-const { db, getShowById, getLayoutById } = require('./db');
+const { db, getShowById, getLayoutById, getCounter, setCounter, bumpCounter, resetCounter } = require('./db');
 
 // GET /api/timeline/current
 app.get('/api/timeline/current', authenticate, (req, res) => {
@@ -163,43 +163,48 @@ app.get('/api/siphon-proxy/:preset', async (req, res) => {
 // POST /api/counter/:id/bump — increment by delta (default 1)
 // POST /api/counter/:id/set — set absolute value
 // POST /api/counter/:id/reset — reset to 0
+// GET /api/counter/all — fetch ALL counter values (used by screens on reconnect)
+app.get('/api/counter/all', (req, res) => {
+  const { getAllCounters } = require('./db');
+  const counters = getAllCounters();
+  res.json(counters);
+});
+
 app.get('/api/counter/:id', (req, res) => {
-  if (!global._counterState) global._counterState = {};
-  res.json({ id: req.params.id, count: global._counterState[req.params.id] || 0 });
+  const count = getCounter(req.params.id);
+  res.json({ id: req.params.id, count });
 });
 
 app.post('/api/counter/:id/bump', express.json(), (req, res) => {
-  if (!global._counterState) global._counterState = {};
   const id = req.params.id;
   const delta = req.body?.delta || 1;
-  global._counterState[id] = (global._counterState[id] || 0) + delta;
+  const count = bumpCounter(id, delta);
   // Push to all screens via WebSocket
   const { getIO } = require('./ws');
   try {
-    getIO().emit('update_module_config', { moduleId: id, config: { count: global._counterState[id] } });
+    getIO().emit('update_module_config', { moduleId: id, config: { count } });
   } catch {}
-  res.json({ id, count: global._counterState[id] });
+  res.json({ id, count });
 });
 
 app.post('/api/counter/:id/set', express.json(), (req, res) => {
-  if (!global._counterState) global._counterState = {};
   const id = req.params.id;
-  global._counterState[id] = req.body?.value || 0;
+  const count = setCounter(id, req.body?.value ?? 0);
   const { getIO } = require('./ws');
   try {
-    getIO().emit('update_module_config', { moduleId: id, config: { count: global._counterState[id] } });
+    getIO().emit('update_module_config', { moduleId: id, config: { count } });
   } catch {}
-  res.json({ id, count: global._counterState[id] });
+  res.json({ id, count });
 });
 
 app.post('/api/counter/:id/reset', (req, res) => {
-  if (!global._counterState) global._counterState = {};
-  global._counterState[req.params.id] = 0;
+  const id = req.params.id;
+  const count = resetCounter(id);
   const { getIO } = require('./ws');
   try {
-    getIO().emit('update_module_config', { moduleId: req.params.id, config: { count: 0 } });
+    getIO().emit('update_module_config', { moduleId: id, config: { count } });
   } catch {}
-  res.json({ id: req.params.id, count: 0 });
+  res.json({ id, count });
 });
 
 // Generic module config update API

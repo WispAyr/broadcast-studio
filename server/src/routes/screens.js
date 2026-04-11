@@ -6,7 +6,31 @@ const { getIO } = require('../ws');
 
 const router = express.Router();
 
-// GET / - list screens
+// GET /deploy - public screen list for venue deploy page (no auth required)
+// Only returns safe, minimal fields — no config or sensitive data
+router.get('/deploy', (req, res) => {
+  try {
+    const screens = db.prepare(`
+      SELECT
+        sc.id,
+        sc.name,
+        sc.screen_number,
+        sc.is_online,
+        sc.last_seen,
+        s.name  AS studio_name,
+        l.name  AS layout_name
+      FROM screens sc
+      LEFT JOIN studios  s ON sc.studio_id = s.id
+      LEFT JOIN layouts  l ON sc.current_layout_id = l.id
+      ORDER BY s.name, sc.screen_number
+    `).all();
+    res.json(screens);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET / - list screens (authenticated)
 router.get('/', authenticate, (req, res) => {
   try {
     let screens;

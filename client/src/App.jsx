@@ -22,6 +22,7 @@ const TemplateEditor = React.lazy(() => import('./pages/control/TemplateEditor')
 const Admin = React.lazy(() => import('./pages/control/Admin'));
 const EgpkScenes = React.lazy(() => import("./pages/control/EgpkScenes"));
 const AutocueController = React.lazy(() => import('./pages/control/AutocueController'));
+const Deploy = React.lazy(() => import('./pages/control/Deploy'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="egpk" element={<EgpkScenes />} />
       </Route>
       <Route path="/screen/:id" element={<ScreenDisplay />} />
+      <Route path="/deploy" element={<Deploy />} />
       <Route path="/god" element={<ProtectedRoute><GodView /></ProtectedRoute>} />
     </Routes>
     </Suspense>

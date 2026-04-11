@@ -154,6 +154,38 @@ function defaultElement(type) {
   return base;
 }
 
+// ─── Particles Element (must be its own component so useMemo is at top level) ───
+function ParticlesElement({ el, style, handleMouseDown, scale }) {
+  const pc = el.particleConfig || {};
+  // useMemo is valid here — this IS a component, not a nested call
+  const particles = useMemo(
+    () => Array.from({ length: Math.min(pc.count || 50, 100) }, () => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: (pc.size || 4) * (0.5 + Math.random()),
+      opacity: 0.3 + Math.random() * 0.7,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pc.count, pc.size]
+  );
+  return (
+    <div style={{ ...style, overflow: 'hidden' }} onMouseDown={handleMouseDown}>
+      {particles.map((p, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          left: `${p.x}%`,
+          top: `${p.y}%`,
+          width: p.size * scale,
+          height: p.size * scale,
+          borderRadius: '50%',
+          background: pc.color || '#ff6600',
+          opacity: p.opacity,
+        }} />
+      ))}
+    </div>
+  );
+}
+
 // ─── Canvas Element Renderer ───
 // Video element with proper cleanup to prevent ghost framesfunction VideoElement({ src, fit, autoplay, loop, muted, style: outerStyle }) {  const videoRef = useRef(null);  useEffect(() => {    return () => {      if (videoRef.current) {        videoRef.current.pause();        videoRef.current.removeAttribute("src");        videoRef.current.load();      }    };  }, []);  useEffect(() => {    if (videoRef.current && src) {      videoRef.current.src = src;      if (autoplay !== false) videoRef.current.play().catch(() => {});    }  }, [src]);  return <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: fit || "cover" }}    autoPlay={autoplay !== false} loop={loop !== false} muted={muted !== false} playsInline />;}
 function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
@@ -265,29 +297,8 @@ function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
       <div style={{ ...style, background: grad, borderRadius: elStyle.borderRadius || 0 }} onMouseDown={handleMouseDown} />
     );
   } else if (el.type === 'particles') {
-    const pc = el.particleConfig || {};
-    // Static particle preview (actual animation would be in Remotion)
-    const particles = useMemo(() => Array.from({ length: Math.min(pc.count || 50, 100) }, (_, i) => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: (pc.size || 4) * (0.5 + Math.random()),
-    })), [pc.count, pc.size]);
-    content = (
-      <div style={{ ...style, overflow: 'hidden' }} onMouseDown={handleMouseDown}>
-        {particles.map((p, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            left: `${p.x}%`,
-            top: `${p.y}%`,
-            width: p.size * scale,
-            height: p.size * scale,
-            borderRadius: '50%',
-            background: pc.color || '#ff6600',
-            opacity: 0.3 + Math.random() * 0.7,
-          }} />
-        ))}
-      </div>
-    );
+    // Render as its own component so useMemo is at component scope (not inside .map)
+    content = <ParticlesElement el={el} style={style} handleMouseDown={handleMouseDown} scale={scale} />;
   }
 
   return content;
@@ -473,7 +484,54 @@ export default function TemplateEditor() {
   async function save() {
     setSaving(true);
     try {
-      await api.put(`/templates/${id}`, { ...template, elements });
+      // Capture a thumbnail of the canvas at reduced resolution
+      let thumbnail = null;
+      if (canvasRef.current) {
+        try {
+          const el = canvasRef.current;
+          const w = el.offsetWidth;
+          const h = el.offsetHeight;
+          const data = new XMLSerializer().serializeToString(
+            (() => {
+              // Build an SVG that embeds the canvas div as a foreignObject
+              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+              svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+              svg.setAttribute('width', String(w));
+              svg.setAttribute('height', String(h));
+              const fo = document.createElementNS('http://www.w3.org/2000/svg', 'foreignObject');
+              fo.setAttribute('width', '100%');
+              fo.setAttribute('height', '100%');
+              fo.appendChild(el.cloneNode(true));
+              svg.appendChild(fo);
+              return svg;
+            })()
+          );
+          const blob = new Blob([data], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const THUMB_W = 480;
+              const THUMB_H = Math.round(THUMB_W * (h / w));
+              const c = document.createElement('canvas');
+              c.width = THUMB_W;
+              c.height = THUMB_H;
+              const ctx = c.getContext('2d');
+              ctx.drawImage(img, 0, 0, THUMB_W, THUMB_H);
+              thumbnail = c.toDataURL('image/jpeg', 0.7);
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+            img.src = url;
+          });
+        } catch { /* thumbnail capture failed — save without it */ }
+      }
+      await api.put(`/templates/${id}`, {
+        ...template,
+        elements,
+        ...(thumbnail ? { thumbnail } : {}),
+      });
       setDirty(false);
     } catch (err) { console.error(err); }
     setSaving(false);

@@ -119,6 +119,21 @@ export default function ScreenDisplay() {
   const sourceCanvasRef = useRef(null);
   const projectionRef = useRef(null);
 
+  // Load cached layout from localStorage immediately (before WS connects)
+  // so screen is never blank on browser restart / power cycle
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(`bs_layout_${id}`);
+      if (cached) {
+        const l = JSON.parse(cached);
+        setLayout(l);
+        const raw = typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []);
+        setModules(Array.isArray(raw) ? raw : (raw.layers ? raw.layers.flatMap(layer => layer.modules || []) : []));
+      }
+    } catch { /* corrupted cache — ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   // Smooth layout transition with effects
   const applyLayout = useCallback((newLayout, transition, duration) => {
     if (!newLayout) return;
@@ -136,13 +151,17 @@ export default function ScreenDisplay() {
         : (newLayout.modules || []);
       const mods = Array.isArray(raw) ? raw : (raw.layers ? raw.layers.flatMap(l => l.modules || []) : []);
       setModules(mods);
+      // Persist to localStorage so cold-start has something to show
+      try {
+        localStorage.setItem(`bs_layout_${id}`, JSON.stringify(newLayout));
+      } catch { /* storage full or unavailable */ }
       setTimeout(() => {
         setTransitioning(false);
         setPrevLayout(null);
         setPrevModules([]);
       }, effect === 'cut' ? 0 : dur);
     }, effect === 'cut' ? 0 : 50);
-  }, [layout, modules]);
+  }, [layout, modules, id]);
 
   // Fetch screen data (public, no auth required)
   const fetchScreenData = useCallback(async () => {
@@ -227,8 +246,24 @@ export default function ScreenDisplay() {
       setConnected(true);
       setReconnectCount(0);
       socket.emit('register_screen', { screenId: id });
-      // Re-fetch layout on reconnect
+      // Re-fetch layout + display profile on reconnect
       fetchScreenDataRef.current();
+      // Re-fetch any counter modules so their values are fresh after a server
+      // restart (counters are now persisted in DB, so this is authoritative)
+      fetch(`/api/counter/all`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (Array.isArray(data)) {
+            data.forEach(({ id: moduleId, count }) => {
+              setModules(prev =>
+                prev.map(m =>
+                  m.id === moduleId ? { ...m, config: { ...m.config, count } } : m
+                )
+              );
+            });
+          }
+        })
+        .catch(() => {});
     });
 
     socket.on('disconnect', () => {
@@ -328,12 +363,12 @@ export default function ScreenDisplay() {
       );
     });
 
-    // Heartbeat every 30 seconds
+    // Heartbeat every 10 seconds (was 30s) — matches tighter server pingInterval
     heartbeatRef.current = setInterval(() => {
       if (socket.connected) {
         socket.emit('screen_heartbeat', { screenId: id });
       }
-    }, 30000);
+    }, 10000);
 
     return () => {
       socket.off('connect');

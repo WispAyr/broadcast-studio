@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { db } = require('./db');
+const { bumpCounter, setCounter } = require('./db');
 const { JWT_SECRET } = require('./middleware/auth');
 
 let io = null;
@@ -18,8 +19,8 @@ function setupWebSocket(server) {
       origin: '*',
       methods: ['GET', 'POST']
     },
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    pingTimeout: 30000,
+    pingInterval: 10000,
     transports: ['websocket', 'polling'],
   });
 
@@ -126,31 +127,28 @@ function setupWebSocket(server) {
 
     // Counter bump — convenience event for incrementing a counter
     socket.on('counter_bump', ({ studioId, moduleId, delta }) => {
-      // Store in a simple in-memory counter state
-      if (!global._counterState) global._counterState = {};
       const key = moduleId || 'default';
-      global._counterState[key] = (global._counterState[key] || 0) + (delta || 1);
-      const payload = { moduleId, config: { count: global._counterState[key] }, timestamp: Date.now() };
+      const count = bumpCounter(key, delta || 1);
+      const payload = { moduleId, config: { count }, timestamp: Date.now() };
       if (studioId) {
         io.to(`studio:${studioId}`).emit('update_module_config', payload);
       } else {
         io.emit('update_module_config', payload);
       }
-      console.log(`Counter bump: ${key} -> ${global._counterState[key]}`);
+      console.log(`Counter bump: ${key} -> ${count}`);
     });
 
     // Counter set — set absolute value
     socket.on('counter_set', ({ studioId, moduleId, value }) => {
-      if (!global._counterState) global._counterState = {};
       const key = moduleId || 'default';
-      global._counterState[key] = value || 0;
-      const payload = { moduleId, config: { count: global._counterState[key] }, timestamp: Date.now() };
+      const count = setCounter(key, value || 0);
+      const payload = { moduleId, config: { count }, timestamp: Date.now() };
       if (studioId) {
         io.to(`studio:${studioId}`).emit('update_module_config', payload);
       } else {
         io.emit('update_module_config', payload);
       }
-      console.log(`Counter set: ${key} = ${global._counterState[key]}`);
+      console.log(`Counter set: ${key} = ${count}`);
     });
 
 
