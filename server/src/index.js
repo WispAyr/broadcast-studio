@@ -7,6 +7,7 @@ const { seed } = require('./db');
 const { setupWebSocket } = require('./ws');
 const { getCurrentState } = require('./timeline');
 const { authenticate } = require('./middleware/auth');
+const { startNuro, getNuroManifest } = require('./nuro');
 
 // Run seed on startup
 seed();
@@ -53,6 +54,18 @@ app.use('/api/autocue', require('./routes/autocue'));
 app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 app.use("/api/obs", require("./routes/obs"));
 app.use("/api/egpk", require("./routes/egpk"));
+app.use('/api/nuro', require('./routes/nuro'));
+
+// ── Health endpoint — required by Nuro hub coherence sweeps ──
+app.get('/api/health', (req, res) => {
+  res.json({
+    status:  'ok',
+    service: 'broadcast-studio',
+    version: '1.0.0',
+    uptime_s: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
@@ -226,11 +239,9 @@ app.post('/api/modules/:moduleId/config', express.json(), (req, res) => {
 // Serve static files from client build
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
 
-// Nuro streams endpoint
+// Nuro capabilities manifest — full live snapshot
 app.get('/api/nuro', (req, res) => {
-  res.json({ version: '2.0', label: 'Broadcast Studio', icon: '\U0001f399', description: 'Audio broadcast production', streams: [
-    { label: 'System Status', type: 'gauge', value: 100 },
-  ]});
+  res.json(getNuroManifest());
 });
 
 app.use(express.static(clientDist));
@@ -246,4 +257,6 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3945;
 server.listen(PORT, () => {
   console.log(`Broadcast Studio running on port ${PORT}`);
+  // Start Nuro heartbeat/telemetry loops after server is ready
+  startNuro();
 });

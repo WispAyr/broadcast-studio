@@ -23,6 +23,13 @@ export default function Dashboard() {
   const [quickTextScreen, setQuickTextScreen] = useState('all');
   const [selectedScreens, setSelectedScreens] = useState(new Set());
 
+  // Nuro integration state
+  const [nuroAlerts, setNuroAlerts] = useState([]);
+  const [nuroExpanded, setNuroExpanded] = useState(false);
+  const [sendAlertOpen, setSendAlertOpen] = useState(false);
+  const [sendAlertForm, setSendAlertForm] = useState({ type: 'INFO', title: '', body: '' });
+  const [sendAlertLoading, setSendAlertLoading] = useState(false);
+
   const toast = useToast();
   const studioId = JSON.parse(localStorage.getItem('broadcast_user') || '{}').studio_id || 'default';
   const { active: audioBroadcast, level: audioLevel, toggle: toggleAudioBroadcast } = useAudioBroadcast(studioId);
@@ -39,8 +46,16 @@ export default function Dashboard() {
     }
   }, []);
 
+  const fetchNuroAlerts = useCallback(async () => {
+    try {
+      const data = await api.get('/nuro/alerts?limit=20');
+      if (data?.alerts) setNuroAlerts(data.alerts);
+    } catch { /* not fatal */ }
+  }, []);
+
   useEffect(() => {
     fetchData();
+    fetchNuroAlerts();
     const socket = connectSocket();
     socket.emit('join_studio', { studioId });
 
@@ -54,9 +69,20 @@ export default function Dashboard() {
       setScreens(prev => prev.map(s => s.id === data.screenId ? { ...s, current_layout: data.layout, current_layout_id: data.layoutId || s.current_layout_id, _previewUpdated: Date.now() } : s));
     });
 
+    // Live Nuro alerts from the server WebSocket relay
+    socket.on('nuro_alert', (alertData) => {
+      setNuroAlerts(prev => [alertData, ...prev].slice(0, 20));
+      setNuroExpanded(true); // auto-open panel on new alert
+    });
+
     const refreshInterval = setInterval(fetchData, 15000);
-    return () => { socket.off('screen_status'); socket.off('screen_preview'); clearInterval(refreshInterval); };
-  }, [fetchData]);
+    return () => {
+      socket.off('screen_status');
+      socket.off('screen_preview');
+      socket.off('nuro_alert');
+      clearInterval(refreshInterval);
+    };
+  }, [fetchData, fetchNuroAlerts]);
 
   // Keyboard shortcuts: 1-9 push layout, B blackout
   useEffect(() => {
@@ -255,6 +281,76 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ── Nuro Alert Panel ──────────────────────────────────────── */}
+        <div className={`mb-6 rounded-xl border overflow-hidden transition-all ${
+          nuroAlerts.length > 0
+            ? 'border-emerald-800/40 bg-emerald-950/20'
+            : 'border-gray-800/50 bg-gray-900/40'
+        }`}>
+          <button
+            onClick={() => setNuroExpanded(v => !v)}
+            className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium transition-colors hover:bg-white/5"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">⬡</span>
+              <span className={nuroAlerts.length > 0 ? 'text-emerald-300' : 'text-gray-400'}>
+                Nuro Alerts
+              </span>
+              {nuroAlerts.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                  {nuroAlerts.length}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); setSendAlertOpen(true); }}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 transition-colors"
+              >
+                Send Alert
+              </button>
+              <svg className={`w-4 h-4 text-gray-500 transition-transform ${nuroExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </button>
+          {nuroExpanded && (
+            <div className="border-t border-gray-800/50">
+              {nuroAlerts.length === 0 ? (
+                <div className="px-5 py-6 text-center">
+                  <p className="text-gray-600 text-sm">No inbound Nuro alerts yet</p>
+                  <p className="text-gray-700 text-xs mt-1">Alerts from Dispatch or Prism will appear here</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-800/40 max-h-52 overflow-y-auto">
+                  {nuroAlerts.map(alert => {
+                    const typeColors = {
+                      EMERGENCY: 'text-red-400 bg-red-500/10',
+                      WARNING:   'text-amber-400 bg-amber-500/10',
+                      INFO:      'text-blue-400 bg-blue-500/10',
+                    };
+                    const typeColor = typeColors[alert.type] || typeColors.INFO;
+                    return (
+                      <div key={alert.id} className="flex items-start gap-3 px-5 py-3">
+                        <span className={`mt-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${typeColor}`}>
+                          {alert.type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-200 font-medium">{alert.title}</p>
+                          {alert.body && <p className="text-xs text-gray-500 mt-0.5 truncate">{alert.body}</p>}
+                          <p className="text-[10px] text-gray-600 mt-1">
+                            {alert.source} · {new Date(alert.received_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Screen Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {screens.map(screen => {
@@ -409,6 +505,67 @@ export default function Dashboard() {
                 className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors">Cancel</button>
               <button onClick={handleQuickText} disabled={!quickText.trim()}
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors">Send Live</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nuro Send Alert Modal */}
+      {sendAlertOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-xl border border-emerald-800/40 p-6 w-full max-w-md shadow-2xl shadow-emerald-900/20">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">⬡</span>
+              <h2 className="text-lg font-semibold text-emerald-300">Send Nuro Alert</h2>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">Push an alert from this studio upstream to the Nuro Dispatch engine.</p>
+            <select
+              value={sendAlertForm.type}
+              onChange={e => setSendAlertForm(f => ({ ...f, type: e.target.value }))}
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white mb-3 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="INFO">ℹ INFO</option>
+              <option value="WARNING">⚠ WARNING</option>
+              <option value="EMERGENCY">🚨 EMERGENCY</option>
+            </select>
+            <input
+              value={sendAlertForm.title}
+              onChange={e => setSendAlertForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Alert title…"
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white mb-3 focus:outline-none focus:border-emerald-500"
+              autoFocus
+            />
+            <textarea
+              value={sendAlertForm.body}
+              onChange={e => setSendAlertForm(f => ({ ...f, body: e.target.value }))}
+              placeholder="Body (optional)…"
+              rows={2}
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white mb-4 focus:outline-none focus:border-emerald-500 resize-none"
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setSendAlertOpen(false); setSendAlertForm({ type: 'INFO', title: '', body: '' }); }}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+              >Cancel</button>
+              <button
+                disabled={!sendAlertForm.title.trim() || sendAlertLoading}
+                onClick={async () => {
+                  setSendAlertLoading(true);
+                  try {
+                    await api.post('/nuro/send-alert', sendAlertForm);
+                    toast?.('Alert sent to Nuro', 'success');
+                    setSendAlertOpen(false);
+                    setSendAlertForm({ type: 'INFO', title: '', body: '' });
+                  } catch (err) {
+                    toast?.(err.message || 'Failed to send alert', 'error');
+                  } finally {
+                    setSendAlertLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-900 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {sendAlertLoading ? 'Sending…' : 'Send to Nuro'}
+              </button>
             </div>
           </div>
         </div>

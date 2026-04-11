@@ -5,6 +5,7 @@ import { useSocketStatus } from '../../lib/useSocketStatus';
 import { WorkspaceProvider, useWorkspaceContext } from '../../hooks/WorkspaceContext';
 import IconRail from './components/IconRail';
 import LiveMode from './LiveMode';
+import NuroStatusBadge from '../../components/NuroStatusBadge';
 
 const navItems = [
   { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
@@ -253,7 +254,7 @@ function ControlLayoutInner() {
               </div>
             </div>
           )}
-          {/* Connection status */}
+          {/* Connection status — local WebSocket */}
           <div className={`mx-3 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
             socketStatus.connected
               ? 'bg-green-500/10 text-green-400'
@@ -284,6 +285,8 @@ function ControlLayoutInner() {
               </>
             )}
           </div>
+          {/* Nuro hub connection */}
+          <NuroStatusBadge />
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:text-white hover:bg-gray-800/60 transition-colors"
