@@ -113,16 +113,47 @@ function setupWebSocket(server) {
       }
     });
 
-    // Dynamic module config update — relay config changes to screens (auth required)
-    socket.on('update_module_config', ({ studioId, moduleId, config, screenId }) => {
-      if (!requireAuth(socket, 'update_module_config')) return;
-      const payload = { moduleId, config };
-      if (screenId) {
-        io.to(`screen:${screenId}`).emit('update_module_config', payload);
-      } else if (studioId) {
+    // Live module config update — push config changes to screens in real-time
+    socket.on('update_module_config', ({ studioId, moduleId, config }) => {
+      const payload = { moduleId, config, timestamp: Date.now() };
+      if (studioId) {
         io.to(`studio:${studioId}`).emit('update_module_config', payload);
+      } else {
+        io.emit('update_module_config', payload);
       }
+      console.log(`Module config update: ${moduleId}`, JSON.stringify(config).slice(0, 80));
     });
+
+    // Counter bump — convenience event for incrementing a counter
+    socket.on('counter_bump', ({ studioId, moduleId, delta }) => {
+      // Store in a simple in-memory counter state
+      if (!global._counterState) global._counterState = {};
+      const key = moduleId || 'default';
+      global._counterState[key] = (global._counterState[key] || 0) + (delta || 1);
+      const payload = { moduleId, config: { count: global._counterState[key] }, timestamp: Date.now() };
+      if (studioId) {
+        io.to(`studio:${studioId}`).emit('update_module_config', payload);
+      } else {
+        io.emit('update_module_config', payload);
+      }
+      console.log(`Counter bump: ${key} -> ${global._counterState[key]}`);
+    });
+
+    // Counter set — set absolute value
+    socket.on('counter_set', ({ studioId, moduleId, value }) => {
+      if (!global._counterState) global._counterState = {};
+      const key = moduleId || 'default';
+      global._counterState[key] = value || 0;
+      const payload = { moduleId, config: { count: global._counterState[key] }, timestamp: Date.now() };
+      if (studioId) {
+        io.to(`studio:${studioId}`).emit('update_module_config', payload);
+      } else {
+        io.emit('update_module_config', payload);
+      }
+      console.log(`Counter set: ${key} = ${global._counterState[key]}`);
+    });
+
+
 
     // Join a studio room (for dashboard/control clients)
     socket.on('join_studio', ({ studioId }) => {

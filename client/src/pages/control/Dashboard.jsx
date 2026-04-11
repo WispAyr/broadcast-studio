@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [quickText, setQuickText] = useState('');
   const [quickTextSubtitle, setQuickTextSubtitle] = useState('');
   const [quickTextScreen, setQuickTextScreen] = useState('all');
+  const [selectedScreens, setSelectedScreens] = useState(new Set());
 
   const toast = useToast();
   const studioId = JSON.parse(localStorage.getItem('broadcast_user') || '{}').studio_id || 'default';
@@ -72,6 +73,23 @@ export default function Dashboard() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [layouts, blackoutActive]);
 
+  function toggleScreen(screenId) {
+    setSelectedScreens(prev => {
+      const next = new Set(prev);
+      if (next.has(screenId)) next.delete(screenId);
+      else next.add(screenId);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedScreens(new Set(screens.map(s => s.id)));
+  }
+
+  function selectNone() {
+    setSelectedScreens(new Set());
+  }
+
   async function handlePushLayout(screenId, layoutId) {
     try {
       await api.post(`/screens/${screenId}/layout`, { layout_id: layoutId });
@@ -85,10 +103,16 @@ export default function Dashboard() {
   async function handleHotbarPush(layoutId) {
     if (!layoutId) return;
     try {
-      await api.post('/screens/sync', { layout_id: layoutId });
+      const targets = selectedScreens.size > 0 ? [...selectedScreens] : screens.map(s => s.id);
+      if (targets.length === screens.length) {
+        await api.post('/screens/sync', { layout_id: layoutId });
+      } else {
+        await Promise.all(targets.map(sid => api.post(`/screens/${sid}/layout`, { layout_id: layoutId })));
+      }
       const bl = layouts.find(l => l.id === layoutId);
       setBlackoutActive(bl?.name?.includes('Blackout') || false);
-      toast?.('All screens synced', 'success');
+      const count = targets.length;
+      toast?.(count === screens.length ? 'All screens synced' : `${count} screen${count !== 1 ? 's' : ''} updated`, 'success');
       fetchData();
     } catch (err) { alert('Failed: ' + err.message); }
   }
@@ -188,6 +212,12 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold text-white">Dashboard</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-gray-500 text-sm">{screens.length} screen{screens.length !== 1 ? 's' : ''}</span>
+              {selectedScreens.size > 0 && (
+                <>
+                  <span className="text-gray-700">·</span>
+                  <span className="text-blue-400 text-sm font-medium">{selectedScreens.size} selected</span>
+                </>
+              )}
               <span className="text-gray-700">·</span>
               <span className={`inline-flex items-center gap-1.5 text-sm ${screens.filter(s => s.is_online).length > 0 ? 'text-green-400' : 'text-gray-600'}`}>
                 {screens.filter(s => s.is_online).length > 0 && (
@@ -201,6 +231,16 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-3">
+            <div className="flex items-center gap-1.5 mr-2">
+              <button onClick={selectAll}
+                className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  selectedScreens.size === screens.length ? 'bg-blue-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white'
+                }`}>All</button>
+              <button onClick={selectNone}
+                className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  selectedScreens.size === 0 ? 'bg-gray-700 text-white' : 'bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white'
+                }`}>None</button>
+            </div>
             <button onClick={toggleAudioBroadcast}
               className={`px-4 py-2 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${audioBroadcast ? 'bg-green-600 shadow-lg shadow-green-600/40' : 'bg-gray-700 hover:bg-gray-600'}`}>
               {audioBroadcast ? (
@@ -221,10 +261,27 @@ export default function Dashboard() {
             const layout = getLayoutForScreen(screen);
             const isOnline = screen.is_online;
             return (
-              <div key={screen.id} className={`bg-gray-900 rounded-xl border overflow-hidden transition-all hover:border-gray-700 ${
-                isOnline ? 'border-gray-700/60 shadow-lg shadow-black/20' : 'border-gray-800/60'
+              <div key={screen.id} onClick={() => toggleScreen(screen.id)}
+                className={`bg-gray-900 rounded-xl border overflow-hidden transition-all cursor-pointer ${
+                selectedScreens.has(screen.id)
+                  ? 'border-blue-500 ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/10'
+                  : isOnline ? 'border-gray-700/60 shadow-lg shadow-black/20 hover:border-gray-700' : 'border-gray-800/60 hover:border-gray-700'
               }`}>
                 <div className="relative bg-gray-950 p-4 flex items-center justify-center" style={{ minHeight: 160 }}>
+                  {/* Selection checkbox */}
+                  <div className="absolute top-2 left-2 z-10">
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                      selectedScreens.has(screen.id)
+                        ? 'bg-blue-600 border-blue-500'
+                        : 'border-gray-600 bg-gray-800/60 hover:border-gray-500'
+                    }`}>
+                      {selectedScreens.has(screen.id) && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
                   {layout ? <ScreenPreview layout={layout} /> : (
                     <div className="flex flex-col items-center gap-2">
                       <svg className="w-8 h-8 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +316,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="relative">
-                    <button onClick={() => setLayoutDropdownOpen(layoutDropdownOpen === screen.id ? null : screen.id)}
+                    <button onClick={(e) => { e.stopPropagation(); setLayoutDropdownOpen(layoutDropdownOpen === screen.id ? null : screen.id); }}
                       className="w-full px-3 py-2 bg-gray-800/80 hover:bg-gray-800 border border-gray-700/50 rounded-lg text-sm text-gray-300 font-medium transition-all hover:border-gray-600 flex items-center justify-center gap-2">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
                       Push Layout
@@ -267,7 +324,7 @@ export default function Dashboard() {
                     {layoutDropdownOpen === screen.id && (
                       <div className="absolute bottom-full left-0 right-0 mb-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-10 max-h-48 overflow-y-auto">
                         {layouts.map(l => (
-                          <button key={l.id} onClick={() => handlePushLayout(screen.id, l.id)}
+                          <button key={l.id} onClick={(e) => { e.stopPropagation(); handlePushLayout(screen.id, l.id); }}
                             className={`w-full text-left px-3 py-2 text-sm transition-colors ${screen.current_layout_id === l.id ? 'text-blue-400 bg-blue-600/10' : 'text-gray-300 hover:bg-gray-700'}`}>
                             {l.name}{screen.current_layout_id === l.id && <span className="ml-2 text-xs text-gray-500">(current)</span>}
                           </button>
@@ -331,6 +388,8 @@ export default function Dashboard() {
       )}
 
       {/* Quick Text Modal */}
+      
+
       {quickTextOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-xl border border-purple-800 p-6 w-full max-w-md">

@@ -46,16 +46,32 @@ function AudioMeter({ level }) {
 function ScreenTile({ screen, layout, onClick, selected }) {
   const isOnline = screen.is_online;
   const screenUrl = `/screen/${screen.id}`;
+  const containerRef = useRef(null);
+  const [scale, setScale] = useState(0.2);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateScale = () => {
+      const w = el.offsetWidth;
+      if (w > 0) setScale(w / 1920);
+    };
+    updateScale();
+    const ro = new ResizeObserver(updateScale);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div onClick={() => onClick(screen)}
       className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 group
         ${selected ? 'ring-2 ring-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.4)]' : 'ring-1 ring-white/5 hover:ring-white/20'}`}
       style={{ background: '#0a0e1a' }}>
-      <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-        <div className="absolute inset-0 bg-gray-950">
+      <div ref={containerRef} className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+        <div className="absolute inset-0 bg-gray-950 overflow-hidden">
           {isOnline ? (
-            <iframe src={screenUrl} className="w-full h-full border-0 pointer-events-none"
-              style={{ transform: 'scale(1)', transformOrigin: 'top left' }} title={screen.name} />
+            <iframe src={screenUrl} className="border-0 pointer-events-none"
+              style={{ width: '1920px', height: '1080px', transform: `scale(${scale})`, transformOrigin: 'top left' }} title={screen.name} />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2">
               <svg className="w-8 h-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">

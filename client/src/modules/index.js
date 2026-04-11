@@ -35,6 +35,18 @@ import VisualizerModule from './VisualizerModule';
 import RemotionModule from './RemotionModule';
 import CanvaModule from './CanvaModule';
 
+
+import KiltwalkerCounterModule from './KiltwalkerCounterModule';
+import KiltwalkSponsorModule from './KiltwalkSponsorModule';
+import KiltwalkRouteModule from './KiltwalkRouteModule';
+import KiltwalkStatsModule from './KiltwalkStatsModule';
+import KiltwalkTickerModule from './KiltwalkTickerModule';
+import KiltwalkWeatherModule from './KiltwalkWeatherModule';
+import KiltwalkCourseMapModule from './KiltwalkCourseMapModule';
+import KiltwalkBumperModule from './KiltwalkBumperModule';
+import KiltwalkLogoAnimModule from './KiltwalkLogoAnimModule';
+import SiphonDataModule from './SiphonDataModule';
+
 const moduleRegistry = {
   clock: ClockModule,
   countdown: CountdownModule,
@@ -77,6 +89,26 @@ const moduleRegistry = {
   visualizer: VisualizerModule,
   remotion: RemotionModule,
   canva: CanvaModule,
+  // Kiltwalk event modules
+  kiltwalk_finish: KiltwalkerCounterModule,
+  'kiltwalk-finisher-counter': KiltwalkerCounterModule,
+  'kiltwalk-sponsor-rotation': KiltwalkSponsorModule,
+  'kiltwalk-route-progress': KiltwalkRouteModule,
+  'kiltwalk-hourly-stats': KiltwalkStatsModule,
+  'kiltwalk-charity-ticker': KiltwalkTickerModule,
+  'kiltwalk-weather-compact': KiltwalkWeatherModule,
+  'kiltwalk-live-camera': CameraFeedModule,
+  'kiltwalk-course-map': KiltwalkCourseMapModule,
+  'kiltwalk-bumper': KiltwalkBumperModule,
+  'kiltwalk-logo-anim': KiltwalkLogoAnimModule,
+  'kiltwalk-ident': KiltwalkLogoAnimModule,
+  'siphon-data': SiphonDataModule,
+  'siphon-weather': SiphonDataModule,
+  'siphon-aqi': SiphonDataModule,
+  'siphon-marine': SiphonDataModule,
+  'siphon-radiation': SiphonDataModule,
+  'siphon-grid': SiphonDataModule,
+  'siphon-proton': SiphonDataModule,
 };
 
 export default moduleRegistry;

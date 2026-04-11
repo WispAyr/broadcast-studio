@@ -20,6 +20,7 @@ const Settings = React.lazy(() => import('./pages/control/Settings'));
 const Templates = React.lazy(() => import('./pages/control/Templates'));
 const TemplateEditor = React.lazy(() => import('./pages/control/TemplateEditor'));
 const Admin = React.lazy(() => import('./pages/control/Admin'));
+const EgpkScenes = React.lazy(() => import("./pages/control/EgpkScenes"));
 const AutocueController = React.lazy(() => import('./pages/control/AutocueController'));
 
 // Minimal loading fallback
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="settings" element={<Settings />} />
         <Route path="autocue" element={<AutocueController />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="egpk" element={<EgpkScenes />} />
       </Route>
       <Route path="/screen/:id" element={<ScreenDisplay />} />
       <Route path="/god" element={<ProtectedRoute><GodView /></ProtectedRoute>} />

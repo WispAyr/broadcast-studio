@@ -541,8 +541,9 @@ export default function ScreenDisplay() {
               overflow: 'hidden'
             }}>
               <ErrorBoundary silent name={mod.type || 'module'}>
-              <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} />
+              <ModuleRenderer socket={socketRef.current} type={mod.type || mod.module || mod.module_type} config={mod.config || {}} />
             </ErrorBoundary>
+
             </div>
           ))}
         </div>
@@ -598,8 +599,9 @@ export default function ScreenDisplay() {
                   }}
                 >
                   <ErrorBoundary silent name={mod.type || 'module'}>
-                  <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
+                  <ModuleRenderer socket={socketRef.current} type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
                   </ErrorBoundary>
+
                 </div>
               ))}
               {/* Grid modules in this layer */}
@@ -622,8 +624,9 @@ export default function ScreenDisplay() {
                       }}
                     >
                     <ErrorBoundary silent name={mod.type || 'module'}>
-                      <ModuleRenderer type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
+                      <ModuleRenderer socket={socketRef.current} type={mod.type || mod.module || mod.module_type} config={mod.config || {}} moduleId={mod.id} />
                     </ErrorBoundary>
+
                     </div>
                   ))}
                 </div>

@@ -51,9 +51,12 @@ app.use('/api/templates', require('./routes/templates'));
 app.use('/api/cues', require('./routes/cues'));
 app.use('/api/autocue', require('./routes/autocue'));
 app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
+app.use("/api/obs", require("./routes/obs"));
+app.use("/api/egpk", require("./routes/egpk"));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
+app.use('/assets', express.static(path.join(__dirname, '..', 'public', 'assets')));
 app.use('/player', express.static(path.join(__dirname, '..', 'public', 'player')));
 
 // Timeline routes (inline)
@@ -128,6 +131,92 @@ app.post('/api/timeline/resume', authenticate, (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+// Siphon data proxy — avoids CORS issues for screen modules
+
+const SIPHON_ENDPOINTS = {
+  weather: 'http://142.202.191.208:3882/api/weather/ayr',
+  aqi: 'http://142.202.191.208:3882/api/weather/ayr',
+  marine: 'http://142.202.191.208:3882/api/marine',
+  radiation: 'http://142.202.191.208:3882/api/radiation/monitors',
+  grid: 'http://142.202.191.208:3882/api/grid/frequency',
+  proton: 'http://142.202.191.208:3882/api/proton-flux',
+  earthquakes: 'http://142.202.191.208:3882/api/earthquakes',
+};
+app.get('/api/siphon-proxy/:preset', async (req, res) => {
+  const preset = req.params.preset;
+  const url = SIPHON_ENDPOINTS[preset];
+  if (!url) return res.status(404).json({ error: 'Unknown preset' });
+  try {
+    const r = await fetch(url, { timeout: 8000 });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+
+// ── Live Counter Control API ──
+// GET /api/counter/:id — get current count
+// POST /api/counter/:id/bump — increment by delta (default 1)
+// POST /api/counter/:id/set — set absolute value
+// POST /api/counter/:id/reset — reset to 0
+app.get('/api/counter/:id', (req, res) => {
+  if (!global._counterState) global._counterState = {};
+  res.json({ id: req.params.id, count: global._counterState[req.params.id] || 0 });
+});
+
+app.post('/api/counter/:id/bump', express.json(), (req, res) => {
+  if (!global._counterState) global._counterState = {};
+  const id = req.params.id;
+  const delta = req.body?.delta || 1;
+  global._counterState[id] = (global._counterState[id] || 0) + delta;
+  // Push to all screens via WebSocket
+  const { getIO } = require('./ws');
+  try {
+    getIO().emit('update_module_config', { moduleId: id, config: { count: global._counterState[id] } });
+  } catch {}
+  res.json({ id, count: global._counterState[id] });
+});
+
+app.post('/api/counter/:id/set', express.json(), (req, res) => {
+  if (!global._counterState) global._counterState = {};
+  const id = req.params.id;
+  global._counterState[id] = req.body?.value || 0;
+  const { getIO } = require('./ws');
+  try {
+    getIO().emit('update_module_config', { moduleId: id, config: { count: global._counterState[id] } });
+  } catch {}
+  res.json({ id, count: global._counterState[id] });
+});
+
+app.post('/api/counter/:id/reset', (req, res) => {
+  if (!global._counterState) global._counterState = {};
+  global._counterState[req.params.id] = 0;
+  const { getIO } = require('./ws');
+  try {
+    getIO().emit('update_module_config', { moduleId: req.params.id, config: { count: 0 } });
+  } catch {}
+  res.json({ id: req.params.id, count: 0 });
+});
+
+// Generic module config update API
+app.post('/api/modules/:moduleId/config', express.json(), (req, res) => {
+  const { getIO } = require('./ws');
+  const config = req.body || {};
+  try {
+    const io = getIO();
+    const sockets = io.sockets.sockets.size;
+    io.emit('update_module_config', { moduleId: req.params.moduleId, config });
+    console.log('[module-config] Emitted to', sockets, 'sockets:', req.params.moduleId, JSON.stringify(config).slice(0, 80));
+  } catch (e) {
+    console.error('[module-config] Emit error:', e.message);
+  }
+  res.json({ ok: true, moduleId: req.params.moduleId, config });
+});
+
 
 // Serve static files from client build
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
