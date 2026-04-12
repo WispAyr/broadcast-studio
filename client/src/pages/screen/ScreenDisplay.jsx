@@ -134,6 +134,17 @@ export default function ScreenDisplay() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Click-to-fullscreen: first tap/click anywhere requests browser fullscreen
+  useEffect(() => {
+    const handler = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    };
+    document.addEventListener('click', handler, { once: true });
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
   // Smooth layout transition with effects
   const applyLayout = useCallback((newLayout, transition, duration) => {
     if (!newLayout) return;
