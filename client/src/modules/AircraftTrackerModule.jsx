@@ -1,8 +1,10 @@
 import React from 'react';
+import useEventContext from '../hooks/useEventContext';
 
 export default function AircraftTrackerModule({ config = {} }) {
-  const lat = config.lat || config.latitude || 55.46;
-  const lon = config.lon || config.longitude || -4.63;
+  const ctx = useEventContext(config.eventId);
+  const lat = config.lat ?? config.latitude ?? ctx.lat ?? 55.46;
+  const lon = config.lon ?? config.longitude ?? ctx.lon ?? -4.63;
   const zoom = config.zoom || 9;
   const src = config.src || config.url || `https://globe.adsbexchange.com/?lat=${lat}&lon=${lon}&zoom=${zoom}&noui`;
   const bg = config.background || '#000000';

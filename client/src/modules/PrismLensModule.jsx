@@ -72,7 +72,18 @@ function Sparkline({ series, accessor, color }) {
 
 export default function PrismLensModule({ config = {} }) {
   const merged = { ...DEFAULTS, ...config };
-  const endpoint = merged.endpoint || merged.lens;
+  const rawEndpoint = merged.endpoint || merged.lens;
+  // Event-scoped endpoints: when an eventId is set, prefix "events/:id/" so the
+  // upstream lens resolves against that event's context (bbox, hub, config).
+  // If the endpoint already starts with "events/" or "events-admin/", leave it
+  // alone — it's already event-addressed.
+  const endpoint = (() => {
+    if (!rawEndpoint) return rawEndpoint;
+    const id = merged.eventId;
+    if (!id) return rawEndpoint;
+    if (/^events(-admin)?\//.test(rawEndpoint)) return rawEndpoint;
+    return `events/${id}/${rawEndpoint}`;
+  })();
   const refreshMs = (merged.refreshSecs || 60) * 1000;
 
   const [payload, setPayload] = useState(null);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import useEventContext from '../hooks/useEventContext';
 
 /* ─── SVG Weather Icons ─── */
 const WeatherIcons = {
@@ -120,9 +121,12 @@ function getGradient(condition) {
 }
 
 export default function WeatherModule({ config = {} }) {
-  const lat = config.lat || 55.46;
-  const lon = config.lon || -4.63;
-  const location = config.location || 'Ayr';
+  // Event scoping: if config.eventId is set, use the event's lat/lon/location
+  // from its prism record. Explicit config.lat still wins (manual override).
+  const ctx = useEventContext(config.eventId);
+  const lat = config.lat ?? ctx.lat ?? 55.46;
+  const lon = config.lon ?? ctx.lon ?? -4.63;
+  const location = config.location || ctx.location || 'Ayr';
   const unit = config.unit || 'C';
   const displayStyle = config.displayStyle || 'current';
   const background = config.background;
