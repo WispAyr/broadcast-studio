@@ -176,13 +176,19 @@ app.get('/api/siphon-proxy/:preset', async (req, res) => {
 // prism. This is a generic pass-through so screens can subscribe to any prism
 // endpoint (lenses, events-admin, siphon-proxy pass-throughs) through a
 // single origin — no CORS, no hostname juggling.
+// PRISM_BASE — upstream origin. Can be a direct prism (http://pu2:3885) or a
+// proxy like prism-surface-api (http://127.0.0.1:3978).
+// PRISM_API_PREFIX — path prefix under the origin. Defaults to `/api` for a
+// direct prism; set to `/api/prism` when pointing at prism-surface-api which
+// re-exports prism under that namespace.
 const PRISM_BASE = process.env.PRISM_BASE || 'http://localhost:3885';
+const PRISM_API_PREFIX = process.env.PRISM_API_PREFIX || '/api';
 
 app.get('/api/prism-proxy/*', async (req, res) => {
   const path = req.params[0] || '';
   if (!path) return res.status(400).json({ error: 'path required' });
   const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
-  const url = `${PRISM_BASE}/api/${path}${qs}`;
+  const url = `${PRISM_BASE}${PRISM_API_PREFIX}/${path}${qs}`;
   try {
     const r = await fetch(url, { timeout: 10000 });
     if (!r.ok) {
