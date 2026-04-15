@@ -1,5 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { getSocket } from '../../../lib/socket';
+import PrismLensPicker from './PrismLensPicker';
+
+const CUSTOM_COMPONENTS = {
+  PrismLensPicker,
+};
 
 // Renders a dynamic config panel for a single configurable module.
 // Fields are auto-generated from the module config registry.
@@ -185,6 +190,19 @@ function FieldRenderer({ field, value, onChange, onKeyDown }) {
           </button>
         </div>
       );
+
+    case 'custom': {
+      const Component = CUSTOM_COMPONENTS[field.component];
+      if (!Component) return null;
+      return (
+        <div>
+          {field.label && (
+            <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1 block">{field.label}</label>
+          )}
+          <Component value={value} onChange={onChange} />
+        </div>
+      );
+    }
 
     default:
       return null;

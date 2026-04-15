@@ -171,6 +171,40 @@ app.get('/api/siphon-proxy/:preset', async (req, res) => {
 });
 
 
+// ── Prism lens proxy ──
+// Broadcast Studio is a consumer; all event/lens/raw-traffic data comes from
+// prism. This is a generic pass-through so screens can subscribe to any prism
+// endpoint (lenses, events-admin, siphon-proxy pass-throughs) through a
+// single origin — no CORS, no hostname juggling.
+const PRISM_BASE = process.env.PRISM_BASE || 'http://localhost:3885';
+
+app.get('/api/prism-proxy/*', async (req, res) => {
+  const path = req.params[0] || '';
+  if (!path) return res.status(400).json({ error: 'path required' });
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  const url = `${PRISM_BASE}/api/${path}${qs}`;
+  try {
+    const r = await fetch(url, { timeout: 10000 });
+    if (!r.ok) {
+      return res.status(r.status).json({ error: `prism ${r.status}`, url });
+    }
+    const ct = r.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const data = await r.json();
+      return res.json(data);
+    }
+    // Binary / image pass-through (e.g. /traffic/cameras/image/*.jpg)
+    res.setHeader('Content-Type', ct || 'application/octet-stream');
+    const cc = r.headers.get('cache-control');
+    if (cc) res.setHeader('Cache-Control', cc);
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.end(buf);
+  } catch (e) {
+    res.status(502).json({ error: e.message, url });
+  }
+});
+
+
 // ── Live Counter Control API ──
 // GET /api/counter/:id — get current count
 // POST /api/counter/:id/bump — increment by delta (default 1)

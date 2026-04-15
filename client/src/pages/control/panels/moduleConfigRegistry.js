@@ -100,6 +100,48 @@ const MODULE_CONFIGS = {
     }),
   },
 
+  'prism-lens': {
+    label: 'Prism Lens',
+    icon: '🔬',
+    color: 'cyan',
+    fields: [
+      { key: 'picker', type: 'custom', component: 'PrismLensPicker' },
+      { key: 'refreshSecs', type: 'number', label: 'Refresh (s)', default: 60, min: 5 },
+    ],
+    socketEvent: 'update_module_config',
+    buildPayload: (studioId, moduleId, values) => ({
+      studioId,
+      moduleId,
+      config: {
+        ...(values.picker || {}),
+        refreshSecs: values.refreshSecs || 60,
+      },
+    }),
+  },
+
+  'em-globe': {
+    label: 'EM Globe',
+    icon: '🌐',
+    color: 'indigo',
+    fields: [
+      { key: 'preset', type: 'button_group', label: 'Preset',
+        options: ['space-weather', 'aurora', 'solar-wind', 'satellites', 'near-earth', 'seismic', 'flare-ops'],
+        default: 'space-weather' },
+      { key: 'kiosk', type: 'toggle', label: 'Kiosk (hide chrome)', default: true },
+      { key: 'autocycle', type: 'number', label: 'Auto-cycle (s, 0=off)', default: 0, min: 0 },
+    ],
+    socketEvent: 'update_module_config',
+    buildPayload: (studioId, moduleId, values) => ({
+      studioId,
+      moduleId,
+      config: {
+        preset: values.preset,
+        kiosk: values.kiosk,
+        autocycle: values.autocycle || 0,
+      },
+    }),
+  },
+
   color: {
     label: 'Color Fill',
     icon: '🎨',

@@ -47,6 +47,8 @@ import KiltwalkCourseMapModule from './KiltwalkCourseMapModule';
 import KiltwalkBumperModule from './KiltwalkBumperModule';
 import KiltwalkLogoAnimModule from './KiltwalkLogoAnimModule';
 import SiphonDataModule from './SiphonDataModule';
+import PrismLensModule from './PrismLensModule';
+import EMGlobeModule from './EMGlobeModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -111,6 +113,19 @@ const moduleRegistry = {
   'siphon-radiation': SiphonDataModule,
   'siphon-grid': SiphonDataModule,
   'siphon-proton': SiphonDataModule,
+  // Generic prism lens consumer — one module, configurable endpoint+display.
+  // Use this instead of bespoke per-source modules.
+  'prism-lens': PrismLensModule,
+  // EM Globe embed (em.wispayr.online) with preset / layer / cam URL params.
+  'em-globe': EMGlobeModule,
+  'em-globe-space-weather': EMGlobeModule,
+  'em-globe-aurora': EMGlobeModule,
+  'em-globe-solar-wind': EMGlobeModule,
+  'em-globe-satellites': EMGlobeModule,
+  'em-globe-near-earth': EMGlobeModule,
+  'em-globe-seismic': EMGlobeModule,
+  'em-globe-flare-ops': EMGlobeModule,
+  'em-globe-cycle': EMGlobeModule,
 };
 
 export default moduleRegistry;
