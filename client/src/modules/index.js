@@ -35,6 +35,7 @@ import VisualizerModule from './VisualizerModule';
 import RemotionModule from './RemotionModule';
 import CanvaModule from './CanvaModule';
 import TemplateModule from './TemplateModule';
+import SurfaceCarouselModule from './SurfaceCarouselModule';
 
 
 import KiltwalkerCounterModule from './KiltwalkerCounterModule';
@@ -93,6 +94,7 @@ const moduleRegistry = {
   remotion: RemotionModule,
   canva: CanvaModule,
   template: TemplateModule,    // Live template composition player
+  surface_carousel: SurfaceCarouselModule,  // Rotating iframe carousel — office wall views from live.wispayr.online
   // Kiltwalk event modules
   kiltwalk_finish: KiltwalkerCounterModule,
   'kiltwalk-finisher-counter': KiltwalkerCounterModule,

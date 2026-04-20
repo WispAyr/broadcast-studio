@@ -99,6 +99,33 @@ db.exec(`
     value INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS variables (
+    id TEXT NOT NULL,
+    studio_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('number','string','boolean','enum','json')),
+    value TEXT,
+    default_value TEXT,
+    metadata TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (studio_id, id),
+    FOREIGN KEY (studio_id) REFERENCES studios(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS api_keys (
+    id TEXT PRIMARY KEY,
+    studio_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    scopes TEXT DEFAULT '[]',
+    active INTEGER DEFAULT 1,
+    last_used_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (studio_id) REFERENCES studios(id) ON DELETE CASCADE
+  );
 `);
 
 // Seed function
@@ -242,6 +269,7 @@ function ensureModuleTypes() {
     { name: 'live_text', description: 'Live text overlay (lower-third/banner)', category: 'broadcast', icon: '💬' },
     { name: 'qrcode', description: 'QR code display', category: 'broadcast', icon: '📱' },
     { name: 'visualizer', description: 'Music visualizer with audio-reactive modes', category: 'broadcast', icon: '🎵' },
+    { name: 'surface_carousel', description: 'Rotating iframe carousel for live.wispayr.online office wall views', category: 'media', icon: '🖥' },
   ];
 
   const insertOrIgnore = db.prepare(`
@@ -368,6 +396,130 @@ function getAllCounters() {
   } catch { /* table may not exist yet on first run */ }
 })();
 
+// ─── Variables ───────────────────────────────────────────────────────────────
+
+function serializeVariableValue(kind, value) {
+  if (value === null || value === undefined) return null;
+  if (kind === 'number') return String(Number(value));
+  if (kind === 'boolean') return value ? '1' : '0';
+  if (kind === 'string') return String(value);
+  return JSON.stringify(value);
+}
+
+function deserializeVariableValue(kind, raw) {
+  if (raw === null || raw === undefined) return null;
+  if (kind === 'number') return Number(raw);
+  if (kind === 'boolean') return raw === '1' || raw === 'true';
+  if (kind === 'string') return String(raw);
+  try { return JSON.parse(raw); } catch { return raw; }
+}
+
+function hydrateVariable(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    studio_id: row.studio_id,
+    name: row.name,
+    kind: row.kind,
+    value: deserializeVariableValue(row.kind, row.value),
+    default_value: deserializeVariableValue(row.kind, row.default_value),
+    metadata: (() => { try { return JSON.parse(row.metadata || '{}'); } catch { return {}; } })(),
+    updated_at: row.updated_at,
+    created_at: row.created_at,
+  };
+}
+
+function getVariablesByStudio(studioId) {
+  return db.prepare('SELECT * FROM variables WHERE studio_id = ? ORDER BY id').all(studioId).map(hydrateVariable);
+}
+
+function getVariable(studioId, id) {
+  return hydrateVariable(db.prepare('SELECT * FROM variables WHERE studio_id = ? AND id = ?').get(studioId, id));
+}
+
+function createVariable(studioId, { id, name, kind, value, default_value, metadata }) {
+  const validKinds = ['number', 'string', 'boolean', 'enum', 'json'];
+  if (!validKinds.includes(kind)) throw new Error(`invalid kind: ${kind}`);
+  const v = serializeVariableValue(kind === 'enum' ? 'string' : kind, value);
+  const d = serializeVariableValue(kind === 'enum' ? 'string' : kind, default_value ?? value);
+  db.prepare(`
+    INSERT INTO variables (id, studio_id, name, kind, value, default_value, metadata, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+  `).run(id, studioId, name, kind, v, d, JSON.stringify(metadata || {}));
+  return getVariable(studioId, id);
+}
+
+function setVariableValue(studioId, id, value) {
+  const existing = db.prepare('SELECT kind FROM variables WHERE studio_id = ? AND id = ?').get(studioId, id);
+  if (!existing) return null;
+  const serialized = serializeVariableValue(existing.kind === 'enum' ? 'string' : existing.kind, value);
+  db.prepare(`UPDATE variables SET value = ?, updated_at = datetime('now') WHERE studio_id = ? AND id = ?`)
+    .run(serialized, studioId, id);
+  return getVariable(studioId, id);
+}
+
+function bumpVariable(studioId, id, delta = 1) {
+  const existing = getVariable(studioId, id);
+  if (!existing) return null;
+  if (existing.kind !== 'number') throw new Error(`variable ${id} is ${existing.kind}, cannot bump`);
+  return setVariableValue(studioId, id, (existing.value || 0) + Number(delta));
+}
+
+function resetVariable(studioId, id) {
+  const existing = getVariable(studioId, id);
+  if (!existing) return null;
+  return setVariableValue(studioId, id, existing.default_value);
+}
+
+function updateVariableMeta(studioId, id, { name, metadata, default_value }) {
+  const existing = getVariable(studioId, id);
+  if (!existing) return null;
+  const newDefault = default_value !== undefined
+    ? serializeVariableValue(existing.kind === 'enum' ? 'string' : existing.kind, default_value)
+    : null;
+  db.prepare(`
+    UPDATE variables SET
+      name = COALESCE(?, name),
+      metadata = COALESCE(?, metadata),
+      default_value = COALESCE(?, default_value),
+      updated_at = datetime('now')
+    WHERE studio_id = ? AND id = ?
+  `).run(name || null, metadata !== undefined ? JSON.stringify(metadata) : null, newDefault, studioId, id);
+  return getVariable(studioId, id);
+}
+
+function deleteVariable(studioId, id) {
+  const result = db.prepare('DELETE FROM variables WHERE studio_id = ? AND id = ?').run(studioId, id);
+  return result.changes > 0;
+}
+
+// ─── API keys ────────────────────────────────────────────────────────────────
+
+function getApiKeyByHash(keyHash) {
+  return db.prepare('SELECT * FROM api_keys WHERE key_hash = ? AND active = 1').get(keyHash);
+}
+
+function getApiKeysByStudio(studioId) {
+  return db.prepare('SELECT id, studio_id, name, key_prefix, scopes, active, last_used_at, created_at FROM api_keys WHERE studio_id = ? ORDER BY created_at DESC').all(studioId);
+}
+
+function createApiKey({ id, studio_id, name, key_hash, key_prefix, scopes }) {
+  db.prepare(`
+    INSERT INTO api_keys (id, studio_id, name, key_hash, key_prefix, scopes, active, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 1, datetime('now'))
+  `).run(id, studio_id, name, key_hash, key_prefix, JSON.stringify(scopes || []));
+  return db.prepare('SELECT id, studio_id, name, key_prefix, scopes, active, created_at FROM api_keys WHERE id = ?').get(id);
+}
+
+function touchApiKey(id) {
+  db.prepare(`UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?`).run(id);
+}
+
+function revokeApiKey(id) {
+  const r = db.prepare('UPDATE api_keys SET active = 0 WHERE id = ?').run(id);
+  return r.changes > 0;
+}
+
 module.exports = {
   db,
   seed,
@@ -386,5 +538,20 @@ module.exports = {
   setCounter,
   bumpCounter,
   resetCounter,
-  getAllCounters
+  getAllCounters,
+  // Variables
+  getVariablesByStudio,
+  getVariable,
+  createVariable,
+  setVariableValue,
+  bumpVariable,
+  resetVariable,
+  updateVariableMeta,
+  deleteVariable,
+  // API keys
+  getApiKeyByHash,
+  getApiKeysByStudio,
+  createApiKey,
+  touchApiKey,
+  revokeApiKey,
 };
