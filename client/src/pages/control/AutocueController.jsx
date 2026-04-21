@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { connectSocket } from '../../lib/socket';
 import api from '../../lib/api';
+import { confirmAsync } from '../../lib/dialog';
 
 export default function AutocueController() {
   const [scripts, setScripts] = useState([]);
@@ -150,7 +151,12 @@ export default function AutocueController() {
   }
 
   async function deleteScript(id) {
-    if (!confirm('Delete this script?')) return;
+    if (!await confirmAsync({
+      title: 'Delete script?',
+      message: 'The script will be removed from the controller library.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/autocue-scripts/${id}`);
       if (activeScript?.id === id) newScript();

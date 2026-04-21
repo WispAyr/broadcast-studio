@@ -51,6 +51,15 @@ export const api = {
     return handleResponse(res);
   },
 
+  async patch(path, data) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(data)
+    });
+    return handleResponse(res);
+  },
+
   async delete(path) {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'DELETE',

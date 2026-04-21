@@ -39,6 +39,9 @@ app.use(express.json());
 
 // Mount API routes
 app.use('/api/auth', require('./routes/auth'));
+const { router: variablesRouter, keyRouter: apiKeysRouter } = require('./routes/variables');
+app.use('/api/studios/:studioId/variables', variablesRouter);
+app.use('/api/studios/:studioId/api-keys', apiKeysRouter);
 app.use('/api/studios', require('./routes/studios'));
 app.use('/api/screens', require('./routes/screens'));
 app.use('/api/screen-groups', require('./routes/screen-groups'));
@@ -55,6 +58,14 @@ app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 app.use("/api/obs", require("./routes/obs"));
 app.use("/api/egpk", require("./routes/egpk"));
 app.use('/api/nuro', require('./routes/nuro'));
+app.use('/api/display-nodes', require('./routes/display-nodes'));
+app.use('/api/scenes', require('./routes/scenes'));
+// Banner/emergency push + scheduled layout changes (Kiltwalk live-event ops).
+const broadcastRoutes = require('./routes/broadcast');
+app.use('/api/broadcast', broadcastRoutes.router);
+app.use('/api/broadcast/emergency/:studioId', broadcastRoutes.emergencyRouter);
+const scheduledRoutes = require('./routes/scheduled-layouts');
+app.use('/api/scheduled-layouts', scheduledRoutes.router);
 
 // ── Health endpoint — required by Nuro hub coherence sweeps ──
 app.get('/api/health', (req, res) => {
@@ -286,6 +297,14 @@ app.get('/api/nuro', (req, res) => {
 
 app.use(express.static(clientDist));
 
+// Static pages from server/public that aren't part of the React SPA.
+// `/emergency.html` is the van / field-tablet one-tap red-banner page —
+// it needs to resolve BEFORE the SPA catch-all or the React shell is
+// served instead (was burnt by that once).
+app.get('/emergency.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'emergency.html'));
+});
+
 // SPA fallback - any non-API route serves index.html
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
@@ -299,4 +318,6 @@ server.listen(PORT, () => {
   console.log(`Broadcast Studio running on port ${PORT}`);
   // Start Nuro heartbeat/telemetry loops after server is ready
   startNuro();
+  // Layout scheduler — 15s worker that fires due scheduled pushes.
+  scheduledRoutes.startScheduler();
 });

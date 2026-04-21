@@ -296,7 +296,7 @@ function formatDur(seconds) {
   return m > 0 ? `${h} hr ${m} mins` : `${h} hr`;
 }
 
-router.get('/travel-times', authenticate, async (req, res) => {
+router.get('/travel-times', async (req, res) => {
   const { origins, destinations } = req.query;
   if (!origins || !destinations) {
     return res.status(400).json({ error: 'origins and destinations parameters required' });
@@ -386,7 +386,7 @@ router.get('/travel-times', authenticate, async (req, res) => {
 
 // YouTube live stream resolver: /api/proxy/youtube-live?channel=HANDLE
 // Scrapes the channel page to find the current live video ID
-router.get('/youtube-live', authenticate, async (req, res) => {
+router.get('/youtube-live', async (req, res) => {
   const { channel } = req.query;
   if (!channel) return res.status(400).json({ error: 'channel parameter required' });
 

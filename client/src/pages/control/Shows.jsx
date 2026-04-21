@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 export default function Shows() {
+  const toast = useToast();
   const [shows, setShows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -34,41 +37,52 @@ export default function Shows() {
     try {
       if (editingShow) {
         await api.put(`/shows/${editingShow.id}`, formData);
+        toast?.('Show updated', 'success');
       } else {
         await api.post('/shows', formData);
+        toast?.('Show created', 'success');
       }
       resetForm();
       fetchShows();
     } catch (err) {
-      alert('Failed to save show: ' + err.message);
+      toast?.(`Save failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this show?')) return;
+    const show = shows.find(s => s.id === id);
+    if (!await confirmAsync({
+      title: 'Delete show?',
+      message: `"${show?.name || id}" and its timeline entries will be removed. This cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/shows/${id}`);
+      toast?.('Show deleted', 'success');
       fetchShows();
     } catch (err) {
-      alert('Failed to delete show: ' + err.message);
+      toast?.(`Delete failed: ${err.message}`, 'error');
     }
   }
 
   async function handleActivate(id) {
     try {
       await api.post(`/shows/${id}/activate`, {});
+      toast?.('Show activated', 'success');
       fetchShows();
     } catch (err) {
-      alert('Failed to activate show: ' + err.message);
+      toast?.(`Activate failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDeactivate(id) {
     try {
       await api.post(`/shows/${id}/deactivate`, {});
+      toast?.('Show deactivated', 'success');
       fetchShows();
     } catch (err) {
-      alert('Failed to deactivate show: ' + err.message);
+      toast?.(`Deactivate failed: ${err.message}`, 'error');
     }
   }
 

@@ -66,6 +66,55 @@ function OverlayRenderer({ overlay }) {
           <div style={{ color: 'white', fontSize: '3vw', fontWeight: 'bold', textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>{overlay.text || ''}</div>
         </div>
       );
+    case 'incident': {
+      // Severity-coloured banner pinned to the top of the screen. Used by the
+      // dashboard "Push banner" button and the van emergency endpoint.
+      const sev = overlay.severity || 'info';
+      const palette = {
+        info:     { bg: 'linear-gradient(90deg, #1e40af, #2563eb)', dot: '#60a5fa', label: 'NOTICE' },
+        warning:  { bg: 'linear-gradient(90deg, #b45309, #d97706)', dot: '#fbbf24', label: 'ADVISORY' },
+        danger:   { bg: 'linear-gradient(90deg, #991b1b, #dc2626)', dot: '#f87171', label: 'INCIDENT' },
+        critical: { bg: 'linear-gradient(90deg, #7f1d1d, #b91c1c)', dot: '#fecaca', label: 'EMERGENCY' },
+      }[sev] || { bg: 'linear-gradient(90deg, #334155, #475569)', dot: '#e2e8f0', label: 'NOTICE' };
+      const isCritical = sev === 'critical';
+      return (
+        <div style={{
+          ...baseStyle,
+          top: 0, left: 0, right: 0,
+          background: palette.bg,
+          padding: '0.8vh 2.5vw',
+          display: 'flex', alignItems: 'center', gap: '1.5vw',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+          borderBottom: `3px solid ${palette.dot}`,
+          animation: isCritical
+            ? 'overlayIn 0.4s ease-out, incidentPulse 1.2s ease-in-out infinite'
+            : 'overlayIn 0.4s ease-out',
+        }}>
+          <style>{`@keyframes incidentPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }`}</style>
+          <span style={{
+            display: 'inline-block', width: '0.9vw', height: '0.9vw',
+            borderRadius: '50%', background: palette.dot,
+            boxShadow: `0 0 12px ${palette.dot}`,
+            flexShrink: 0,
+          }} />
+          <span style={{
+            color: 'rgba(255,255,255,0.75)', fontSize: '0.9vw',
+            fontWeight: 700, letterSpacing: '0.15em',
+            textTransform: 'uppercase', flexShrink: 0,
+          }}>{palette.label}</span>
+          <span style={{
+            color: 'white', fontSize: '1.4vw', fontWeight: 600,
+            flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{overlay.text || ''}</span>
+          {overlay.source && (
+            <span style={{
+              color: 'rgba(255,255,255,0.55)', fontSize: '0.85vw',
+              fontFamily: 'monospace', flexShrink: 0,
+            }}>{overlay.source}</span>
+          )}
+        </div>
+      );
+    }
     default:
       return null;
   }
@@ -123,7 +172,7 @@ export default function ScreenDisplay() {
   // so screen is never blank on browser restart / power cycle
   useEffect(() => {
     try {
-      const cached = localStorage.getItem(`bs_layout_${id}`);
+      const cached = localStorage.getItem(`bs_layout_v2_${id}`);
       if (cached) {
         const l = JSON.parse(cached);
         setLayout(l);
@@ -164,7 +213,7 @@ export default function ScreenDisplay() {
       setModules(mods);
       // Persist to localStorage so cold-start has something to show
       try {
-        localStorage.setItem(`bs_layout_${id}`, JSON.stringify(newLayout));
+        localStorage.setItem(`bs_layout_v2_${id}`, JSON.stringify(newLayout));
       } catch { /* storage full or unavailable */ }
       setTimeout(() => {
         setTransitioning(false);
@@ -297,6 +346,30 @@ export default function ScreenDisplay() {
       );
     });
 
+    socket.on('variable_update', (data) => {
+      setModules((prev) =>
+        prev.map((m) => {
+          if (!m.config || m.config.variable_id !== data.id) return m;
+          const field = m.config.variable_field || 'count';
+          return { ...m, config: { ...m.config, [field]: data.value } };
+        })
+      );
+    });
+
+    socket.on('variable_snapshot', (data) => {
+      const vars = data && data.variables;
+      if (!vars || typeof vars !== 'object') return;
+      setModules((prev) =>
+        prev.map((m) => {
+          if (!m.config || !m.config.variable_id) return m;
+          const v = vars[m.config.variable_id];
+          if (v === undefined) return m;
+          const field = m.config.variable_field || 'count';
+          return { ...m, config: { ...m.config, [field]: v } };
+        })
+      );
+    });
+
     socket.on('sync_all', (data) => {
       if (data.layout) applyLayoutRef.current(data.layout);
     });
@@ -324,16 +397,19 @@ export default function ScreenDisplay() {
     // Overlay system
     socket.on('push_overlay', (data) => {
       if (data.overlay) {
+        const overlayType = data.overlay.type;
         setOverlays(prev => {
           // Replace existing overlay of same type, or add new
-          const filtered = prev.filter(o => o.type !== data.overlay.type);
+          const filtered = prev.filter(o => o.type !== overlayType);
           return [...filtered, { ...data.overlay, _addedAt: Date.now() }];
         });
-        // Auto-remove announcements
-        if (data.overlay.type === 'announcement' && data.overlay.duration) {
+        // Auto-remove any overlay that carries a duration (seconds).
+        // Used by announcements and by the incident-banner system for
+        // timed advisories ("Race delayed 15min — clear in 10").
+        if (data.overlay.duration) {
           setTimeout(() => {
-            setOverlays(prev => prev.filter(o => o.type !== 'announcement'));
-          }, (data.overlay.duration || 5) * 1000);
+            setOverlays(prev => prev.filter(o => o.type !== overlayType));
+          }, data.overlay.duration * 1000);
         }
       }
     });
@@ -362,15 +438,39 @@ export default function ScreenDisplay() {
       if (data.groupProfile) {
         setDisplayProfile(prev => ({ ...(data.groupProfile || {}), ...(prev || {}) }));
       }
+      // Producer may have changed disconnect behaviour / screenType while we
+      // were connected — apply without waiting for a reload.
+      if (data.config?.disconnectBehavior) {
+        setDisconnectBehavior(data.config.disconnectBehavior);
+      }
+      if (data.config?.screenType === 'led' || data.config?.screenType === 'video_wall') {
+        setDisconnectBehavior(prev => prev === 'message' ? 'black' : prev);
+      }
     });
 
     socket.on('update_module_text', (data) => {
+      // Match strategy (in priority order):
+      //   1. Exact moduleId match (targeted push).
+      //   2. moduleType match (broadcast to every module of a given type —
+      //      used by Dashboard/GodView "Push Text" which doesn't know the
+      //      specific module uuid).
+      //   3. Magic id '__live_text__' (legacy convention) matches any live_text module.
+      const wantsTypeMatch = data.moduleType && !data.moduleId;
+      const isLegacyBroadcast = data.moduleId === '__live_text__';
       setModules((prev) =>
-        prev.map((m) =>
-          m.id === data.moduleId
-            ? { ...m, config: { ...m.config, text: data.text !== undefined ? data.text : m.config?.text, subtitle: data.subtitle !== undefined ? data.subtitle : m.config?.subtitle } }
-            : m
-        )
+        prev.map((m) => {
+          const matchesId   = data.moduleId && m.id === data.moduleId && !isLegacyBroadcast;
+          const matchesType = wantsTypeMatch && (m.type || m.module || m.module_type) === data.moduleType;
+          const matchesLegacy = isLegacyBroadcast && (m.type || m.module || m.module_type) === 'live_text';
+          if (matchesId || matchesType || matchesLegacy) {
+            return { ...m, config: {
+              ...m.config,
+              text: data.text !== undefined ? data.text : m.config?.text,
+              subtitle: data.subtitle !== undefined ? data.subtitle : m.config?.subtitle,
+            }};
+          }
+          return m;
+        })
       );
     });
 
@@ -530,6 +630,18 @@ export default function ScreenDisplay() {
   const gridColumns = layout?.grid_cols || layout?.grid_columns || 4;
   const background = layout?.background || '#000000';
 
+  // Defensive: getLayers() walks user-authored module data and can throw on
+  // malformed layouts (bad JSON, unexpected shapes). A crash here would unmount
+  // the entire wall mid-broadcast, so fall back to a single pass-through layer.
+  let renderedLayers;
+  try {
+    renderedLayers = getLayers(layout?.modules ?? modules).sort((a, b) => a.order - b.order);
+  } catch (err) {
+    console.error('[ScreenDisplay] getLayers failed, falling back to flat layer:', err);
+    const flat = Array.isArray(modules) ? modules : [];
+    renderedLayers = [{ id: 'fallback', order: 0, visible: true, opacity: 1, modules: flat }];
+  }
+
   return (
     <div className="screen-display" style={{ background, position: 'relative', cursor: 'none',
       ...(screenDimensions ? { width: screenDimensions.width, height: screenDimensions.height, overflow: 'hidden' } : {}),
@@ -614,7 +726,7 @@ export default function ScreenDisplay() {
           transition: transitioning && transitionType === 'crossfade' ? 'opacity 0.6s ease-in-out' : undefined,
         }}
       >
-        {getLayers(layout?.modules ?? modules).sort((a, b) => a.order - b.order).map((layer) => {
+        {renderedLayers.map((layer) => {
           if (!layer.visible) return null;
           const fullscreenMods = (layer.modules || []).filter(m => m.fullscreen);
           const gridMods = (layer.modules || []).filter(m => !m.fullscreen);

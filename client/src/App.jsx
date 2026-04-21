@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
+import ConfirmHost from './components/ConfirmHost';
 
 // Eagerly loaded (always needed)
 import Login from './pages/Login';
@@ -23,6 +24,8 @@ const Admin = React.lazy(() => import('./pages/control/Admin'));
 const EgpkScenes = React.lazy(() => import("./pages/control/EgpkScenes"));
 const AutocueController = React.lazy(() => import('./pages/control/AutocueController'));
 const Deploy = React.lazy(() => import('./pages/control/Deploy'));
+const Variables = React.lazy(() => import('./pages/control/Variables'));
+const Displays = React.lazy(() => import('./pages/control/Displays'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -71,6 +74,8 @@ export default function App() {
         <Route path="templates/:id/edit" element={<TemplateEditor />} />
         <Route path="settings" element={<Settings />} />
         <Route path="autocue" element={<AutocueController />} />
+        <Route path="variables" element={<Variables />} />
+        <Route path="displays" element={<Displays />} />
         <Route path="admin" element={<Admin />} />
         <Route path="egpk" element={<EgpkScenes />} />
       </Route>
@@ -79,6 +84,7 @@ export default function App() {
       <Route path="/god" element={<ProtectedRoute><GodView /></ProtectedRoute>} />
     </Routes>
     </Suspense>
+    <ConfirmHost />
     </ToastProvider>
   );
 }

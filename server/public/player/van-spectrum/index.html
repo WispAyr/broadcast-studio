@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VAN · Spectrum Dominance</title>
+<meta name="viewport" content="width=1920, initial-scale=1">
+<style>
+  :root {
+    --bg: #05070a;
+    --panel: #0b1118;
+    --panel-edge: #132032;
+    --ink: #d9e4f2;
+    --ink-dim: #7f93ab;
+    --accent: #00e0ff;
+    --green: #3ddc97;
+    --amber: #ffb347;
+    --red: #ff4d5e;
+    --grid-line: #0f1a2a;
+    --font: "Inter", -apple-system, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 1920px; height: 1080px;
+    background: var(--bg); color: var(--ink); font-family: var(--font);
+    overflow: hidden; font-size: 14px;
+  }
+  body { width: 1920px; height: 1080px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 640px 1fr 420px;
+    grid-template-rows: 80px 540px 360px 100px;
+    grid-template-areas:
+      "header header header"
+      "waterfall propagation eventctx"
+      "rfmap uplink threats"
+      "timeline timeline timeline";
+    width: 1920px; height: 1080px; gap: 8px; padding: 8px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    padding: 10px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel h2 {
+    margin: 0 0 8px 0;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    font-weight: 600;
+  }
+  /* HEADER */
+  #header {
+    grid-area: header;
+    display: grid;
+    grid-template-columns: 220px 1fr auto auto;
+    align-items: center;
+    gap: 24px;
+    padding: 0 20px;
+  }
+  .brand {
+    font-size: 22px; letter-spacing: 0.24em; font-weight: 700;
+    color: var(--accent);
+  }
+  .brand span { color: var(--ink-dim); font-weight: 400; font-size: 12px; margin-left: 10px; }
+  .hdr-mid { display: flex; gap: 32px; font-family: var(--mono); font-size: 13px; }
+  .hdr-mid .lbl { color: var(--ink-dim); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; display: block; margin-bottom: 2px; }
+  .hdr-mid .val { color: var(--ink); }
+  .hdr-mid .val.pos { color: var(--accent); }
+  .utc { font-family: var(--mono); font-size: 20px; letter-spacing: 0.06em; color: var(--ink); }
+  .utc small { color: var(--ink-dim); font-size: 10px; display: block; letter-spacing: 0.14em; }
+  .pill {
+    display: inline-block; padding: 3px 8px; border-radius: 10px;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    border: 1px solid currentColor;
+  }
+  .pill.ok { color: var(--green); }
+  .pill.warn { color: var(--amber); }
+  .pill.down { color: var(--red); }
+
+  /* WATERFALL */
+  #waterfall { grid-area: waterfall; }
+  .bands { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .band {
+    display: grid;
+    grid-template-columns: 180px 1fr 60px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--grid-line);
+  }
+  .band .name { font-size: 13px; font-weight: 600; }
+  .band .name small { display: block; color: var(--ink-dim); font-size: 10px; font-weight: 400; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 2px; }
+  .bar-wrap { height: 18px; background: var(--grid-line); border-radius: 2px; overflow: hidden; position: relative; }
+  .bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--amber) 60%, var(--red));
+    transition: width 0.6s ease;
+  }
+  .bar-note {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: var(--ink); font-family: var(--mono);
+    text-shadow: 0 0 4px rgba(0,0,0,0.9);
+  }
+  .band .score { font-family: var(--mono); font-size: 18px; text-align: right; }
+  .band .score small { display: block; font-size: 9px; color: var(--ink-dim); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* PROPAGATION ORB */
+  #propagation { grid-area: propagation; display: flex; flex-direction: column; }
+  .orb-wrap { flex: 1; display: grid; grid-template-columns: 1fr 200px; gap: 16px; }
+  .orb {
+    position: relative;
+    background: radial-gradient(circle at center, #0a1526 0%, #05070a 70%);
+    border: 1px solid var(--panel-edge);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .orb svg { width: 100%; height: 100%; }
+  .orb .ring { stroke: var(--panel-edge); fill: none; stroke-width: 1; }
+  .orb .shell { stroke: var(--accent); fill: none; stroke-width: 1.5; opacity: 0.7; }
+  .orb .flux { fill: var(--amber); opacity: 0.8; }
+  .propstats { display: flex; flex-direction: column; gap: 10px; }
+  .propstat { background: var(--grid-line); border-radius: 4px; padding: 8px 10px; }
+  .propstat .lbl { font-size: 10px; color: var(--ink-dim); letter-spacing: 0.12em; text-transform: uppercase; }
+  .propstat .v { font-family: var(--mono); font-size: 20px; margin-top: 2px; }
+  .propstat .v.green { color: var(--green); }
+  .propstat .v.amber { color: var(--amber); }
+  .propstat .v.red { color: var(--red); }
+
+  /* EVENT CONTEXT */
+  #eventctx { grid-area: eventctx; }
+  .ec-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--grid-line); }
+  .ec-row .k { color: var(--ink-dim); }
+
+  /* RF MAP */
+  #rfmap { grid-area: rfmap; }
+  .mapcanvas {
+    width: 100%; height: calc(100% - 24px);
+    background:
+      radial-gradient(circle at center, rgba(0,224,255,0.06), transparent 70%),
+      linear-gradient(#0a1424, #050a14);
+    border: 1px solid var(--panel-edge);
+    border-radius: 4px;
+    position: relative; overflow: hidden;
+  }
+  .van-dot {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 12px; height: 12px; background: var(--accent); border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(0,224,255,0.2), 0 0 24px var(--accent);
+    z-index: 5;
+  }
+  .ring-r { position: absolute; top: 50%; left: 50%; border: 1px dashed var(--panel-edge); border-radius: 50%; transform: translate(-50%,-50%); }
+  .r1 { width: 160px; height: 160px; }
+  .r2 { width: 280px; height: 280px; }
+  .r3 { width: 420px; height: 420px; }
+
+  /* UPLINK / MESH */
+  #uplink { grid-area: uplink; }
+  .bearer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .bearer {
+    padding: 10px; border-radius: 4px; background: var(--grid-line);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .bearer .n { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); }
+  .bearer .s { font-family: var(--mono); font-size: 16px; }
+  .bearer.ok .s { color: var(--green); }
+  .bearer.warn .s { color: var(--amber); }
+  .bearer.down .s { color: var(--red); }
+  .bearer .m { font-family: var(--mono); font-size: 10px; color: var(--ink-dim); }
+
+  /* THREATS */
+  #threats { grid-area: threats; }
+  .threat-row { display: flex; justify-content: space-between; padding: 6px 0; font-family: var(--mono); font-size: 12px; border-bottom: 1px solid var(--grid-line); }
+  .threat-row .severity { padding: 1px 6px; border-radius: 3px; font-size: 10px; letter-spacing: 0.08em; }
+  .severity.low { background: rgba(61,220,151,0.15); color: var(--green); }
+  .severity.med { background: rgba(255,179,71,0.15); color: var(--amber); }
+  .severity.high { background: rgba(255,77,94,0.15); color: var(--red); }
+
+  /* TIMELINE */
+  #timeline { grid-area: timeline; }
+  .tl-grid { display: grid; grid-template-columns: 160px 1fr; gap: 14px; height: calc(100% - 24px); align-items: center; }
+  .tl-bands { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--ink-dim); letter-spacing: 0.08em; text-transform: uppercase; }
+  .tl-canvas { height: 100%; background: var(--grid-line); border-radius: 4px; position: relative; overflow: hidden; }
+  .sparks { display: flex; flex-direction: column; gap: 4px; padding: 4px 8px; height: 100%; justify-content: space-around; }
+  .spark {
+    height: 10px; background: linear-gradient(90deg, var(--green), var(--amber) 60%, var(--red));
+    clip-path: polygon(0 50%, 100% 50%, 100% 100%, 0 100%);
+    opacity: 0.4;
+  }
+
+  .stale { animation: pulse-stale 1.5s infinite; }
+  @keyframes pulse-stale { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  footer.status {
+    position: absolute; bottom: 4px; right: 14px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-dim);
+    letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+
+<div class="grid">
+  <div id="header" class="panel">
+    <div class="brand">VAN · SPECTRUM <span>v0.1</span></div>
+    <div class="hdr-mid">
+      <div><span class="lbl">Van</span><span class="val" id="h-van">van-01</span></div>
+      <div><span class="lbl">Position</span><span class="val pos" id="h-pos">—, —</span></div>
+      <div><span class="lbl">Event</span><span class="val" id="h-event">—</span></div>
+      <div><span class="lbl">Uplink</span><span class="val" id="h-uplink">—</span></div>
+    </div>
+    <div><span class="pill ok" id="h-pill">NOMINAL</span></div>
+    <div class="utc"><small>UTC</small><span id="h-utc">--:--:--</span></div>
+  </div>
+
+  <!-- WATERFALL / BANDS -->
+  <div id="waterfall" class="panel">
+    <h2>Frequency Dominance · 30 MHz → 6 GHz</h2>
+    <div class="bands" id="band-list"></div>
+  </div>
+
+  <!-- PROPAGATION ORB -->
+  <div id="propagation" class="panel">
+    <h2>HF Propagation / Space Weather</h2>
+    <div class="orb-wrap">
+      <div class="orb">
+        <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
+          <circle class="ring" cx="200" cy="200" r="60"/>
+          <circle class="ring" cx="200" cy="200" r="110"/>
+          <circle class="ring" cx="200" cy="200" r="160"/>
+          <circle id="orb-shell" class="shell" cx="200" cy="200" r="150"/>
+          <circle cx="200" cy="200" r="10" fill="#00e0ff"/>
+          <g id="orb-fluxes"></g>
+          <g id="orb-aurora" stroke="#3ddc97" stroke-width="2" fill="none" opacity="0.6"></g>
+        </svg>
+      </div>
+      <div class="propstats">
+        <div class="propstat"><div class="lbl">Kp</div><div class="v" id="ps-kp">—</div></div>
+        <div class="propstat"><div class="lbl">Solar Flux</div><div class="v" id="ps-flux">—</div></div>
+        <div class="propstat"><div class="lbl">X-ray</div><div class="v" id="ps-xray">—</div></div>
+        <div class="propstat"><div class="lbl">HF Status</div><div class="v" id="ps-hf">—</div></div>
+        <div class="propstat"><div class="lbl">Aurora</div><div class="v" id="ps-aurora">—</div></div>
+        <div class="propstat"><div class="lbl">GIC (Scotland)</div><div class="v" id="ps-gic">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EVENT CONTEXT -->
+  <div id="eventctx" class="panel">
+    <h2>Event Context</h2>
+    <div id="ec-body">
+      <div class="ec-row"><span class="k">Event</span><span id="ec-event">—</span></div>
+      <div class="ec-row"><span class="k">Geofence</span><span id="ec-geo">—</span></div>
+      <div class="ec-row"><span class="k">Display line</span><span id="ec-line">—</span></div>
+      <div class="ec-row"><span class="k">Aircraft in feed</span><span id="ec-ac">—</span></div>
+      <div class="ec-row"><span class="k">Vessels nearby</span><span id="ec-ves">—</span></div>
+      <div class="ec-row"><span class="k">Storm level</span><span id="ec-storm">—</span></div>
+    </div>
+  </div>
+
+  <!-- RF MAP -->
+  <div id="rfmap" class="panel">
+    <h2>Local RF Landscape</h2>
+    <div class="mapcanvas">
+      <div class="ring-r r1"></div>
+      <div class="ring-r r2"></div>
+      <div class="ring-r r3"></div>
+      <div class="van-dot"></div>
+      <div id="rf-dots"></div>
+    </div>
+  </div>
+
+  <!-- UPLINK / MESH -->
+  <div id="uplink" class="panel">
+    <h2>Uplink · Mesh · Bearers</h2>
+    <div class="bearer-grid" id="bearer-grid"></div>
+  </div>
+
+  <!-- THREATS -->
+  <div id="threats" class="panel">
+    <h2>Threat Plane</h2>
+    <div id="threat-body">
+      <div class="threat-row"><span>DNS-shield bans</span><span class="severity low">—</span></div>
+      <div class="threat-row"><span>Sentry alerts</span><span class="severity low">—</span></div>
+      <div class="threat-row"><span>XDP-sentinel drops</span><span class="severity low">—</span></div>
+      <div class="threat-row"><span>GNSS events 1h</span><span id="th-gnss" class="severity low">—</span></div>
+      <div class="threat-row"><span>Uplink flaps 1h</span><span id="th-flap" class="severity low">—</span></div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div id="timeline" class="panel">
+    <h2>60-min Timeline · Emissions by Band</h2>
+    <div class="tl-grid">
+      <div class="tl-bands" id="tl-bands"></div>
+      <div class="tl-canvas"><div class="sparks" id="sparks"></div></div>
+    </div>
+  </div>
+</div>
+
+<footer class="status" id="fstat">offline</footer>
+
+<script>
+const API = "https://live.wispayr.online/api/van-spectrum";
+const VAN = "van-01";
+const REFRESH_MS = 2000;
+
+const $ = (id) => document.getElementById(id);
+
+function fmtScore(s) { return (s ?? 0).toFixed(0); }
+function tierColor(s) { if (s >= 70) return "green"; if (s >= 35) return "amber"; return "red"; }
+function pill(val, ok, warn) {
+  if (val === undefined || val === null) return '<span class="pill down">UNKNOWN</span>';
+  if (ok(val)) return '<span class="pill ok">NOMINAL</span>';
+  if (warn && warn(val)) return '<span class="pill warn">ELEVATED</span>';
+  return '<span class="pill down">DEGRADED</span>';
+}
+
+function tickUTC() {
+  const d = new Date();
+  $("h-utc").textContent = d.toISOString().substring(11, 19);
+}
+setInterval(tickUTC, 1000); tickUTC();
+
+const history = {}; // band -> last 30 scores
+function pushHistory(k, v) {
+  history[k] = history[k] || [];
+  history[k].push(v);
+  if (history[k].length > 30) history[k].shift();
+}
+
+function renderBands(dom) {
+  const list = $("band-list");
+  list.innerHTML = "";
+  for (const [name, d] of Object.entries(dom)) {
+    const score = fmtScore(d.score);
+    const pct = Math.max(2, Math.min(100, d.score || 0));
+    const row = document.createElement("div");
+    row.className = "band";
+    row.innerHTML = `
+      <div class="name">${name}<small>weight ×${d.weight} · ${d.state}</small></div>
+      <div class="bar-wrap"><div class="bar" style="width:${pct}%"></div><span class="bar-note">${d.note||""}</span></div>
+      <div class="score">${score}<small>dom</small></div>
+    `;
+    list.appendChild(row);
+    pushHistory(name, d.score || 0);
+  }
+}
+
+function renderSparks(dom) {
+  const names = Object.keys(dom);
+  $("tl-bands").innerHTML = names.map(n => `<div>${n.split(" (")[0]}</div>`).join("");
+  const sparks = $("sparks");
+  sparks.innerHTML = "";
+  for (const n of names) {
+    const s = document.createElement("div");
+    s.className = "spark";
+    const h = history[n] || [];
+    if (h.length) {
+      const pts = h.map((v,i) => `${(i/(h.length-1||1))*100}% ${100 - (v||0)}%`).join(", ");
+      s.style.clipPath = `polygon(0 100%, ${pts}, 100% 100%)`;
+      s.style.opacity = 0.85;
+    }
+    sparks.appendChild(s);
+  }
+}
+
+function renderSpaceWx(sw) {
+  const kp = sw.kp ?? "—";
+  $("ps-kp").textContent = kp;
+  $("ps-kp").className = "v " + (kp === "—" ? "" : kp >= 5 ? "red" : kp >= 3 ? "amber" : "green");
+  $("ps-flux").textContent = sw.solar_flux ?? "—";
+  $("ps-xray").textContent = sw.xray_class ?? "—";
+  $("ps-hf").textContent = (sw.blackout === "none" || !sw.blackout) ? "nominal" : sw.blackout;
+  $("ps-hf").className = "v " + (sw.blackout === "none" || !sw.blackout ? "green" : "red");
+  $("ps-aurora").textContent = sw.aurora_status ?? "—";
+  $("ps-aurora").className = "v " + (sw.aurora_status === "green" ? "green" : sw.aurora_status === "amber" ? "amber" : sw.aurora_status === "red" ? "red" : "");
+  $("ps-gic").textContent = sw.gic_scotland ?? "—";
+  $("ps-gic").className = "v " + (sw.gic_scotland === "quiet" ? "green" : sw.gic_scotland === "moderate" ? "amber" : "red");
+
+  // orb shell deforms with anomaly_index
+  const ai = sw.anomaly_index || 1;
+  const shell = $("orb-shell");
+  if (shell) {
+    const rx = 150 + (ai * 2);
+    shell.setAttribute("r", rx);
+    shell.setAttribute("stroke", ai >= 4 ? "#ff4d5e" : ai >= 2 ? "#ffb347" : "#00e0ff");
+  }
+  // flare glyphs proportional to solar_flux
+  const g = $("orb-fluxes");
+  g.innerHTML = "";
+  const n = Math.min(24, Math.round((sw.solar_flux || 70) / 10));
+  for (let i = 0; i < n; i++) {
+    const a = (i/n) * Math.PI * 2;
+    const r = 170 + Math.random() * 20;
+    const x = 200 + Math.cos(a) * r;
+    const y = 200 + Math.sin(a) * r;
+    g.innerHTML += `<circle class="flux" cx="${x}" cy="${y}" r="${1 + Math.random() * 2}"/>`;
+  }
+}
+
+function renderUplink(u) {
+  $("h-uplink").textContent = u.label + (u.upstream_via && u.upstream_via !== "unknown" ? ` · ${u.upstream_via}` : "");
+  const pillEl = $("h-pill");
+  pillEl.className = "pill " + (u.link_up ? "ok" : u.wan_status === "ok" ? "warn" : "down");
+  pillEl.textContent = u.link_up ? "LINK UP" : u.wan_status === "ok" ? "WAN ONLY" : "DOWN";
+
+  const bearers = [
+    { n: "Starlink", s: u.wan_status, m: "primary" },
+    { n: "UISP Link", s: u.link_up ? "up" : "down", m: u.signal_dbm ? `${u.signal_dbm} dBm` : "—" },
+    { n: "LTE Fallback", s: "unknown", m: "n/a" },
+    { n: "Mesh (Retic)", s: "see timeline", m: "—" },
+  ];
+  const grid = $("bearer-grid");
+  grid.innerHTML = bearers.map(b => {
+    const c = b.s === "up" || b.s === "ok" ? "ok" : b.s === "unknown" ? "warn" : "down";
+    return `<div class="bearer ${c}"><div class="n">${b.n}</div><div class="s">${b.s}</div><div class="m">${b.m}</div></div>`;
+  }).join("");
+
+  $("th-flap").textContent = u.flaps_1h || 0;
+  $("th-flap").className = "severity " + ((u.flaps_1h||0) > 5 ? "high" : (u.flaps_1h||0) > 0 ? "med" : "low");
+}
+
+function renderEvent(ec) {
+  $("h-pos").textContent = `${ec.van_lat?.toFixed(3)}, ${ec.van_lon?.toFixed(3)}`;
+  $("h-event").textContent = ec.event || "standby";
+  $("ec-event").textContent = ec.event || "—";
+  $("ec-geo").textContent = ec.event ? "active" : "—";
+  $("ec-line").textContent = ec.event ? "armed" : "—";
+  $("ec-ac").textContent = ec.aircraft_nearby ?? "—";
+  $("ec-ves").textContent = ec.vessels_nearby ?? "—";
+  $("ec-storm").textContent = ec.storm_level ?? "none";
+}
+
+function renderRfDots(dom) {
+  const cx = $("rf-dots");
+  cx.innerHTML = "";
+  let i = 0;
+  for (const [name, d] of Object.entries(dom)) {
+    const count = Math.min(60, Math.round((d.score || 0) / 3));
+    const hue = name.includes("ADS-B") ? "#00e0ff" : name.includes("AIS") ? "#3ddc97" : name.includes("RAYNET") ? "#ffb347" : name.includes("APRS") ? "#ff9fbf" : name.includes("Mesh") ? "#c78fff" : name.includes("HF") ? "#ff4d5e" : "#d9e4f2";
+    for (let k = 0; k < count; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 200;
+      const x = 50 + (Math.cos(a) * r / 6);
+      const y = 50 + (Math.sin(a) * r / 6);
+      const el = document.createElement("div");
+      el.style.cssText = `position:absolute;left:${x}%;top:${y}%;width:4px;height:4px;border-radius:50%;background:${hue};box-shadow:0 0 6px ${hue};opacity:0.7;transform:translate(-50%,-50%);`;
+      cx.appendChild(el);
+    }
+    i++;
+  }
+}
+
+async function tick() {
+  try {
+    const r = await fetch(`${API}/api/van/${VAN}/spectrum`);
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    $("h-van").textContent = d.van_id;
+    renderBands(d.dominance);
+    renderSpaceWx(d.space_weather);
+    renderUplink(d.uplink);
+    renderEvent(d.event_context);
+    renderRfDots(d.dominance);
+    renderSparks(d.dominance);
+    const stale = Object.values(d.raw_upstream_status).filter(v => v !== "ok").length;
+    $("fstat").textContent = `OK · ${new Date().toISOString().substring(11,19)}Z · upstreams ${11-stale}/11`;
+    $("fstat").style.color = stale > 3 ? "var(--red)" : stale > 0 ? "var(--amber)" : "var(--ink-dim)";
+    document.body.classList.remove("stale");
+  } catch (e) {
+    $("fstat").textContent = `STALE · ${e.message}`;
+    document.body.classList.add("stale");
+  }
+}
+
+tick(); setInterval(tick, REFRESH_MS);
+</script>
+</body>
+</html>

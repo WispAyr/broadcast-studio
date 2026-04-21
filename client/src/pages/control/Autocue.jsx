@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../lib/api';
 import { connectSocket } from '../../lib/socket';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 export default function Autocue() {
+  const toast = useToast();
   const [documents, setDocuments] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [content, setContent] = useState('');
@@ -100,8 +103,9 @@ export default function Autocue() {
       setSelectedDoc(doc);
       setNewTitle('');
       setShowSave(false);
+      toast?.('Document saved', 'success');
     } catch (err) {
-      alert('Failed to save: ' + err.message);
+      toast?.(`Save failed: ${err.message}`, 'error');
     }
   }
 
@@ -110,19 +114,27 @@ export default function Autocue() {
     try {
       await api.put(`/autocue/documents/${selectedDoc.id}`, { content });
       setDocuments(prev => prev.map(d => d.id === selectedDoc.id ? { ...d, word_count: content.trim().split(/\s+/).length } : d));
+      toast?.('Document updated', 'success');
     } catch (err) {
-      alert('Failed to update: ' + err.message);
+      toast?.(`Update failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDeleteDocument(id) {
-    if (!confirm('Delete this document?')) return;
+    const doc = documents.find(d => d.id === id);
+    if (!await confirmAsync({
+      title: 'Delete document?',
+      message: `"${doc?.title || id}" will be removed from the autocue library.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/autocue/documents/${id}`);
+      toast?.('Document deleted', 'success');
       setDocuments(prev => prev.filter(d => d.id !== id));
       if (selectedDoc?.id === id) { setSelectedDoc(null); setContent(''); }
     } catch (err) {
-      alert('Failed to delete: ' + err.message);
+      toast?.(`Delete failed: ${err.message}`, 'error');
     }
   }
 
@@ -133,8 +145,9 @@ export default function Autocue() {
       setContent(result.content || '');
       setImportUrl('');
       setShowImport(false);
+      toast?.('Imported from URL', 'success');
     } catch (err) {
-      alert('Import failed: ' + err.message);
+      toast?.(`Import failed: ${err.message}`, 'error');
     }
   }
 

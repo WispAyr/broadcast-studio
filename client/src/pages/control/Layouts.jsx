@@ -5,6 +5,8 @@ import ModuleRenderer from '../../components/ModuleRenderer';
 import MediaPicker from '../../components/MediaPicker';
 import { getLayers, layersToStorage, createLayer, BLEND_MODES, CHROMA_PRESETS } from '../../lib/layers';
 import { RemotionModuleConfig } from '../../modules/RemotionModule';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 // ─── Module type icons ──────────────────────────────────────────────────────
 const MODULE_ICONS = {
@@ -606,6 +608,7 @@ function LayoutThumbnail({ gridCols, gridRows }) {
 
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function Layouts() {
+  const toast = useToast();
   const [layouts, setLayouts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedLayout, setSelectedLayout] = useState(null);
@@ -746,16 +749,35 @@ export default function Layouts() {
       });
       fetchLayouts();
       setSelectedId(data.layout?.id || data.id);
+      toast?.('Layout created', 'success');
     } catch (err) {
-      alert('Failed to create layout: ' + err.message);
+      toast?.(`Create failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDeleteLayout(id) {
     const targetId = id || selectedId;
-    if (!targetId || !confirm('Delete this layout?')) return;
+    if (!targetId) return;
+    // Check which screens are currently using the layout before confirming.
+    let title = 'Delete layout?';
+    let message = 'This layout will be removed permanently.';
+    let variant = 'danger';
+    try {
+      const screensData = await api.get('/screens');
+      const list = Array.isArray(screensData) ? screensData : (screensData.screens || []);
+      const inUse = list.filter(s => s.current_layout_id === targetId);
+      if (inUse.length > 0) {
+        const names = inUse.slice(0, 3).map(s => s.name).join(', ');
+        const more = inUse.length > 3 ? `, +${inUse.length - 3} more` : '';
+        title = `${inUse.length} screen${inUse.length === 1 ? '' : 's'} currently displaying this layout`;
+        message = `Currently showing on: ${names}${more}.\n\nDelete anyway? Those screens will go to "No Layout".`;
+        variant = 'warning';
+      }
+    } catch { /* fall through to default message */ }
+    if (!await confirmAsync({ title, message, confirmLabel: 'Delete', variant })) return;
     try {
       await api.delete(`/layouts/${targetId}`);
+      toast?.('Layout deleted', 'success');
       if (targetId === selectedId) {
         setSelectedId(null);
         setSelectedLayout(null);
@@ -763,7 +785,7 @@ export default function Layouts() {
       }
       fetchLayouts();
     } catch (err) {
-      alert('Failed to delete layout: ' + err.message);
+      toast?.(`Delete failed: ${err.message}`, 'error');
     }
   }
 
@@ -782,8 +804,9 @@ export default function Layouts() {
       });
       fetchLayouts();
       setSelectedId(data.layout?.id || data.id);
+      toast?.('Layout duplicated', 'success');
     } catch (err) {
-      alert('Failed to duplicate layout: ' + err.message);
+      toast?.(`Duplicate failed: ${err.message}`, 'error');
     }
   }
 
@@ -1070,6 +1093,21 @@ export default function Layouts() {
                     title="Portrait (9:16)"
                   >▯ 9:16</button>
                 </div>
+                {/* Public-safe toggle — gate required for pushing this layout to
+                    a public-only studio (e.g. ad-van LEDs). Default off so ops
+                    content can't accidentally end up in front of the public. */}
+                <button
+                  onClick={() => updateLayout({ public_safe: selectedLayout.public_safe ? 0 : 1 })}
+                  title={selectedLayout.public_safe ? 'Flagged public-safe — can be pushed to public-only studios. Click to unflag.' : 'Internal only — blocked from public-only studios. Click to mark public-safe.'}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${selectedLayout.public_safe ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-gray-800/50 text-gray-500 border-gray-700/50 hover:text-gray-300'}`}
+                >
+                  {selectedLayout.public_safe ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  )}
+                  {selectedLayout.public_safe ? 'Public-safe' : 'Internal only'}
+                </button>
                 <button
                   onClick={() => { setPlacingCell(null); setShowModulePicker(true); }}
                   className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-blue-900/30"
@@ -1183,10 +1221,18 @@ export default function Layouts() {
                           <span className="text-[9px] text-gray-600 shrink-0">{modCount}</span>
                           {/* Delete layer */}
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
                               if (layers.length <= 1) return;
-                              if (modCount > 0 && !confirm(`Delete "${layer.name}" with ${modCount} module(s)?`)) return;
+                              if (modCount > 0) {
+                                const ok = await confirmAsync({
+                                  title: `Delete layer "${layer.name}"?`,
+                                  message: `This layer has ${modCount} module${modCount === 1 ? '' : 's'} — they'll be removed from the layout.`,
+                                  confirmLabel: 'Delete layer',
+                                  variant: 'warning',
+                                });
+                                if (!ok) return;
+                              }
                               const newLayers = layers.filter(l => l.id !== layer.id);
                               if (isActive) {
                                 setActiveLayerId(newLayers[0]?.id || null);
@@ -1527,8 +1573,9 @@ export default function Layouts() {
                             newModules[selectedModule] = { ...newModules[selectedModule], config };
                             updateModules(newModules);
                             setShowJsonEditor(false);
+                            toast?.('JSON applied', 'success');
                           } catch {
-                            alert('Invalid JSON');
+                            toast?.('Invalid JSON — check the syntax', 'error');
                           }
                         }}
                         className="w-full mt-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-colors"

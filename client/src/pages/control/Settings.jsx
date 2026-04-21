@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../lib/api';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 export default function Settings() {
+  const toast = useToast();
   const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [studioInfo, setStudioInfo] = useState({ name: '', slug: '' });
@@ -42,8 +45,9 @@ export default function Settings() {
     setStudioSaving(true);
     try {
       await api.put('/studio', studioInfo);
+      toast?.('Studio settings saved', 'success');
     } catch (err) {
-      alert('Failed to save studio info: ' + err.message);
+      toast?.(`Save failed: ${err.message}`, 'error');
     } finally {
       setStudioSaving(false);
     }
@@ -53,23 +57,30 @@ export default function Settings() {
     e.preventDefault();
     try {
       await api.post('/users', newUser);
+      toast?.('User created', 'success');
       setNewUser({ username: '', password: '', role: 'operator' });
       setShowNewUser(false);
-      // Refresh users
       const usersData = await api.get('/users');
       setUsers(usersData.users || usersData || []);
     } catch (err) {
-      alert('Failed to create user: ' + err.message);
+      toast?.(`Create failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDeleteUser(id) {
-    if (!confirm('Delete this user?')) return;
+    const u = users.find(x => x.id === id);
+    if (!await confirmAsync({
+      title: 'Delete user?',
+      message: `"${u?.username || id}" will lose access immediately. This cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/users/${id}`);
+      toast?.('User deleted', 'success');
       setUsers(users.filter((u) => u.id !== id));
     } catch (err) {
-      alert('Failed to delete user: ' + err.message);
+      toast?.(`Delete failed: ${err.message}`, 'error');
     }
   }
 

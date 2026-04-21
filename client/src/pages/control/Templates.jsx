@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 export default function Templates() {
+  const toast = useToast();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -50,11 +53,18 @@ export default function Templates() {
   }
 
   async function deleteTemplate(id) {
-    if (!confirm('Delete this template?')) return;
+    const t = templates.find(x => x.id === id);
+    if (!await confirmAsync({
+      title: 'Delete template?',
+      message: `"${t?.name || id}" will be removed from this studio's template library.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/templates/${id}`);
+      toast?.('Template deleted', 'success');
       setTemplates(templates.filter(t => t.id !== id));
-    } catch (err) { console.error(err); }
+    } catch (err) { toast?.(`Delete failed: ${err.message}`, 'error'); }
   }
 
   const categories = [...new Set(templates.map(t => t.category))];

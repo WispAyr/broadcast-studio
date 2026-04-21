@@ -30,7 +30,7 @@ const SCENES = [
   { id: 'weather-prestwick',name:'Prestwick Weather',   description: 'Prestwick weather conditions',                                            accent: 'sky',     icon: 'cloud',  category: 'weather', url: 'https://weather.ayrshire.wispayr.online/#prestwick' },
   { id: 'weather-kilmarnock',name:'Kilmarnock Weather', description: 'Kilmarnock weather conditions',                                           accent: 'sky',     icon: 'cloud',  category: 'weather', url: 'https://weather.ayrshire.wispayr.online/#kilmarnock' },
   { id: 'ayrshire-news',   name: 'Ayrshire News',      description: 'Ayrshire local news aggregator',                                          accent: 'emerald', icon: 'list',   category: 'ayrshire', url: 'https://news.ayrshire.wispayr.online' },
-  { id: 'ayrshire-hub',    name: 'Ayrshire Hub',       description: 'Ayrshire community hub',                                                  accent: 'emerald', icon: 'globe',  category: 'ayrshire', url: 'https://ayrshire.wispayr.online' },
+  { id: 'ayrshire-hub',    name: 'Ayrshire Hub',       description: 'Ayrshire community hub',                                                  accent: 'emerald', icon: 'globe',  category: 'ayrshire', url: 'https://ayrshire.wispayr.online/?tv=1' },
   { id: 'director',    name: 'Director (Auto)',    description: 'Auto-switching between scenes based on activity',       accent: 'sky',     icon: 'play',     category: 'utility' },
 ];
 

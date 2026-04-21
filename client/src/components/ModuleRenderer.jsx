@@ -1,16 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import moduleRegistry from '../modules/index';
 import { getSocket, connectSocket } from '../lib/socket';
+
+// Shallow stringify for dep comparison. Avoids calling JSON.stringify on every
+// render (it throws on functions / circular refs and allocates per render);
+// we only need a stable primitive that changes when top-level config changes.
+function shallowHash(obj) {
+  if (!obj || typeof obj !== 'object') return String(obj);
+  try {
+    const keys = Object.keys(obj).sort();
+    return keys.map(k => {
+      const v = obj[k];
+      if (v === null || typeof v !== 'object') return `${k}:${v}`;
+      return `${k}:[obj]`;
+    }).join('|');
+  } catch {
+    return '';
+  }
+}
 
 export default function ModuleRenderer({ type, config = {}, moduleId }) {
   const [liveConfig, setLiveConfig] = useState(config);
   const [renderKey, setRenderKey] = useState(0);
   const Component = moduleRegistry[type];
 
+  const configHash = useMemo(() => shallowHash(config), [config]);
+
   // Sync with incoming config prop changes
   useEffect(() => {
     setLiveConfig(prev => ({ ...prev, ...config }));
-  }, [JSON.stringify(config)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configHash]);
 
   // Listen for real-time config updates via WebSocket
   useEffect(() => {

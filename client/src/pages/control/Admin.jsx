@@ -53,12 +53,32 @@ function Modal({ title, onClose, children }) {
 }
 
 // ─── Section: Clients ─────────────────────────────────────────────────────────
+function switchToStudio(studio) {
+  try {
+    const raw = localStorage.getItem('broadcast_user');
+    const user = raw ? JSON.parse(raw) : {};
+    user.studio_id = studio.id;
+    user.studio_name = studio.name;
+    localStorage.setItem('broadcast_user', JSON.stringify(user));
+  } catch (_) {}
+  window.location.href = '/god';
+}
+
+function getActiveStudioId() {
+  try {
+    const raw = localStorage.getItem('broadcast_user');
+    if (!raw) return null;
+    return JSON.parse(raw).studio_id || null;
+  } catch (_) { return null; }
+}
+
 function ClientsSection() {
   const [studios, setStudios] = useState([]);
+  const activeStudioId = getActiveStudioId();
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(null);
   const [modal, setModal] = useState(null); // { mode: 'create'|'edit', studio? }
-  const [form, setForm] = useState({ name: '', slug: '' });
+  const [form, setForm] = useState({ name: '', slug: '', public_only: false });
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
@@ -68,8 +88,8 @@ function ClientsSection() {
 
   useEffect(load, [load]);
 
-  function openCreate() { setForm({ name: '', slug: '' }); setError(''); setModal({ mode: 'create' }); }
-  function openEdit(s) { setForm({ name: s.name, slug: s.slug }); setError(''); setModal({ mode: 'edit', studio: s }); }
+  function openCreate() { setForm({ name: '', slug: '', public_only: false }); setError(''); setModal({ mode: 'create' }); }
+  function openEdit(s) { setForm({ name: s.name, slug: s.slug, public_only: !!s.public_only }); setError(''); setModal({ mode: 'edit', studio: s }); }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -128,13 +148,23 @@ function ClientsSection() {
             ) : studios.length === 0 ? (
               <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-600">No studios yet</td></tr>
             ) : studios.map(s => (
-              <tr key={s.id} className="border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors">
-                <td className="px-4 py-3 text-white font-medium">{s.name}</td>
+              <tr key={s.id} className={`border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors ${s.id === activeStudioId ? 'bg-blue-900/20' : ''}`}>
+                <td className="px-4 py-3 text-white font-medium">
+                  {s.name}
+                  {s.id === activeStudioId && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40">active</span>}
+                </td>
                 <td className="px-4 py-3 text-gray-400 font-mono text-xs">{s.slug}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.active ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-gray-600/20 text-gray-500 border border-gray-600/30'}`}>
-                    {s.active ? 'Active' : 'Disabled'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${s.active ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-gray-600/20 text-gray-500 border border-gray-600/30'}`}>
+                      {s.active ? 'Active' : 'Disabled'}
+                    </span>
+                    {s.public_only ? (
+                      <span title="Public-only: only public_safe layouts can be pushed to screens in this studio" className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        Public-only
+                      </span>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-300">{s.screen_count ?? 0}</td>
                 <td className="px-4 py-3 text-gray-300">{s.layout_count ?? 0}</td>
@@ -142,6 +172,7 @@ function ClientsSection() {
                 <td className="px-4 py-3 text-gray-500 text-xs">{s.created_at?.slice(0, 10)}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center gap-2 justify-end">
+                    <button onClick={() => switchToStudio(s)} title="Switch to this studio and open God View" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">View →</button>
                     <button onClick={() => openEdit(s)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Edit</button>
                     <button onClick={() => toggleActive(s)} className="text-xs text-yellow-400 hover:text-yellow-300 transition-colors">{s.active ? 'Disable' : 'Enable'}</button>
                     <button onClick={() => handleDelete(s)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Delete</button>
@@ -167,6 +198,17 @@ function ClientsSection() {
               <label className="block text-xs text-gray-400 mb-1">Slug</label>
               <input value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} required
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-blue-500" placeholder="now-ayrshire" />
+            </div>
+            <div className="flex items-start gap-3 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+              <input id="public_only" type="checkbox" checked={form.public_only} onChange={e => setForm(f => ({ ...f, public_only: e.target.checked }))}
+                className="mt-0.5 accent-amber-500" />
+              <div>
+                <label htmlFor="public_only" className="text-sm text-white font-medium cursor-pointer">Public-facing studio</label>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Only layouts flagged <span className="text-amber-300">public_safe</span> can be pushed to screens in this studio.
+                  Use for ad-vans, public LED walls, anything facing the public — blocks ops/SITREP content from landing accidentally.
+                </p>
+              </div>
             </div>
             {error && <p className="text-red-400 text-xs">{error}</p>}
             <div className="flex gap-3 justify-end pt-2">
@@ -353,6 +395,12 @@ function ScreensSection({ studios }) {
     }});
   }
 
+  async function toggleLock(s) {
+    const next = s.accepts_broadcasts ? 0 : 1;
+    await api.put(`/screens/${s.id}`, { accepts_broadcasts: next });
+    setScreens(prev => prev.map(x => x.id === s.id ? { ...x, accepts_broadcasts: next } : x));
+  }
+
   async function openPushLayout(screen) {
     const studioLayouts = await api.get(`/layouts?studio_id=${screen.studio_id}`).catch(() => []);
     setLayouts(Array.isArray(studioLayouts) ? studioLayouts : []);
@@ -423,6 +471,10 @@ function ScreensSection({ studios }) {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center gap-2 justify-end">
+                    <button onClick={() => toggleLock(s)} title={s.accepts_broadcasts === 0 ? 'Locked — skipped on studio-wide sync. Click to unlock.' : 'Unlocked — receives studio-wide sync. Click to lock out.'}
+                      className={`text-xs transition-colors ${s.accepts_broadcasts === 0 ? 'text-amber-400 hover:text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}>
+                      {s.accepts_broadcasts === 0 ? 'Locked' : 'Unlocked'}
+                    </button>
                     <button onClick={() => openPushLayout(s)} className="text-xs text-green-400 hover:text-green-300 transition-colors">Push Layout</button>
                     <button onClick={() => handleDelete(s)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Delete</button>
                   </div>

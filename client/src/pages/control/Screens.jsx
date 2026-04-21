@@ -1,11 +1,25 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../lib/api';
+import { useToast } from '../../components/Toast';
+import { confirmAsync } from '../../lib/dialog';
 
 const DEFAULT_PROFILE = {
   brightness: 100, contrast: 100, saturation: 100,
   blackLevel: 0, gamma: 1.0, colorTemp: 'neutral',
   rotation: 0, flipH: false, flipV: false,
   contentScale: 100, offsetX: 0, offsetY: 0, contentFit: 'cover',
+};
+
+// Quick-select presets for the Display tab. These mutate the image-correction
+// subset of the profile and preserve orientation/offset tweaks the user has
+// already dialled in, so picking "High contrast" won't throw away a 90° rotate.
+const DISPLAY_PRESETS = {
+  factory:      { brightness: 100, contrast: 100, saturation: 100, blackLevel: 0,  gamma: 1.0, colorTemp: 'neutral' },
+  highContrast: { brightness: 110, contrast: 135, saturation: 110, blackLevel: 5,  gamma: 1.1, colorTemp: 'neutral' },
+  warm:         { brightness: 105, contrast: 105, saturation: 115, blackLevel: 0,  gamma: 1.0, colorTemp: 'warm'    },
+  cool:         { brightness: 105, contrast: 105, saturation: 110, blackLevel: 0,  gamma: 1.0, colorTemp: 'cool'    },
+  daylight:     { brightness: 130, contrast: 115, saturation: 105, blackLevel: 0,  gamma: 0.9, colorTemp: 'neutral' },
+  nightDim:     { brightness: 70,  contrast: 95,  saturation: 90,  blackLevel: 10, gamma: 1.1, colorTemp: 'warm'    },
 };
 
 function Slider({ label, value, onChange, min, max, step = 1, unit = '' }) {
@@ -131,9 +145,33 @@ function DisplayTab({ profile, setProfile, screens, currentScreenId }) {
     }
   };
 
+  const applyPreset = (key) => {
+    const preset = DISPLAY_PRESETS[key];
+    if (!preset) return;
+    setProfile(p => ({ ...p, ...preset }));
+  };
+
   return (
     <div className="grid grid-cols-2 gap-6">
       <div className="space-y-1">
+        <div className="mb-3">
+          <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">Presets</label>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              ['factory', 'Factory'],
+              ['highContrast', 'High Contrast'],
+              ['warm', 'Warm'],
+              ['cool', 'Cool'],
+              ['daylight', 'Daylight'],
+              ['nightDim', 'Night Dim'],
+            ].map(([key, label]) => (
+              <button key={key} onClick={() => applyPreset(key)}
+                className="px-2.5 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         <Slider label="Brightness" value={profile.brightness} onChange={v => setProfile(p => ({ ...p, brightness: v }))} min={50} max={200} unit="%" />
         <Slider label="Contrast" value={profile.contrast} onChange={v => setProfile(p => ({ ...p, contrast: v }))} min={50} max={200} unit="%" />
         <Slider label="Saturation" value={profile.saturation} onChange={v => setProfile(p => ({ ...p, saturation: v }))} min={0} max={200} unit="%" />
@@ -231,6 +269,7 @@ function ViewportTab({ profile, formData }) {
 }
 
 function ScreenGroupsPanel({ groups, setGroups, fetchGroups }) {
+  const toast = useToast();
   const [editing, setEditing] = useState(null);
   const [name, setName] = useState('');
   const [profile, setProfile] = useState({ ...DEFAULT_PROFILE });
@@ -246,22 +285,25 @@ function ScreenGroupsPanel({ groups, setGroups, fetchGroups }) {
     try {
       if (editing && editing !== 'new') {
         await api.put(`/screen-groups/${editing}`, { name, profile });
+        toast?.('Group updated', 'success');
       } else {
         await api.post('/screen-groups', { name, profile });
+        toast?.('Group created', 'success');
       }
       setEditing(null);
       setName('');
       setProfile({ ...DEFAULT_PROFILE });
       fetchGroups();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) { toast?.(`Save failed: ${err.message}`, 'error'); }
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this group?')) return;
+    if (!await confirmAsync({ title: 'Delete group?', message: 'This removes the group. Screens using it will fall back to their own display profile.', confirmLabel: 'Delete', variant: 'danger' })) return;
     try {
       await api.delete(`/screen-groups/${id}`);
+      toast?.('Group deleted', 'success');
       fetchGroups();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) { toast?.(`Delete failed: ${err.message}`, 'error'); }
   }
 
   return (
@@ -311,6 +353,7 @@ function ScreenGroupsPanel({ groups, setGroups, fetchGroups }) {
 }
 
 export default function Screens() {
+  const toast = useToast();
   const [screens, setScreens] = useState([]);
   const [layouts, setLayouts] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -367,37 +410,59 @@ export default function Screens() {
         width: formData.width, height: formData.height,
         group_id: formData.group_id, config,
       });
+      toast?.('Screen saved', 'success');
       fetchScreens();
-      // Update selected screen reference
       setSelectedScreen(s => ({ ...s, ...formData, config }));
-    } catch (err) { alert('Failed to save: ' + err.message); }
+    } catch (err) { toast?.(`Save failed: ${err.message}`, 'error'); }
   }
 
   async function handleAddScreen(e) {
     e.preventDefault();
     try {
       await api.post('/screens', { name: newName, screen_number: newNumber });
+      toast?.('Screen created', 'success');
       setShowAddForm(false);
       setNewName('');
       setNewNumber(1);
       fetchScreens();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) { toast?.(`Create failed: ${err.message}`, 'error'); }
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this screen?')) return;
+    const screen = screens.find(s => s.id === id);
+    if (!await confirmAsync({
+      title: 'Delete screen?',
+      message: `"${screen?.name || id}" will be removed. Any display currently pointing at this screen ID will go to "Screen not found".`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    })) return;
     try {
       await api.delete(`/screens/${id}`);
+      toast?.('Screen deleted', 'success');
       if (selectedScreen?.id === id) setSelectedScreen(null);
       fetchScreens();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) { toast?.(`Delete failed: ${err.message}`, 'error'); }
   }
 
   async function handleSetLayout(screenId, layoutId) {
+    const nextId = layoutId ? layoutId : null;
     try {
-      await api.put(`/screens/${screenId}`, { current_layout_id: layoutId || null });
+      await api.put(`/screens/${screenId}`, { current_layout_id: nextId });
+      setScreens(prev => prev.map(s => s.id === screenId ? { ...s, current_layout_id: nextId } : s));
       fetchScreens();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) { toast?.(`Layout change failed: ${err.message}`, 'error'); }
+  }
+
+  // Toggle the padlock (accepts_broadcasts). When 0, the screen is excluded
+  // from studio-wide /screens/sync pushes but still receives direct
+  // single-screen assignments and the emergency override.
+  async function toggleAcceptsBroadcasts(screen) {
+    const next = screen.accepts_broadcasts ? 0 : 1;
+    try {
+      await api.put(`/screens/${screen.id}`, { accepts_broadcasts: next });
+      setScreens(prev => prev.map(s => s.id === screen.id ? { ...s, accepts_broadcasts: next } : s));
+      toast?.(next ? 'Screen unlocked — accepts broadcasts' : 'Screen locked out of broadcasts', 'success');
+    } catch (err) { toast?.(`Lockout toggle failed: ${err.message}`, 'error'); }
   }
 
   if (loading) return <div className="p-8 flex items-center justify-center h-full"><p className="text-gray-400">Loading screens...</p></div>;
@@ -465,6 +530,15 @@ export default function Screens() {
                     <option value="">No Layout</option>
                     {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
+                  <button onClick={e => { e.stopPropagation(); toggleAcceptsBroadcasts(screen); }}
+                    className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${screen.accepts_broadcasts === 0 ? 'bg-amber-600/20 hover:bg-amber-600/30 text-amber-400' : 'bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300'}`}
+                    title={screen.accepts_broadcasts === 0 ? 'Locked: studio-wide pushes will SKIP this screen. Click to unlock.' : 'Unlocked: accepts studio-wide pushes. Click to lock out.'}>
+                    {screen.accepts_broadcasts === 0 ? (
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    ) : (
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                    )}
+                  </button>
                   <button onClick={e => { e.stopPropagation(); window.open(`/screen/${screen.id}`, '_blank'); }}
                     className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white text-xs rounded-md transition-colors" title="Open screen">
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>

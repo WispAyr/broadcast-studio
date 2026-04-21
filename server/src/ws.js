@@ -1,7 +1,7 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { db } = require('./db');
-const { bumpCounter, setCounter } = require('./db');
+const { bumpCounter, setCounter, getVariablesByStudio } = require('./db');
 const { JWT_SECRET } = require('./middleware/auth');
 
 let io = null;
@@ -78,6 +78,15 @@ function setupWebSocket(server) {
       });
 
       console.log(`Screen ${screenId} registered to studio ${studioId}`);
+
+      try {
+        const vars = getVariablesByStudio(resolvedStudio) || [];
+        const snap = {};
+        for (const v of vars) snap[v.id] = v.value;
+        socket.emit('variable_snapshot', { variables: snap, timestamp: Date.now() });
+      } catch (e) {
+        console.warn('variable_snapshot emit failed:', e.message);
+      }
     });
 
     // Screen heartbeat
@@ -159,6 +168,19 @@ function setupWebSocket(server) {
         socket.join(`studio:${studioId}`);
         socket.studioId = studioId;
         console.log(`Socket ${socket.id} joined studio ${studioId}`);
+      }
+    });
+
+    // Join a kiosk room — Electron displays subscribe here so they get
+    // `display_update` events the instant ops rearranges a slot, instead
+    // of waiting for the 15s poll to catch up. Unauthenticated on purpose:
+    // the host name is not a secret and the event carries only a revision
+    // counter (no URLs leak).
+    socket.on('join_kiosk', ({ host }) => {
+      if (host) {
+        socket.join(`kiosk:${host}`);
+        socket.kioskHost = host;
+        console.log(`Socket ${socket.id} joined kiosk ${host}`);
       }
     });
 
@@ -277,14 +299,20 @@ function setupWebSocket(server) {
     // Disconnect handling
     socket.on('disconnect', () => {
       if (socket.screenId) {
-        db.prepare('UPDATE screens SET is_online = 0 WHERE id = ?').run(socket.screenId);
-
-        if (socket.studioId) {
-          io.to(`studio:${socket.studioId}`).emit('screen_status', {
-            screenId: socket.screenId,
-            is_online: false,
-            timestamp: new Date().toISOString()
-          });
+        // Only flip offline if no other socket is still holding this screen.
+        // Reconnect races + multi-tab previews used to mark screens offline
+        // while the kiosk was still up.
+        const room = io.sockets.adapter.rooms.get(`screen:${socket.screenId}`);
+        const remaining = room ? room.size : 0;
+        if (remaining === 0) {
+          db.prepare('UPDATE screens SET is_online = 0 WHERE id = ?').run(socket.screenId);
+          if (socket.studioId) {
+            io.to(`studio:${socket.studioId}`).emit('screen_status', {
+              screenId: socket.screenId,
+              is_online: false,
+              timestamp: new Date().toISOString()
+            });
+          }
         }
       }
       console.log(`Socket disconnected: ${socket.id}`);

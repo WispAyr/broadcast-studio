@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../lib/api';
+import { useToast } from '../../components/Toast';
 
 export default function Timeline() {
+  const toast = useToast();
   const [activeShow, setActiveShow] = useState(null);
   const [shows, setShows] = useState([]);
   const [layouts, setLayouts] = useState([]);
@@ -64,12 +66,18 @@ export default function Timeline() {
       await api.put(`/shows/${activeShow.id}`, { timeline: newTimeline });
       setTimeline(newTimeline);
     } catch (err) {
-      alert('Failed to save timeline: ' + err.message);
+      toast?.(`Save timeline failed: ${err.message}`, 'error');
     }
   }
 
+  const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
   function addEntry() {
     if (!newTime || !newLayoutId) return;
+    if (!TIME_RE.test(newTime)) {
+      toast?.('Time must be HH:MM (00:00–23:59)', 'warning');
+      return;
+    }
     const layout = layouts.find((l) => l.id === newLayoutId);
     const entry = {
       time: newTime,
@@ -89,45 +97,60 @@ export default function Timeline() {
     saveTimeline(newTimeline);
   }
 
+  // Reorder entries sharing the same time (e.g. two cues both at 10:00).
+  // Timeline is sorted by time, so swap only works within equal-time runs.
+  function moveEntry(index, delta) {
+    const target = index + delta;
+    if (target < 0 || target >= timeline.length) return;
+    if (timeline[index].time !== timeline[target].time) return;
+    const next = [...timeline];
+    [next[index], next[target]] = [next[target], next[index]];
+    saveTimeline(next);
+  }
+
   async function handleOverride() {
     if (!overrideLayoutId) return;
     try {
       await api.post('/timeline/override', { layout_id: overrideLayoutId });
+      toast?.('Automation overridden', 'success');
       setIsOverriding(true);
     } catch (err) {
-      alert('Override failed: ' + err.message);
+      toast?.(`Override failed: ${err.message}`, 'error');
     }
   }
 
   async function handleResumeAutomation() {
     try {
       await api.post('/timeline/resume', {});
+      toast?.('Automation resumed', 'success');
       setIsOverriding(false);
       setOverrideLayoutId('');
       fetchData();
     } catch (err) {
-      alert('Resume failed: ' + err.message);
+      toast?.(`Resume failed: ${err.message}`, 'error');
     }
   }
 
   async function handleActivateShow(showId) {
     try {
       await api.post(`/shows/${showId}/activate`);
+      toast?.('Show activated', 'success');
       fetchData();
     } catch (err) {
-      alert('Failed to activate show: ' + err.message);
+      toast?.(`Activate failed: ${err.message}`, 'error');
     }
   }
 
   async function handleDeactivateShow(showId) {
     try {
       await api.post(`/shows/${showId}/deactivate`);
+      toast?.('Show deactivated', 'success');
       setActiveShow(null);
       setTimeline([]);
       setIsOverriding(false);
       fetchData();
     } catch (err) {
-      alert('Failed to deactivate show: ' + err.message);
+      toast?.(`Deactivate failed: ${err.message}`, 'error');
     }
   }
 
@@ -323,6 +346,8 @@ export default function Timeline() {
             <div className="space-y-2">
               {timeline.map((entry, i) => {
                 const isActive = currentEntry === entry;
+                const canMoveUp   = i > 0 && timeline[i - 1].time === entry.time;
+                const canMoveDown = i < timeline.length - 1 && timeline[i + 1].time === entry.time;
                 return (
                   <div
                     key={i}
@@ -340,12 +365,28 @@ export default function Timeline() {
                         ({getLayoutName(entry.layout_id)})
                       </span>
                     </div>
-                    <button
-                      onClick={() => removeEntry(i)}
-                      className="text-red-400 hover:text-red-300 text-sm transition-colors"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => moveEntry(i, -1)}
+                        disabled={!canMoveUp}
+                        title={canMoveUp ? 'Move up (same-time cues)' : 'No same-time cue above'}
+                        className="px-1.5 py-1 text-xs text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Move entry up"
+                      >▲</button>
+                      <button
+                        onClick={() => moveEntry(i, 1)}
+                        disabled={!canMoveDown}
+                        title={canMoveDown ? 'Move down (same-time cues)' : 'No same-time cue below'}
+                        className="px-1.5 py-1 text-xs text-gray-500 hover:text-white disabled:opacity-20 disabled:hover:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                        aria-label="Move entry down"
+                      >▼</button>
+                      <button
+                        onClick={() => removeEntry(i)}
+                        className="ml-2 text-red-400 hover:text-red-300 text-sm transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 );
               })}

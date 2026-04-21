@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#991b1b" />
+  <title>Emergency Banner</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0a0a0a; color: white; overscroll-behavior: none; }
+    body { display: flex; flex-direction: column; padding: 20px; min-height: 100vh; }
+    h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; color: #fca5a5; letter-spacing: 0.02em; }
+    p.sub { margin: 0 0 24px; font-size: 13px; color: #737373; }
+    label { display: block; font-size: 11px; color: #a3a3a3; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 600; }
+    input, textarea { width: 100%; background: #171717; border: 1px solid #262626; border-radius: 8px; padding: 12px; color: white; font-size: 14px; font-family: inherit; margin-bottom: 16px; }
+    textarea { resize: vertical; min-height: 80px; }
+    input:focus, textarea:focus { outline: none; border-color: #525252; }
+    .spacer { flex: 1; }
+    .primary {
+      width: 100%; padding: 28px; border-radius: 16px; border: 3px solid #b91c1c;
+      background: linear-gradient(180deg, #dc2626, #7f1d1d);
+      color: white; font-size: 24px; font-weight: 900; letter-spacing: 0.05em;
+      text-transform: uppercase; box-shadow: 0 4px 30px rgba(220, 38, 38, 0.4);
+      cursor: pointer; user-select: none; transition: transform 0.1s;
+    }
+    .primary:active { transform: scale(0.98); }
+    .primary.armed { background: linear-gradient(180deg, #fca5a5, #dc2626); animation: pulse 0.8s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 4px 30px rgba(220, 38, 38, 0.4); } 50% { box-shadow: 0 4px 50px rgba(220, 38, 38, 0.9); } }
+    .status { margin-top: 16px; padding: 12px 16px; border-radius: 8px; font-size: 13px; text-align: center; min-height: 20px; }
+    .status.ok { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid #065f46; }
+    .status.err { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid #991b1b; }
+    .hint { font-size: 11px; color: #525252; text-align: center; margin-top: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Emergency banner</h1>
+  <p class="sub">Push a red alert to every screen in the studio.</p>
+
+  <label for="label">Your call sign / location</label>
+  <input id="label" placeholder="e.g. van-01, marshal-6, start-tent" maxlength="32" />
+
+  <label for="message">Message (optional — leave blank for default)</label>
+  <textarea id="message" placeholder="e.g. Medical incident at gate 3, hold traffic" maxlength="200"></textarea>
+
+  <div class="spacer"></div>
+
+  <button id="btn" class="primary">Arm</button>
+
+  <div id="status" class="status"></div>
+
+  <p class="hint">Two-tap confirm. Banner stays up 15 min unless cleared from ops.<br>
+  Push is logged with your call sign for audit.</p>
+
+  <script>
+    // URL shape: /emergency.html?key=<studio-api-key>&studio=<studioId>
+    // A physical device should be configured once with its key + studio.
+    const url = new URL(location.href);
+    const key = url.searchParams.get('key') || localStorage.getItem('bs_em_key') || '';
+    const studioId = url.searchParams.get('studio') || localStorage.getItem('bs_em_studio') || '';
+
+    // Cache on first visit so bookmarked URL can be stripped.
+    if (url.searchParams.get('key'))    localStorage.setItem('bs_em_key', key);
+    if (url.searchParams.get('studio')) localStorage.setItem('bs_em_studio', studioId);
+    // Remember label for quick re-use (not the message — every event is different).
+    document.getElementById('label').value = localStorage.getItem('bs_em_label') || '';
+
+    const btn = document.getElementById('btn');
+    const statusEl = document.getElementById('status');
+    let armed = false;
+    let armTimer = null;
+
+    function setStatus(msg, ok) {
+      statusEl.textContent = msg || '';
+      statusEl.className = 'status' + (msg ? (ok ? ' ok' : ' err') : '');
+    }
+
+    function disarm() {
+      armed = false;
+      btn.textContent = 'Arm';
+      btn.classList.remove('armed');
+      if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+    }
+
+    btn.addEventListener('click', async () => {
+      if (!key || !studioId) {
+        setStatus('Not configured — open the link from ops with ?key= and ?studio=', false);
+        return;
+      }
+      if (!armed) {
+        armed = true;
+        btn.textContent = 'Tap again to send';
+        btn.classList.add('armed');
+        setStatus('Armed — tap again within 4s', false);
+        armTimer = setTimeout(disarm, 4000);
+        return;
+      }
+      // Second tap — send.
+      disarm();
+      setStatus('Sending…', true);
+      try {
+        const label = document.getElementById('label').value.trim();
+        const message = document.getElementById('message').value.trim();
+        if (label) localStorage.setItem('bs_em_label', label);
+        const res = await fetch(`/api/broadcast/emergency/${encodeURIComponent(studioId)}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-api-key': key },
+          body: JSON.stringify({ label, message }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+        setStatus('Banner pushed — all screens now showing your message.', true);
+        document.getElementById('message').value = '';
+      } catch (err) {
+        setStatus('Failed: ' + err.message, false);
+      }
+    });
+  </script>
+</body>
+</html>

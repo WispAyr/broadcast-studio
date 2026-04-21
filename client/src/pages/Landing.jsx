@@ -1,87 +1,319 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
+// ─── Icon library (inline SVG, lucide-style) ───
+function Icon({ name, className = 'w-5 h-5' }) {
+  const p = {
+    monitors: (
+      <>
+        <rect x="3" y="4" width="13" height="9" rx="1.5" />
+        <rect x="10" y="10" width="11" height="8" rx="1.5" />
+        <path d="M9 17h4" />
+      </>
+    ),
+    zap: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,
+    mixer: (
+      <>
+        <rect x="3" y="3" width="18" height="14" rx="1.5" />
+        <path d="M3 13h18" />
+        <path d="M8 17v4" />
+        <path d="M16 17v4" />
+        <circle cx="7" cy="8" r="1.2" />
+        <circle cx="12" cy="8" r="1.2" />
+        <circle cx="17" cy="8" r="1.2" />
+      </>
+    ),
+    grid: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    blocks: (
+      <>
+        <rect x="3" y="3" width="8" height="8" rx="1" />
+        <rect x="13" y="3" width="8" height="8" rx="1" />
+        <rect x="3" y="13" width="8" height="8" rx="1" />
+        <rect x="13" y="13" width="8" height="8" rx="1" />
+      </>
+    ),
+    building: (
+      <>
+        <rect x="4" y="3" width="16" height="18" rx="1" />
+        <path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1" />
+        <path d="M10 21v-3h4v3" />
+      </>
+    ),
+    layers: (
+      <>
+        <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+        <path d="m3 13 9 5 9-5" />
+        <path d="m3 18 9 5 9-5" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z" />
+        <path d="m9 12 2 2 4-4" />
+      </>
+    ),
+    tv: (
+      <>
+        <rect x="2" y="5" width="20" height="13" rx="1.5" />
+        <path d="M7 21h10" />
+        <path d="M12 18v3" />
+      </>
+    ),
+    clapper: (
+      <>
+        <path d="M3 9h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z" />
+        <path d="m3 9 2-5 4 1-2 4" />
+        <path d="m9 5 4 1-2 4" />
+        <path d="m13 6 4 1-2 4" />
+      </>
+    ),
+    waveform: (
+      <>
+        <path d="M2 12h2" />
+        <path d="M6 8v8" />
+        <path d="M10 5v14" />
+        <path d="M14 8v8" />
+        <path d="M18 10v4" />
+        <path d="M22 12h-2" />
+      </>
+    ),
+    server: (
+      <>
+        <rect x="3" y="4" width="18" height="7" rx="1.5" />
+        <rect x="3" y="13" width="18" height="7" rx="1.5" />
+        <circle cx="7" cy="7.5" r="0.8" fill="currentColor" />
+        <circle cx="7" cy="16.5" r="0.8" fill="currentColor" />
+      </>
+    ),
+    mic: (
+      <>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0" />
+        <path d="M12 18v3" />
+      </>
+    ),
+    speaker: (
+      <>
+        <path d="M3 9v6h4l5 4V5L7 9H3Z" />
+        <path d="M16 8a5 5 0 0 1 0 8" />
+        <path d="M19 5a9 9 0 0 1 0 14" />
+      </>
+    ),
+    trophy: (
+      <>
+        <path d="M6 4h12v4a6 6 0 0 1-12 0V4Z" />
+        <path d="M6 6H3v2a3 3 0 0 0 3 3" />
+        <path d="M18 6h3v2a3 3 0 0 1-3 3" />
+        <path d="M10 14v3h4v-3" />
+        <path d="M8 21h8" />
+      </>
+    ),
+    building2: (
+      <>
+        <rect x="3" y="7" width="8" height="14" rx="1" />
+        <rect x="11" y="3" width="10" height="18" rx="1" />
+        <path d="M14 7h1M18 7h1M14 11h1M18 11h1M14 15h1M18 15h1" />
+        <path d="M6 11h1M6 15h1" />
+      </>
+    ),
+    radio: (
+      <>
+        <path d="M4 10a10 10 0 0 1 16 0" />
+        <path d="M7 13a6 6 0 0 1 10 0" />
+        <circle cx="12" cy="18" r="2" />
+      </>
+    ),
+    eye: (
+      <>
+        <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    sliders: (
+      <>
+        <path d="M4 6h10" />
+        <path d="M18 6h2" />
+        <circle cx="16" cy="6" r="2" />
+        <path d="M4 12h2" />
+        <path d="M10 12h10" />
+        <circle cx="8" cy="12" r="2" />
+        <path d="M4 18h14" />
+        <path d="M20 18h0" />
+        <circle cx="20" cy="18" r="1.5" />
+      </>
+    ),
+    palette: (
+      <>
+        <path d="M12 3a9 9 0 1 0 0 18c1 0 1.8-.8 1.8-1.8 0-.6-.3-1.1-.7-1.5-.4-.4-.7-.9-.7-1.5 0-1 .8-1.8 1.8-1.8H16a5 5 0 0 0 5-5c0-3.8-4-6.4-9-6.4Z" />
+        <circle cx="7.5" cy="10.5" r="1.1" fill="currentColor" />
+        <circle cx="12" cy="7.5" r="1.1" fill="currentColor" />
+        <circle cx="16.5" cy="10.5" r="1.1" fill="currentColor" />
+      </>
+    ),
+    cpu: (
+      <>
+        <rect x="5" y="5" width="14" height="14" rx="1.5" />
+        <rect x="9" y="9" width="6" height="6" />
+        <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {p[name]}
+    </svg>
+  );
+}
+
 // ─── Animated grid background ───
 function GridBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: 'linear-gradient(rgba(59,130,246,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.5) 1px, transparent 1px)',
-        backgroundSize: '60px 60px',
-      }} />
+      <div
+        className="absolute inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(59,130,246,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.5) 1px, transparent 1px)',
+          backgroundSize: '60px 60px',
+        }}
+      />
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-500/8 rounded-full blur-3xl" />
-      <div className="absolute top-3/4 left-1/3 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl" />
     </div>
   );
 }
 
-// ─── Mockup animation of control panel ───
+// ─── Control panel mockup ───
 function ControlPanelMockup() {
-  const [activeScreen, setActiveScreen] = useState(0);
-  const screens = ['Presenter', 'Guest', 'Wall'];
-  const layouts = [
-    { name: 'Default', modules: [{ t: '🕐', w: 1 }, { t: '🌤', w: 1 }, { t: '📝', w: 2 }] },
-    { name: 'Breaking', modules: [{ t: '🔴', w: 3 }, { t: '⚡', w: 3 }] },
-    { name: 'Music', modules: [{ t: '🎵', w: 2 }, { t: '🕐', w: 1 }] },
-  ];
-
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    const iv = setInterval(() => setActiveScreen(s => (s + 1) % 3), 3000);
+    const iv = setInterval(() => setTick((t) => t + 1), 2400);
     return () => clearInterval(iv);
   }, []);
 
+  const screens = [
+    { name: 'Presenter · Studio A', layout: 'News — Hero' },
+    { name: 'Guest Monitor',        layout: 'Lower third' },
+    { name: 'Foyer LED',            layout: 'Now playing' },
+  ];
+  const active = tick % screens.length;
+
+  const layoutCells = [
+    // Presenter: hero + ticker
+    [{ c: 3, r: 2, t: 'HERO'   }, { c: 3, r: 1, t: 'TICKER' }],
+    // Guest: split
+    [{ c: 1, r: 3, t: 'CLOCK'  }, { c: 2, r: 2, t: 'LT'     }, { c: 2, r: 1, t: 'CUE' }],
+    // LED: full
+    [{ c: 3, r: 3, t: 'NOW'    }],
+  ];
+
   return (
-    <div className="relative w-full max-w-2xl mx-auto">
-      <div className="bg-gray-900/80 border border-gray-700/50 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/5 backdrop-blur-sm">
+    <div className="relative w-full max-w-3xl mx-auto">
+      <div className="bg-gray-900/70 border border-gray-800/70 rounded-2xl overflow-hidden shadow-2xl shadow-blue-500/5 backdrop-blur-sm">
         {/* Title bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800/50">
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-800/70">
           <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500/80" />
-            <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-            <div className="w-3 h-3 rounded-full bg-green-500/80" />
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
           </div>
-          <span className="text-gray-500 text-xs ml-2 font-mono">broadcast.studio — Dashboard</span>
+          <span className="text-gray-500 text-xs ml-2 font-mono">
+            broadcast.studio.wispayr.online / dashboard
+          </span>
           <div className="ml-auto flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-green-400 text-xs">LIVE</span>
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+            <span className="text-green-400 text-[11px] font-mono tracking-wide">ON AIR</span>
           </div>
         </div>
 
-        {/* Screen monitors */}
+        {/* Screens grid */}
         <div className="p-4">
           <div className="grid grid-cols-3 gap-3">
-            {screens.map((name, i) => (
-              <div key={name} className={`rounded-xl border transition-all duration-500 ${i === activeScreen ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : 'border-gray-800'}`}>
-                <div className="aspect-video bg-gray-950 rounded-t-xl overflow-hidden relative">
-                  <div className="absolute inset-0 grid grid-cols-3 gap-px p-1">
-                    {layouts[i].modules.map((m, j) => (
-                      <div key={j} className={`rounded-sm flex items-center justify-center transition-all duration-500 ${i === activeScreen ? 'bg-blue-900/30' : 'bg-gray-800/50'}`}
-                        style={{ gridColumn: `span ${m.w}` }}>
-                        <span style={{ fontSize: 12 }}>{m.t}</span>
+            {screens.map((s, i) => (
+              <div
+                key={s.name}
+                className={`rounded-lg border transition-all duration-500 ${
+                  i === active
+                    ? 'border-blue-500/60 shadow-lg shadow-blue-500/10'
+                    : 'border-gray-800/80'
+                }`}
+              >
+                <div className="aspect-video bg-gray-950 rounded-t-lg overflow-hidden relative">
+                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-px p-1">
+                    {layoutCells[i].map((cell, j) => (
+                      <div
+                        key={j}
+                        className={`rounded-[2px] flex items-center justify-center font-mono text-[7px] tracking-wider transition-colors duration-500 ${
+                          i === active
+                            ? 'bg-blue-900/30 text-blue-300'
+                            : 'bg-gray-800/60 text-gray-600'
+                        }`}
+                        style={{
+                          gridColumn: `span ${cell.c}`,
+                          gridRow: `span ${cell.r}`,
+                        }}
+                      >
+                        {cell.t}
                       </div>
                     ))}
                   </div>
-                  {i === activeScreen && (
+                  {i === active && (
                     <div className="absolute top-1 right-1">
-                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">LIVE</span>
+                      <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                        LIVE
+                      </span>
                     </div>
                   )}
                 </div>
-                <div className="px-2 py-1.5">
-                  <div className="text-[10px] text-gray-400 font-medium">{name}</div>
+                <div className="px-2.5 py-1.5 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400 font-medium truncate">
+                    {s.name}
+                  </span>
+                  <span className="text-[9px] text-gray-600 font-mono truncate">
+                    {s.layout}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Hotbar */}
-          <div className="mt-3 flex gap-2">
-            {['Default', 'Breaking', 'Music', '⬛'].map((name, i) => (
-              <div key={name} className={`flex-1 py-1.5 rounded-lg text-center text-[10px] font-medium border transition-all ${i === activeScreen ? 'bg-green-900/30 border-green-500/40 text-green-400' : name === '⬛' ? 'bg-gray-900 border-red-900/40 text-red-500' : 'bg-gray-800/50 border-gray-700/50 text-gray-500'}`}>
-                {name}
-              </div>
-            ))}
+          {/* Timeline / hotbar */}
+          <div className="mt-3 flex items-center gap-1.5 px-1">
+            <span className="text-[9px] text-gray-600 font-mono tracking-wider pr-2">
+              CUES
+            </span>
+            {['News — Hero', 'Lower third', 'Now playing', 'Sponsor', '⬛ Blackout'].map(
+              (name, i) => (
+                <div
+                  key={name}
+                  className={`flex-1 py-1.5 rounded text-center text-[10px] font-medium border transition-all ${
+                    i === active
+                      ? 'bg-green-900/30 border-green-500/40 text-green-300'
+                      : name === '⬛ Blackout'
+                      ? 'bg-gray-950 border-red-900/40 text-red-500/80'
+                      : 'bg-gray-800/40 border-gray-700/40 text-gray-500'
+                  }`}
+                >
+                  {name}
+                </div>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -89,51 +321,64 @@ function ControlPanelMockup() {
   );
 }
 
-// ─── Feature card ───
+// ─── Cards ───
 function FeatureCard({ icon, title, description }) {
   return (
-    <div className="group bg-gray-900/40 border border-gray-800/50 rounded-xl p-6 hover:border-gray-700/80 hover:bg-gray-900/60 transition-all duration-300">
-      <div className="text-3xl mb-3 group-hover:scale-110 transition-transform duration-300">{icon}</div>
-      <h3 className="text-white font-semibold text-lg mb-2">{title}</h3>
+    <div className="group bg-gray-900/40 border border-gray-800/60 rounded-xl p-6 hover:border-gray-700 hover:bg-gray-900/60 transition-all duration-300">
+      <div className="w-10 h-10 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center text-gray-300 group-hover:text-blue-400 group-hover:border-blue-500/40 transition-colors mb-4">
+        <Icon name={icon} className="w-5 h-5" />
+      </div>
+      <h3 className="text-white font-semibold text-[15px] mb-1.5">{title}</h3>
       <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
     </div>
   );
 }
 
-// ─── Use case card ───
 function UseCaseCard({ icon, title, description }) {
   return (
     <div className="flex items-start gap-4 p-4 rounded-xl hover:bg-gray-900/40 transition-colors">
-      <span className="text-2xl mt-0.5">{icon}</span>
+      <div className="w-9 h-9 shrink-0 rounded-lg bg-gray-900/80 border border-gray-800 flex items-center justify-center text-gray-400">
+        <Icon name={icon} className="w-4.5 h-4.5" />
+      </div>
       <div>
-        <h4 className="text-white font-semibold mb-1">{title}</h4>
-        <p className="text-gray-500 text-sm">{description}</p>
+        <h4 className="text-white font-semibold text-[15px] mb-1">{title}</h4>
+        <p className="text-gray-500 text-sm leading-relaxed">{description}</p>
       </div>
     </div>
   );
 }
 
-// ─── Stat counter ───
 function StatCounter({ value, label }) {
   return (
     <div className="text-center">
-      <div className="text-3xl md:text-4xl font-bold text-white">{value}</div>
-      <div className="text-gray-500 text-sm mt-1">{label}</div>
+      <div className="text-3xl md:text-4xl font-bold text-white font-mono">{value}</div>
+      <div className="text-gray-500 text-xs md:text-sm mt-1 tracking-wide">{label}</div>
     </div>
   );
 }
 
-// ─── Capability card (replaces pricing) ───
 function CapabilityCard({ icon, title, features }) {
   return (
-    <div className="bg-gray-900/40 border border-gray-800/50 rounded-2xl p-6 hover:border-gray-700/80 transition-all">
-      <div className="text-3xl mb-3">{icon}</div>
-      <h3 className="text-xl font-bold text-white mb-4">{title}</h3>
+    <div className="bg-gray-900/40 border border-gray-800/60 rounded-2xl p-6 hover:border-gray-700 transition-all">
+      <div className="w-10 h-10 rounded-lg bg-gray-800/60 border border-gray-700/50 flex items-center justify-center text-blue-400 mb-4">
+        <Icon name={icon} className="w-5 h-5" />
+      </div>
+      <h3 className="text-lg font-bold text-white mb-4">{title}</h3>
       <ul className="space-y-2.5">
         {features.map((f, i) => (
-          <li key={i} className="flex items-center gap-3 text-sm text-gray-300">
-            <span className="text-green-400 text-xs">✓</span>
-            {f}
+          <li key={i} className="flex items-start gap-2.5 text-sm text-gray-300">
+            <svg
+              className="w-4 h-4 text-green-400 mt-0.5 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m5 12 5 5 9-11" />
+            </svg>
+            <span>{f}</span>
           </li>
         ))}
       </ul>
@@ -143,246 +388,346 @@ function CapabilityCard({ icon, title, features }) {
 
 export default function Landing() {
   const [time, setTime] = useState(new Date());
-
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white overflow-x-hidden">
       {/* ═══ Navigation ═══ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/50">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/60">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
               <span className="text-white text-sm font-bold">B</span>
             </div>
-            <span className="text-white font-bold text-lg">Broadcast Studio</span>
+            <span className="text-white font-semibold text-[15px] tracking-tight">
+              Broadcast Studio
+            </span>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-gray-400 hover:text-white text-sm transition-colors">Features</a>
-            <a href="#use-cases" className="text-gray-400 hover:text-white text-sm transition-colors">Use Cases</a>
-            <a href="#capabilities" className="text-gray-400 hover:text-white text-sm transition-colors">Capabilities</a>
+            <a href="#features" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Features
+            </a>
+            <a href="#use-cases" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Use cases
+            </a>
+            <a href="#stack" className="text-gray-400 hover:text-white text-sm transition-colors">
+              Stack
+            </a>
           </div>
-          <div className="flex items-center gap-3">
-            <Link to="/login" className="text-gray-400 hover:text-white text-sm font-medium transition-colors">Sign In</Link>
-            <Link to="/login" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-blue-600/10">
-              Open Dashboard →
+          <div className="flex items-center gap-2">
+            <Link
+              to="/login"
+              className="px-4 py-2 text-gray-300 hover:text-white text-sm font-medium transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/login"
+              className="px-4 py-2 bg-white text-gray-950 hover:bg-gray-100 text-sm font-semibold rounded-lg transition-all"
+            >
+              Open dashboard
             </Link>
           </div>
         </div>
       </nav>
 
       {/* ═══ Hero ═══ */}
-      <section className="relative pt-32 pb-20 md:pt-40 md:pb-28">
+      <section className="relative pt-32 pb-16 md:pt-40 md:pb-24">
         <GridBackground />
         <div className="relative max-w-7xl mx-auto px-6">
           {/* Live badge */}
           <div className="flex justify-center mb-8">
-            <div className="bg-gray-900/60 border border-gray-800 rounded-full px-5 py-2 flex items-center gap-3 backdrop-blur-sm">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-gray-300 text-sm font-mono">
-                {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            <div className="bg-gray-900/60 border border-gray-800 rounded-full px-4 py-1.5 flex items-center gap-3 backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-gray-300 text-xs font-mono">
+                {time.toLocaleTimeString('en-GB', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
               </span>
-              <span className="text-gray-600 text-sm">|</span>
-              <span className="text-gray-400 text-sm">Live System</span>
+              <span className="text-gray-700 text-xs">·</span>
+              <span className="text-gray-400 text-xs tracking-wide">Live system</span>
             </div>
           </div>
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold text-center mb-6 tracking-tight leading-[0.95]">
-            Control Every Screen.
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-center mb-6 tracking-tight leading-[0.98]">
+            Screen control,
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              From Anywhere.
+              built for live.
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-gray-400 text-center mb-10 max-w-3xl mx-auto leading-relaxed">
-            Professional broadcast-grade screen management for events, studios, venues, and digital signage. 
-            Real-time control with sub-second latency.
+          <p className="text-base md:text-lg text-gray-400 text-center mb-10 max-w-2xl mx-auto leading-relaxed">
+            One dashboard, many screens. Push layouts, run timelines, cut between cues —
+            over WebSocket, in real time.
           </p>
 
-          {/* CTA buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link to="/login"
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-blue-600/20 text-lg text-center">
-              Open Dashboard →
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
+            <Link
+              to="/login"
+              className="px-7 py-3.5 bg-white text-gray-950 hover:bg-gray-100 font-semibold rounded-xl transition-all text-[15px] text-center"
+            >
+              Open dashboard
             </Link>
-            <a href="#features"
-              className="px-8 py-4 bg-gray-800/60 hover:bg-gray-800 text-white font-semibold rounded-xl border border-gray-700/50 transition-all text-lg text-center backdrop-blur-sm">
-              See Features
+            <a
+              href="#features"
+              className="px-7 py-3.5 bg-gray-900/60 hover:bg-gray-900 text-white font-semibold rounded-xl border border-gray-800 transition-all text-[15px] text-center backdrop-blur-sm"
+            >
+              See what it does
             </a>
           </div>
 
-          {/* Animated mockup */}
           <ControlPanelMockup />
         </div>
       </section>
 
-      {/* ═══ Stats bar ═══ */}
-      <section className="border-y border-gray-800/50 bg-gray-900/20 py-12">
+      {/* ═══ Stats bar (verified figures only) ═══ */}
+      <section className="border-y border-gray-800/60 bg-gray-900/20 py-10">
         <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
-          <StatCounter value="50+" label="Module types" />
-          <StatCounter value="<50ms" label="Push latency" />
+          <StatCounter value="44" label="Module types" />
           <StatCounter value="6" label="Transition modes" />
-          <StatCounter value="∞" label="Screens supported" />
+          <StatCounter value="4" label="Access roles" />
+          <StatCounter value="WS" label="Real-time push" />
         </div>
       </section>
 
       {/* ═══ Features ═══ */}
-      <section id="features" className="py-20 md:py-28">
+      <section id="features" className="py-20 md:py-24">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything you need to run professional screens</h2>
-            <p className="text-gray-500 text-lg max-w-2xl mx-auto">From a single screen to a multi-venue deployment. Built for reliability, designed for speed.</p>
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
+              Everything a live show needs on screen
+            </h2>
+            <p className="text-gray-500 text-[15px] max-w-2xl mx-auto">
+              From a single monitor to a venue-wide LED wall — one control surface, one source of truth.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            <FeatureCard icon="🖥️" title="Multi-Screen Control"
-              description="Manage unlimited screens from one dashboard. Push layouts, sync content, and monitor status in real-time." />
-            <FeatureCard icon="📡" title="Real-Time Updates"
-              description="Instant push via WebSocket. Changes appear on screens in milliseconds, not seconds. Sub-50ms latency." />
-            <FeatureCard icon="🎬" title="God View"
-              description="Full broadcast mixer with PVW/PGM, TAKE/CUT, overlay panel, keyboard shortcuts, and audio level metering." />
-            <FeatureCard icon="📐" title="Flexible Layouts"
-              description="Split screens, overlays, picture-in-picture. Grid-based layout system with drag-and-drop modules." />
-            <FeatureCard icon="🎨" title="50+ Compositions"
-              description="Clocks, tickers, weather, live text, camera feeds, Remotion compositions, and custom HTML." />
-            <FeatureCard icon="🏢" title="Multi-Tenant Studios"
-              description="Isolated studios for different teams or events. Each with their own screens, shows, layouts, and users." />
-            <FeatureCard icon="🎭" title="Live Overlays"
-              description="Lower thirds, tickers, announcements, now playing — push overlays without changing the underlying layout." />
-            <FeatureCard icon="🔒" title="Role-Based Access"
-              description="Super admin, admin, producer, viewer. Fine-grained permissions for your team." />
-            <FeatureCard icon="🖼️" title="LED Wall Support"
-              description="Custom resolutions, projection mapping, and graceful disconnect handling. LED walls go dark, not error." />
-            <FeatureCard icon="🎥" title="Remotion Integration"
-              description="Render dynamic video compositions in real-time. Pre-built templates for lower thirds, stingers, and more." />
-            <FeatureCard icon="🎵" title="Audio Broadcast"
-              description="Capture system audio or microphone and broadcast visualizer data to screen modules in real time." />
-            <FeatureCard icon="🌐" title="Self-Hosted"
-              description="Deploy on your own infrastructure. Full control over your data, no dependencies on external services." />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <FeatureCard
+              icon="monitors"
+              title="Multi-screen control"
+              description="Every screen, one dashboard. Push a layout to one or all, see online status live."
+            />
+            <FeatureCard
+              icon="zap"
+              title="WebSocket push"
+              description="Layout changes hit connected screens instantly. No polling, no refreshes, no delay."
+            />
+            <FeatureCard
+              icon="mixer"
+              title="God View mixer"
+              description="PVW / PGM, TAKE / CUT, overlay panel, keyboard shortcuts, audio meter — a proper broadcast console."
+            />
+            <FeatureCard
+              icon="grid"
+              title="Grid-based layouts"
+              description="Drag, resize, and snap modules onto a grid. Save, re-order, share between studios."
+            />
+            <FeatureCard
+              icon="blocks"
+              title="44 module types"
+              description="Clocks, tickers, weather, autocue, cameras, Remotion compositions, Prism lenses, iframes — pick and place."
+            />
+            <FeatureCard
+              icon="building"
+              title="Multi-tenant studios"
+              description="Isolated tenants with their own screens, layouts, users and media. Super admin oversees everything."
+            />
+            <FeatureCard
+              icon="layers"
+              title="Live overlays"
+              description="Lower thirds, tickers, announcements — drop them in and pull them out without changing the underlying layout."
+            />
+            <FeatureCard
+              icon="shield"
+              title="Role-based access"
+              description="Super admin, admin, producer, viewer. JWT auth, rate-limited login, SSRF-guarded proxies."
+            />
+            <FeatureCard
+              icon="tv"
+              title="LED wall friendly"
+              description="Custom resolutions, projection mapping, graceful disconnect. If a screen drops, it goes dark — not red."
+            />
+            <FeatureCard
+              icon="clapper"
+              title="Remotion compositions"
+              description="Render React-based motion graphics in real time. Stingers, lower thirds, bumpers, opener packages."
+            />
+            <FeatureCard
+              icon="waveform"
+              title="Audio visualiser"
+              description="Capture system audio or mic and broadcast FFT data to screen modules for reactive visuals."
+            />
+            <FeatureCard
+              icon="server"
+              title="Self-hosted"
+              description="Node + SQLite. One directory, one process. Deploy on your own box, own your data."
+            />
           </div>
         </div>
       </section>
 
-      {/* ═══ Use Cases ═══ */}
-      <section id="use-cases" className="py-20 bg-gray-900/20 border-y border-gray-800/30">
+      {/* ═══ Use cases ═══ */}
+      <section id="use-cases" className="py-20 bg-gray-900/20 border-y border-gray-800/40">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Built for every venue</h2>
-            <p className="text-gray-500 text-lg">From intimate studios to stadium-scale deployments</p>
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
+              Built for the room it&apos;s in
+            </h2>
+            <p className="text-gray-500 text-[15px]">
+              From a tablet-run worship service to a stadium-scale ops wall.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <UseCaseCard icon="🎤" title="Live Events & Conferences"
-              description="Run multi-screen shows with pre-programmed timelines. Switch layouts on the fly during presentations." />
-            <UseCaseCard icon="⛪" title="Church & Worship Services"
-              description="Lyrics, announcements, live video feeds. Run an entire service from a tablet." />
-            <UseCaseCard icon="🏟" title="Sports Venues & Stadiums"
-              description="Scoreboards, replays, sponsor rotations, emergency messaging across hundreds of screens." />
-            <UseCaseCard icon="🏢" title="Corporate Digital Signage"
-              description="Lobby displays, meeting room boards, cafeteria menus. Update remotely from anywhere." />
-            <UseCaseCard icon="🎙" title="Broadcast Studios"
-              description="Presenter monitors, guest displays, autocue, clocks, and live tally. Full studio control." />
-            <UseCaseCard icon="🖥️" title="Control Rooms"
-              description="Multi-feed monitoring walls, alert tickers, dashboards. Purpose-built for operations." />
+            <UseCaseCard
+              icon="mic"
+              title="Live events & conferences"
+              description="Pre-programmed timelines, on-the-fly layout cuts, sponsor rotations. Run a show from one laptop."
+            />
+            <UseCaseCard
+              icon="speaker"
+              title="Church & worship services"
+              description="Lyrics, announcements, camera feeds, countdowns. Everything a volunteer team needs to run a service."
+            />
+            <UseCaseCard
+              icon="trophy"
+              title="Sports venues & stadiums"
+              description="Scoreboards, replays, sponsor loops, emergency messaging. Unified control across a venue."
+            />
+            <UseCaseCard
+              icon="building2"
+              title="Corporate digital signage"
+              description="Lobby, meeting rooms, cafeteria boards. Update everywhere from one place, remotely."
+            />
+            <UseCaseCard
+              icon="radio"
+              title="Broadcast studios"
+              description="Presenter monitors, guest displays, autocue, clocks, tally states. Full studio control surface."
+            />
+            <UseCaseCard
+              icon="eye"
+              title="Ops & control rooms"
+              description="Multi-feed monitoring walls, alert tickers, dashboards. Purpose-built for 24/7 operations."
+            />
           </div>
         </div>
       </section>
 
-      {/* ═══ Capabilities (replaces fake pricing) ═══ */}
-      <section id="capabilities" className="py-20 md:py-28">
+      {/* ═══ Stack / capabilities ═══ */}
+      <section id="stack" className="py-20 md:py-24">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Everything included</h2>
-            <p className="text-gray-500 text-lg">Self-hosted, open-source, no licensing fees. Deploy and go.</p>
+          <div className="text-center mb-14">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">
+              Transparent by design
+            </h2>
+            <p className="text-gray-500 text-[15px]">
+              No black boxes. Here&apos;s what&apos;s actually inside.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
             <CapabilityCard
-              icon="🎛️"
-              title="Control"
-              features={['Unlimited screens', 'Unlimited studios', 'God View mixer', 'Keyboard shortcuts', 'Role-based access']}
+              icon="sliders"
+              title="Control surface"
+              features={[
+                'Multi-screen dashboard',
+                'God View broadcast mixer',
+                'Timeline sequencer',
+                'Autocue controller',
+                'Keyboard shortcuts',
+              ]}
             />
             <CapabilityCard
-              icon="🎨"
+              icon="palette"
               title="Content"
-              features={['50+ module types', '6 transition modes', 'Live overlays', 'Audio visualiser', 'Remotion compositions']}
+              features={[
+                '44 module types, 6 categories',
+                '6 transition modes',
+                'Live overlay panel',
+                'Audio visualiser',
+                'Remotion compositions',
+              ]}
             />
             <CapabilityCard
-              icon="⚡"
+              icon="cpu"
               title="Infrastructure"
-              features={['Self-hosted', 'SQLite (zero config)', 'WebSocket real-time', 'Proxy cache layer', 'Projection mapping']}
+              features={[
+                'Node.js + Express + Socket.IO',
+                'SQLite (better-sqlite3)',
+                'JWT auth + role guards',
+                'SSRF-guarded proxy layer',
+                'Self-hosted, one process',
+              ]}
             />
           </div>
-        </div>
-      </section>
-
-      {/* ═══ Social Proof ═══ */}
-      <section className="py-16">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <p className="text-gray-500 text-sm uppercase tracking-wider mb-4">Built and used by</p>
-          <p className="text-xl text-gray-300 italic mb-3">"Powering live screens at events across Scotland"</p>
-          <p className="text-gray-500 text-sm">Now Ayrshire Radio · Local Connect Systems</p>
         </div>
       </section>
 
       {/* ═══ Final CTA ═══ */}
-      <section className="py-20 border-t border-gray-800/30">
+      <section className="py-20 border-t border-gray-800/40">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to take control?</h2>
-          <p className="text-gray-400 text-lg mb-8">Self-host in minutes. No account required — just deploy and sign in.</p>
-          <Link to="/login"
-            className="inline-block px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all hover:shadow-xl hover:shadow-blue-600/20 text-lg">
-            Open Dashboard →
+          <h2 className="text-3xl md:text-4xl font-bold mb-5 tracking-tight">
+            Ready to take control?
+          </h2>
+          <p className="text-gray-400 text-[15px] mb-8">
+            Sign in and open the dashboard — or host your own instance.
+          </p>
+          <Link
+            to="/login"
+            className="inline-block px-8 py-3.5 bg-white text-gray-950 hover:bg-gray-100 font-semibold rounded-xl transition-all text-[15px]"
+          >
+            Open dashboard
           </Link>
         </div>
       </section>
 
       {/* ═══ Footer ═══ */}
-      <footer className="border-t border-gray-800/50 py-12 bg-gray-900/10">
+      <footer className="border-t border-gray-800/60 py-10 bg-gray-900/10">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">B</span>
-                </div>
-                <span className="text-white font-bold">Broadcast Studio</span>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xs font-bold">B</span>
               </div>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Professional screen control for events, studios, and digital signage.
-              </p>
+              <div>
+                <div className="text-white font-semibold text-sm">Broadcast Studio</div>
+                <div className="text-gray-500 text-xs">
+                  broadcast.studio.wispayr.online
+                </div>
+              </div>
             </div>
-            <div>
-              <h4 className="text-gray-300 font-semibold text-sm mb-4">Product</h4>
-              <ul className="space-y-2">
-                <li><a href="#features" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Features</a></li>
-                <li><a href="#capabilities" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Capabilities</a></li>
-                <li><a href="#use-cases" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Use Cases</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-gray-300 font-semibold text-sm mb-4">Resources</h4>
-              <ul className="space-y-2">
-                <li><Link to="/control" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Control Panel</Link></li>
-                <li><Link to="/login" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Sign In</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-gray-300 font-semibold text-sm mb-4">Company</h4>
-              <ul className="space-y-2">
-                <li><a href="https://local-connect.uk" className="text-gray-500 hover:text-gray-300 text-sm transition-colors">Local Connect</a></li>
-              </ul>
+
+            <div className="flex items-center gap-6 text-sm">
+              <a href="#features" className="text-gray-500 hover:text-gray-300 transition-colors">
+                Features
+              </a>
+              <a href="#use-cases" className="text-gray-500 hover:text-gray-300 transition-colors">
+                Use cases
+              </a>
+              <a href="#stack" className="text-gray-500 hover:text-gray-300 transition-colors">
+                Stack
+              </a>
+              <Link to="/login" className="text-gray-500 hover:text-gray-300 transition-colors">
+                Sign in
+              </Link>
             </div>
           </div>
-          <div className="border-t border-gray-800/50 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-gray-600 text-sm">© {new Date().getFullYear()} Broadcast Studio. Built by Local Connect.</p>
-            <div className="flex items-center gap-4">
-              <span className="text-gray-700 text-xs">v1.0</span>
-            </div>
+
+          <div className="border-t border-gray-800/60 mt-8 pt-6 flex flex-col md:flex-row items-center justify-between gap-2">
+            <p className="text-gray-600 text-xs">
+              © {new Date().getFullYear()} Broadcast Studio ·{' '}
+              <a href="https://wispayr.online" className="hover:text-gray-400 transition-colors">
+                wispayr.online
+              </a>
+            </p>
+            <p className="text-gray-700 text-xs font-mono">v1.0</p>
           </div>
         </div>
       </footer>

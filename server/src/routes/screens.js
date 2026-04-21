@@ -3,6 +3,29 @@ const { v4: uuidv4 } = require('uuid');
 const { db, getScreensByStudio, getScreenById, getLayoutById } = require('../db');
 const { authenticate, optionalAuthenticate, requireRole } = require('../middleware/auth');
 const { getIO } = require('../ws');
+const { enrichLayout } = require('../lib/enrich-layout');
+
+// Shared broadcast-safety helpers.
+//
+// (a) `accepts_broadcasts` = 1  — per-screen lockout. Default on. When an
+//     operator pads-locks a screen (running a critical layout, doing a
+//     QA pass, whatever) the bulk emits below skip it silently. Direct
+//     single-screen actions still work — the lock is "don't clobber me",
+//     not "disable me".
+// (b) Studio `public_only` = 1  — the studio only accepts layouts that
+//     have been explicitly flagged `public_safe`. Hard guard against an
+//     ops SITREP ever landing on the ad-van LEDs.
+function getBroadcastTargets(studioId) {
+  return db.prepare('SELECT id, accepts_broadcasts FROM screens WHERE studio_id = ?').all(studioId);
+}
+
+function rejectIfPublicOnlyUnsafe(studioId, layout) {
+  const studio = db.prepare('SELECT public_only FROM studios WHERE id = ?').get(studioId);
+  if (studio && studio.public_only && !layout.public_safe) {
+    return `Studio is public-only — layout "${layout.name}" is not flagged public_safe`;
+  }
+  return null;
+}
 
 const router = express.Router();
 
@@ -114,9 +137,12 @@ router.put('/:id', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Screen not found' });
     }
 
-    const { name, screen_number, current_layout_id, orientation, width, height, config, group_id } = req.body;
+    const { name, screen_number, current_layout_id, orientation, width, height, config, group_id, accepts_broadcasts } = req.body;
 
     const configStr = config !== undefined ? (typeof config === 'string' ? config : JSON.stringify(config)) : undefined;
+    // accepts_broadcasts: accept truthy/falsy explicitly — null means "don't
+    // touch". Use an integer for SQLite.
+    const ab = accepts_broadcasts === undefined ? null : (accepts_broadcasts ? 1 : 0);
 
     db.prepare(`
       UPDATE screens SET
@@ -127,12 +153,14 @@ router.put('/:id', authenticate, (req, res) => {
         width = COALESCE(?, width),
         height = COALESCE(?, height),
         config = COALESCE(?, config),
+        accepts_broadcasts = COALESCE(?, accepts_broadcasts),
         group_id = ${group_id !== undefined ? '?' : 'group_id'},
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
       name || null, screen_number || null, current_layout_id || null,
       orientation || null, width || null, height || null, configStr || null,
+      ab,
       ...(group_id !== undefined ? [group_id || null] : []),
       req.params.id
     );
@@ -184,9 +212,13 @@ router.post('/:id/layout', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
+    // Public-only studio guard — refuse non-safe layouts on public screens.
+    const reject = rejectIfPublicOnlyUnsafe(screen.studio_id, layout);
+    if (reject) return res.status(403).json({ error: reject });
+
     db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id = ?").run(layout_id, req.params.id);
 
-    const parsedLayout = { ...layout, modules: JSON.parse(layout.modules) };
+    const parsedLayout = enrichLayout({ ...layout, modules: JSON.parse(layout.modules) }, req.params.id);
     getIO().to(`screen:${req.params.id}`).emit('set_layout', {
       layoutId: layout_id,
       layout: parsedLayout
@@ -224,26 +256,54 @@ router.post('/sync', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE studio_id = ?").run(layout_id, studioId);
+    // Public-only studio guard.
+    const reject = rejectIfPublicOnlyUnsafe(studioId, layout);
+    if (reject) return res.status(403).json({ error: reject });
 
-    const parsedLayout = { ...layout, modules: JSON.parse(layout.modules) };
-    getIO().to(`studio:${studioId}`).emit('sync_all', {
-      layoutId: layout_id,
-      layout: parsedLayout
-    });
+    // Only push to screens that accept broadcasts. Padlocked screens are
+    // left on whatever they're currently showing.
+    const targets = getBroadcastTargets(studioId);
+    const acceptedIds = targets.filter(s => s.accepts_broadcasts).map(s => s.id);
+    const lockedIds = targets.filter(s => !s.accepts_broadcasts).map(s => s.id);
 
-    // Broadcast preview to all studio screens
-    const studioScreens = getScreensByStudio(studioId);
-    for (const s of studioScreens) {
-      getIO().to(`studio:${studioId}`).emit('screen_preview', {
-        screenId: s.id,
+    if (acceptedIds.length > 0) {
+      const placeholders = acceptedIds.map(() => '?').join(',');
+      db.prepare(`UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+        .run(layout_id, ...acceptedIds);
+    }
+
+    const baseParsed = { ...layout, modules: JSON.parse(layout.modules) };
+    // Studio-wide: use a shared-scoped token (sid="shared") for the sync_all emit.
+    // Emit only to unlocked screens so locked kiosks don't even see the event.
+    const enrichedShared = enrichLayout(baseParsed, null);
+    for (const screenId of acceptedIds) {
+      getIO().to(`screen:${screenId}`).emit('set_layout', {
         layoutId: layout_id,
-        layout: parsedLayout,
-        timestamp: new Date().toISOString()
+        layout: enrichedShared
       });
     }
 
-    res.json({ message: 'All screens synced', studio_id: studioId, layout_id });
+    // Preview to studio dashboards (not the screens themselves) — always
+    // emitted so operators see what would have been pushed. Locked screens
+    // get a preview too so the operator knows what's happening.
+    for (const s of targets) {
+      getIO().to(`studio:${studioId}`).emit('screen_preview', {
+        screenId: s.id,
+        layoutId: layout_id,
+        layout: enrichLayout(baseParsed, s.id),
+        timestamp: new Date().toISOString(),
+        locked: !s.accepts_broadcasts
+      });
+    }
+
+    res.json({
+      message: 'Synced',
+      studio_id: studioId,
+      layout_id,
+      pushed: acceptedIds.length,
+      locked: lockedIds.length,
+      total: targets.length
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -264,14 +324,36 @@ router.post('/emergency', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE studio_id = ?").run(layout_id, studioId);
+    // Public-only guard applies to emergency too — even an emergency won't
+    // put an ops layout on a public LED without an explicit public_safe flag.
+    const reject = rejectIfPublicOnlyUnsafe(studioId, layout);
+    if (reject) return res.status(403).json({ error: reject });
 
-    getIO().to(`studio:${studioId}`).emit('emergency_layout', {
-      layoutId: layout_id,
-      layout: { ...layout, modules: JSON.parse(layout.modules) }
+    // Emergency IGNORES the padlock — it's the override-everything channel.
+    // Padlock is for "don't clobber me with routine sync_all" not "refuse
+    // an emergency takeover". Intentional design choice.
+    const targets = getBroadcastTargets(studioId);
+    if (targets.length > 0) {
+      const placeholders = targets.map(() => '?').join(',');
+      db.prepare(`UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders})`)
+        .run(layout_id, ...targets.map(s => s.id));
+    }
+
+    const enriched = enrichLayout({ ...layout, modules: JSON.parse(layout.modules) }, null);
+    for (const s of targets) {
+      getIO().to(`screen:${s.id}`).emit('emergency_layout', {
+        layoutId: layout_id,
+        layout: enriched
+      });
+    }
+
+    res.json({
+      message: 'Emergency layout applied',
+      studio_id: studioId,
+      layout_id,
+      pushed: targets.length,
+      note: 'emergency bypasses per-screen lockouts'
     });
-
-    res.json({ message: 'Emergency layout applied', studio_id: studioId, layout_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -284,13 +366,30 @@ router.post('/overlay', authenticate, (req, res) => {
     if (!overlay) return res.status(400).json({ error: 'overlay is required' });
     const payload = { overlay };
     if (screen_id) {
+      // Direct single-screen overlay — respect the padlock so an operator
+      // running critical content isn't clobbered by a casual banner push.
+      const target = db.prepare('SELECT accepts_broadcasts FROM screens WHERE id = ?').get(screen_id);
+      if (target && !target.accepts_broadcasts) {
+        return res.status(423).json({ error: 'Screen is locked against broadcasts' });
+      }
       getIO().to(`screen:${screen_id}`).emit('push_overlay', payload);
+      return res.json({ message: 'Overlay pushed', pushed: 1 });
     } else if (studio_id) {
-      getIO().to(`studio:${studio_id}`).emit('push_overlay', payload);
+      // Studio-wide overlay — only to unlocked screens.
+      const targets = getBroadcastTargets(studio_id);
+      const accepted = targets.filter(s => s.accepts_broadcasts);
+      for (const s of accepted) {
+        getIO().to(`screen:${s.id}`).emit('push_overlay', payload);
+      }
+      return res.json({
+        message: 'Overlay pushed',
+        pushed: accepted.length,
+        locked: targets.length - accepted.length,
+        total: targets.length
+      });
     } else {
       return res.status(400).json({ error: 'screen_id or studio_id required' });
     }
-    res.json({ message: 'Overlay pushed' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -306,6 +306,40 @@ ensureModuleTypes();
   // Layouts: ensure background column exists
   const layoutCols = db.prepare("PRAGMA table_info(layouts)").all().map(c => c.name);
   if (!layoutCols.includes('background')) db.exec("ALTER TABLE layouts ADD COLUMN background TEXT DEFAULT '#000000'");
+  // public_safe: layout is approved to be displayed on a public-facing screen
+  // (e.g. the ad-van LEDs). Ops layouts default to 0 — operators must
+  // explicitly flag one as safe before it can be loaded on a public-studio screen.
+  if (!layoutCols.includes('public_safe')) db.exec("ALTER TABLE layouts ADD COLUMN public_safe INTEGER DEFAULT 0");
+
+  // Screens: per-screen lockout for bulk operations. When 0, sync_all /
+  // emergency / push_overlay skip this screen silently (but direct
+  // single-screen actions still work — the lock is "don't clobber me
+  // accidentally", not "disable me").
+  if (!cols.includes('accepts_broadcasts')) db.exec("ALTER TABLE screens ADD COLUMN accepts_broadcasts INTEGER DEFAULT 1");
+
+  // Studios: public_only = this studio only accepts layouts with public_safe=1.
+  // Hard guard against an ops layout ever being assigned to a public-facing
+  // screen (ad-van LEDs, lobby monitors, etc.).
+  const studioCols = db.prepare("PRAGMA table_info(studios)").all().map(c => c.name);
+  if (!studioCols.includes('public_only')) db.exec("ALTER TABLE studios ADD COLUMN public_only INTEGER DEFAULT 0");
+
+  // Screen scenes: named snapshots of layout-per-screen assignments for a
+  // studio. Lets ops one-click apply e.g. "Race Start" / "Mid-Event" /
+  // "Awards" during a live event. Assignments is a JSON array of
+  // {screen_id, layout_id} pairs. Apply is filtered by accepts_broadcasts
+  // + rejected entirely if studio is public_only and any layout is unsafe.
+  db.exec(`CREATE TABLE IF NOT EXISTS screen_scenes (
+    id TEXT PRIMARY KEY,
+    studio_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    assignments TEXT NOT NULL DEFAULT '[]',
+    icon TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (studio_id) REFERENCES studios(id)
+  )`);
 })();
 
 // Helper functions

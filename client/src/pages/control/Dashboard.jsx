@@ -5,6 +5,9 @@ import { useAudioBroadcast } from '../../lib/useAudioBroadcast';
 import ScreenPreview from '../../components/ScreenPreview';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import LayoutHotbar from './components/LayoutHotbar';
+import SceneRail from './components/SceneRail';
+import ScheduleRail from './components/ScheduleRail';
+import IncidentBar from './components/IncidentBar';
 import { useToast } from '../../components/Toast';
 
 export default function Dashboard() {
@@ -26,6 +29,7 @@ export default function Dashboard() {
   // Nuro integration state
   const [nuroAlerts, setNuroAlerts] = useState([]);
   const [nuroExpanded, setNuroExpanded] = useState(false);
+  const [nuroAvailable, setNuroAvailable] = useState(true);
   const [sendAlertOpen, setSendAlertOpen] = useState(false);
   const [sendAlertForm, setSendAlertForm] = useState({ type: 'INFO', title: '', body: '' });
   const [sendAlertLoading, setSendAlertLoading] = useState(false);
@@ -50,7 +54,12 @@ export default function Dashboard() {
     try {
       const data = await api.get('/nuro/alerts?limit=20');
       if (data?.alerts) setNuroAlerts(data.alerts);
-    } catch { /* not fatal */ }
+      setNuroAvailable(true);
+    } catch (err) {
+      // Distinguish "Nuro hub not reachable" (shows explicit banner) from other
+      // errors (kept silent). 404 / 5xx / network-fetch failures all fall here.
+      setNuroAvailable(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -130,17 +139,27 @@ export default function Dashboard() {
     if (!layoutId) return;
     try {
       const targets = selectedScreens.size > 0 ? [...selectedScreens] : screens.map(s => s.id);
+      let pushed = 0, locked = 0;
       if (targets.length === screens.length) {
-        await api.post('/screens/sync', { layout_id: layoutId });
+        // Studio-wide sync returns { pushed, locked, total } — surface it so
+        // the operator sees how many screens skipped due to the padlock.
+        const res = await api.post('/screens/sync', { layout_id: layoutId });
+        pushed = res?.pushed ?? targets.length;
+        locked = res?.locked ?? 0;
       } else {
         await Promise.all(targets.map(sid => api.post(`/screens/${sid}/layout`, { layout_id: layoutId })));
+        pushed = targets.length;
       }
       const bl = layouts.find(l => l.id === layoutId);
       setBlackoutActive(bl?.name?.includes('Blackout') || false);
-      const count = targets.length;
-      toast?.(count === screens.length ? 'All screens synced' : `${count} screen${count !== 1 ? 's' : ''} updated`, 'success');
+      const lockedNote = locked > 0 ? ` (${locked} locked)` : '';
+      toast?.(`${pushed} screen${pushed !== 1 ? 's' : ''} updated${lockedNote}`, locked > 0 ? 'warning' : 'success');
       fetchData();
-    } catch (err) { alert('Failed: ' + err.message); }
+    } catch (err) {
+      // Server rejects with 409 "Studio is public-only …" when the layout
+      // isn't flagged public_safe. Show the message instead of a generic alert.
+      toast?.(err.message || 'Push failed', 'error');
+    }
   }
 
   async function handleBlackout() {
@@ -162,9 +181,13 @@ export default function Dashboard() {
   async function handleSyncAll() {
     if (!selectedSyncLayout) return;
     try {
-      await api.post('/screens/sync', { layout_id: selectedSyncLayout });
+      const res = await api.post('/screens/sync', { layout_id: selectedSyncLayout });
+      const pushed = res?.pushed ?? 0;
+      const locked = res?.locked ?? 0;
+      const lockedNote = locked > 0 ? ` (${locked} locked)` : '';
+      toast?.(`${pushed} screen${pushed !== 1 ? 's' : ''} synced${lockedNote}`, locked > 0 ? 'warning' : 'success');
       setSyncModalOpen(false); setSelectedSyncLayout(''); fetchData();
-    } catch (err) { alert('Sync failed: ' + err.message); }
+    } catch (err) { toast?.(err.message || 'Sync failed', 'error'); }
   }
 
   function handleQuickText() {
@@ -316,7 +339,15 @@ export default function Dashboard() {
           </button>
           {nuroExpanded && (
             <div className="border-t border-gray-800/50">
-              {nuroAlerts.length === 0 ? (
+              {!nuroAvailable ? (
+                <div className="px-5 py-6 text-center">
+                  <p className="text-amber-400 text-sm font-medium">Nuro hub unavailable</p>
+                  <p className="text-gray-600 text-xs mt-1">
+                    Can&apos;t reach <code className="font-mono">/api/nuro/alerts</code>.
+                    The hub may be offline — inbound alerts from Dispatch/Prism won&apos;t appear until it returns.
+                  </p>
+                </div>
+              ) : nuroAlerts.length === 0 ? (
                 <div className="px-5 py-6 text-center">
                   <p className="text-gray-600 text-sm">No inbound Nuro alerts yet</p>
                   <p className="text-gray-700 text-xs mt-1">Alerts from Dispatch or Prism will appear here</p>
@@ -445,8 +476,14 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ── Layout Hotbar ──────────────────────────── */}
+      {/* ── Ops rails stack: Incidents → Schedule → Scenes → Layout hotbar ─ */}
       <div className="fixed bottom-0 left-0 lg:left-64 right-0 z-40" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.85) 80%, transparent 100%)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+        {/* Severity-coloured banner push — highest urgency, top of stack. */}
+        <IncidentBar studioId={studioId} />
+        {/* Queue a layout push for later ("Awards layout at 17:30"). */}
+        <ScheduleRail studioId={studioId} layouts={layouts} screens={screens} />
+        {/* Named scene snapshots — one-click studio-wide wall flip. */}
+        <SceneRail studioId={studioId} onApplied={fetchData} />
         <LayoutHotbar
           layouts={layouts}
           liveLayoutId={liveLayoutId}

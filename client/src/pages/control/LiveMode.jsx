@@ -24,7 +24,7 @@ export default function LiveMode() {
   const workspace = useWorkspaceContext();
   const { panels, togglePanel, setPanelVisible, activeWorkspaceId, workspaces, switchWorkspace, saveWorkspace, deleteWorkspace, resetWorkspace } = workspace;
 
-  const { screens, layouts, loading, studioId, liveLayoutId, onlineCount, fetchData } = useLiveData();
+  const { screens, layouts, loading, studioId, studios, setStudioId, isSuperAdmin, liveLayoutId, onlineCount, fetchData } = useLiveData();
   const { active: audioBroadcast, level: audioLevel, toggle: toggleAudioBroadcast } = useAudioBroadcast(studioId);
   const toast = useToast();
 
@@ -99,6 +99,20 @@ export default function LiveMode() {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-950 overflow-hidden">
+      {/* Super-admin studio picker */}
+      {isSuperAdmin && studios.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/20 border-b border-amber-800/40 text-xs">
+          <span className="text-amber-300 font-semibold uppercase tracking-wider">Studio</span>
+          <select
+            value={studioId || ''}
+            onChange={(e) => setStudioId(e.target.value)}
+            className="px-2 py-1 bg-gray-900 border border-amber-800/50 text-white rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+          >
+            {studios.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <span className="text-amber-400/70 ml-2">Overlays, macros, and WS events target this studio.</span>
+        </div>
+      )}
       {/* Toolbar */}
       <LiveToolbar
         panels={panels}
@@ -184,6 +198,7 @@ export default function LiveMode() {
                 <OverlayPanel
                   inShell
                   compact
+                  studioId={studioId}
                   activeOverlays={activeOverlays}
                   setActiveOverlays={setActiveOverlays}
                 />
@@ -192,7 +207,7 @@ export default function LiveMode() {
             {isVisible('macros') && (
               <PanelShell title="Macros" icon="⌨️" color="blue" onClose={() => setPanelVisible('macros', false)}>
                 <div className="p-2">
-                  <MacroGrid compact layouts={layouts} onPushLayout={handleHotbarPush} onBlackout={handleBlackout} />
+                  <MacroGrid compact studioId={studioId} layouts={layouts} onPushLayout={handleHotbarPush} onBlackout={handleBlackout} />
                 </div>
               </PanelShell>
             )}

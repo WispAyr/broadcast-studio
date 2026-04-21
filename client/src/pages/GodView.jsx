@@ -2,10 +2,34 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { connectSocket, getSocket } from '../lib/socket';
 import { useAudioBroadcast } from '../lib/useAudioBroadcast';
 import api from '../lib/api';
+import { useToast } from '../components/Toast';
+import ScreenPreview from '../components/ScreenPreview';
 
 const storedUser = JSON.parse(localStorage.getItem('broadcast_user') || '{}');
 const STUDIO_ID = storedUser.studio_id || null; // resolved dynamically below if null
 const TRANSITIONS = ['crossfade', 'slide', 'zoom', 'dissolve', 'wipe', 'cut'];
+
+// Inline icons (lucide-style). Replacing the emoji previously used in buttons —
+// emoji rendering is OS-dependent and screen-readers pronounce them poorly.
+function GvIcon({ name, className = 'w-3.5 h-3.5' }) {
+  const paths = {
+    blackout: <rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor" />,
+    audio: (<><path d="M3 9v6h4l5 4V5L7 9H3Z" /><path d="M16 8a5 5 0 0 1 0 8" /><path d="M19 5a9 9 0 0 1 0 14" /></>),
+    text: (<><path d="M5 4h14" /><path d="M12 4v16" /></>),
+    announce: (<><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1Z" /><path d="M16 8a5 5 0 0 1 0 8" /></>),
+    mic: (<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" /></>),
+    overlays: (<><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 13 9 5 9-5" /><path d="m3 18 9 5 9-5" /></>),
+    identify: (<><path d="M12 2v3" /><path d="M4.9 4.9 7 7" /><path d="M2 12h3" /><path d="M4.9 19.1 7 17" /><circle cx="12" cy="12" r="4" /><path d="M12 19v3" /></>),
+    reload: (<><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16" /><path d="M3 21v-5h5" /></>),
+    close: <path d="M6 6l12 12M6 18 18 6" />,
+  };
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
+      strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      {paths[name]}
+    </svg>
+  );
+}
 
 function formatLastSeen(ts) {
   if (!ts) return 'Never';
@@ -287,7 +311,17 @@ function OverlayPanel({ onClose, overlays, setOverlays, socket }) {
 
 // ===================== MAIN COMPONENT =====================
 export default function GodView() {
+  const toast = useToast();
   const [screens, setScreens] = useState([]);
+  const [hideOffline, setHideOffline] = useState(() => {
+    try { return localStorage.getItem('bs_god_hide_offline') === '1'; } catch { return false; }
+  });
+  const toggleHideOffline = () => {
+    setHideOffline(v => {
+      try { localStorage.setItem('bs_god_hide_offline', v ? '0' : '1'); } catch {}
+      return !v;
+    });
+  };
   const [layouts, setLayouts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [showPushMenu, setShowPushMenu] = useState(false);
@@ -402,7 +436,9 @@ export default function GodView() {
 
   function pushQuickText(text, subtitle) {
     const socket = getSocket();
-    socket.emit('update_module_text', { studioId: STUDIO_ID, text, subtitle });
+    // Include moduleType so ScreenDisplay can target every live_text module
+    // across connected screens, not just one with a known moduleId.
+    socket.emit('update_module_text', { studioId: STUDIO_ID, moduleType: 'live_text', text, subtitle });
   }
 
   function pushAnnouncement(text, duration) {
@@ -432,8 +468,9 @@ export default function GodView() {
       socket.emit('push_layout_transition', { layoutId, transition: screenTransition || transitionType, duration: transitionDuration, screenId });
       setShowPushMenu(false);
       fetchData();
+      toast?.('Layout pushed', 'success');
     } catch (err) {
-      alert('Failed: ' + err.message);
+      toast?.(`Push failed: ${err.message}`, 'error');
     }
   }
 
@@ -452,10 +489,27 @@ export default function GodView() {
   // ---- Keyboard shortcuts ----
   useEffect(() => {
     function handleKey(e) {
-      // Don't capture if typing in input
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      // Don't capture if typing in an editable element.
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
 
+      // Escape is always live (closes modals). Every other shortcut should be
+      // suppressed when a modal is open — otherwise pressing Space to type in a
+      // dialog fires TAKE in the background.
+      const modalOpen = showQuickText || showAnnouncement || showNowPlaying || showOverlayPanel;
       const key = e.key;
+
+      if (key === 'Escape') {
+        setShowQuickText(false);
+        setShowAnnouncement(false);
+        setShowNowPlaying(false);
+        setShowOverlayPanel(false);
+        setSelected(null);
+        return;
+      }
+
+      if (modalOpen) return;
+
       if (key >= '1' && key <= '9') {
         const idx = parseInt(key) - 1;
         if (layouts[idx]) {
@@ -474,12 +528,6 @@ export default function GodView() {
       } else if (key === ' ') {
         e.preventDefault();
         handleTake();
-      } else if (key === 'Escape') {
-        setShowQuickText(false);
-        setShowAnnouncement(false);
-        setShowNowPlaying(false);
-        setShowOverlayPanel(false);
-        setSelected(null);
       } else if (key === 'Tab') {
         e.preventDefault();
         if (screens.length === 0) return;
@@ -490,7 +538,8 @@ export default function GodView() {
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [layouts, screens, selected, previewLayout, audioBroadcast, transitionType, transitionDuration]);
+  }, [layouts, screens, selected, previewLayout, audioBroadcast, transitionType, transitionDuration,
+      showQuickText, showAnnouncement, showNowPlaying, showOverlayPanel]);
 
   const onlineCount = screens.filter(s => s.is_online).length;
   function getLayout(screen) { return layouts.find(l => l.id === screen.current_layout_id) || null; }
@@ -505,7 +554,8 @@ export default function GodView() {
     }
   }, [screens, layouts]);
 
-  const gridCols = screens.length <= 2 ? 2 : screens.length <= 4 ? 2 : screens.length <= 6 ? 3 : 4;
+  const visibleScreens = hideOffline ? screens.filter(s => s.is_online) : screens;
+  const gridCols = visibleScreens.length <= 2 ? 2 : visibleScreens.length <= 4 ? 2 : visibleScreens.length <= 6 ? 3 : 4;
 
   const btnStyle = "px-3 py-1.5 rounded-lg text-xs font-medium transition-all";
   const glassBg = "rgba(255,255,255,0.05)";
@@ -529,46 +579,46 @@ export default function GodView() {
 
         {/* Centre: quick actions */}
         <div className="flex items-center gap-2">
-          <button onClick={pushBlackout}
-            className={`${btnStyle} ${blackoutActive ? 'bg-red-600 text-white' : 'text-gray-300 hover:text-white'}`}
+          <button onClick={pushBlackout} aria-label={blackoutActive ? 'Clear blackout' : 'Blackout all screens'}
+            className={`${btnStyle} flex items-center gap-1.5 ${blackoutActive ? 'bg-red-600 text-white' : 'text-gray-300 hover:text-white'}`}
             style={blackoutActive ? {} : { background: glassBg }}
             title="Blackout All (B)">
-            ⬛ {blackoutActive ? 'BLACKOUT' : 'Blackout'}
+            <GvIcon name="blackout" /> {blackoutActive ? 'BLACKOUT' : 'Blackout'}
           </button>
 
-          <button onClick={toggleAudioBroadcast}
-            className={`${btnStyle} flex items-center gap-2 ${audioBroadcast ? 'bg-green-600 text-white' : 'text-gray-300 hover:text-white'}`}
+          <button onClick={toggleAudioBroadcast} aria-label="Toggle audio broadcast"
+            className={`${btnStyle} flex items-center gap-1.5 ${audioBroadcast ? 'bg-green-600 text-white' : 'text-gray-300 hover:text-white'}`}
             style={audioBroadcast ? {} : { background: glassBg }}
             title="Audio Broadcast (A)">
-            🎵 Audio
+            <GvIcon name="audio" /> Audio
             {audioBroadcast && <AudioMeter level={audioLevel} />}
           </button>
 
-          <button onClick={() => setShowQuickText(true)}
-            className={`${btnStyle} text-gray-300 hover:text-white`} style={{ background: glassBg }}
+          <button onClick={() => setShowQuickText(true)} aria-label="Open quick text push"
+            className={`${btnStyle} flex items-center gap-1.5 text-gray-300 hover:text-white`} style={{ background: glassBg }}
             title="Quick Text (T)">
-            💬 Text
+            <GvIcon name="text" /> Text
           </button>
 
-          <button onClick={() => setShowAnnouncement(true)}
-            className={`${btnStyle} text-gray-300 hover:text-white`} style={{ background: glassBg }}
+          <button onClick={() => setShowAnnouncement(true)} aria-label="Open announcement"
+            className={`${btnStyle} flex items-center gap-1.5 text-gray-300 hover:text-white`} style={{ background: glassBg }}
             title="Announcement">
-            📢 Announce
+            <GvIcon name="announce" /> Announce
           </button>
 
-          <button onClick={() => setShowNowPlaying(true)}
-            className={`${btnStyle} text-gray-300 hover:text-white`} style={{ background: glassBg }}
+          <button onClick={() => setShowNowPlaying(true)} aria-label="Open now playing"
+            className={`${btnStyle} flex items-center gap-1.5 text-gray-300 hover:text-white`} style={{ background: glassBg }}
             title="Now Playing">
-            🎤 Now Playing
+            <GvIcon name="mic" /> Now Playing
           </button>
 
           <div className="w-px h-5 bg-white/10 mx-1" />
 
-          <button onClick={() => setShowOverlayPanel(p => !p)}
-            className={`${btnStyle} ${showOverlayPanel ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
+          <button onClick={() => setShowOverlayPanel(p => !p)} aria-label="Toggle overlay panel"
+            className={`${btnStyle} flex items-center gap-1.5 ${showOverlayPanel ? 'bg-purple-600 text-white' : 'text-gray-300 hover:text-white'}`}
             style={showOverlayPanel ? {} : { background: glassBg }}
             title="Overlay Panel">
-            🎭 Overlays
+            <GvIcon name="overlays" /> Overlays
           </button>
 
           <button onClick={() => setShowPvwPgm(p => !p)}
@@ -587,11 +637,14 @@ export default function GodView() {
             <span className="text-green-400 text-[10px] font-semibold">{onlineCount} LIVE</span>
           </div>
           {screens.length - onlineCount > 0 && (
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-              <span className="text-red-400 text-[10px] font-semibold">{screens.length - onlineCount} OFF</span>
-            </div>
+            <button onClick={toggleHideOffline} title={hideOffline ? 'Show offline screens' : 'Hide offline screens'}
+              className="flex items-center gap-2 px-2.5 py-1 rounded-full transition-colors"
+              style={{ background: hideOffline ? 'rgba(100,116,139,0.15)' : 'rgba(239,68,68,0.1)', border: hideOffline ? '1px solid rgba(100,116,139,0.3)' : '1px solid rgba(239,68,68,0.2)' }}>
+              <span className={`w-1.5 h-1.5 rounded-full ${hideOffline ? 'bg-slate-400' : 'bg-red-400'}`} />
+              <span className={`text-[10px] font-semibold ${hideOffline ? 'text-slate-300' : 'text-red-400'}`}>
+                {screens.length - onlineCount} OFF {hideOffline ? '· hidden' : ''}
+              </span>
+            </button>
           )}
           <span className="text-gray-300 text-xs font-semibold"><Clock /></span>
           <a href="/control/dashboard" className="px-2 py-1 rounded-lg text-[10px] text-gray-500 hover:text-white transition-colors"
@@ -601,49 +654,60 @@ export default function GodView() {
 
       {/* ===== PVW / PGM BAR ===== */}
       {showPvwPgm && (
-        <div className="flex items-center gap-4 px-4 py-2 shrink-0"
+        <div className="flex items-stretch gap-3 px-4 py-2 shrink-0"
           style={{ background: 'rgba(6,9,16,0.95)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-          {/* Preview */}
-          <div className="flex items-center gap-3 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-green-400"
-                style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)' }}>PVW</span>
+          {/* PVW card with live thumbnail */}
+          <div className="flex-1 min-w-0 rounded-lg overflow-hidden flex"
+            style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.25)' }}>
+            <div className="flex flex-col justify-center items-center px-2 shrink-0"
+              style={{ background: 'rgba(34,197,94,0.12)', borderRight: '1px solid rgba(34,197,94,0.2)' }}>
+              <span className="text-green-400 text-[10px] font-bold tracking-widest">PVW</span>
             </div>
-            <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              {previewLayout ? (
-                <span className="text-white text-xs font-medium">{previewLayout.name}</span>
-              ) : (
-                <span className="text-gray-600 text-xs italic">Click a layout in hotbar to preview</span>
-              )}
+            <div className="w-20 h-12 bg-black shrink-0">
+              {previewLayout
+                ? <ScreenPreview layout={previewLayout} live />
+                : <div className="w-full h-full flex items-center justify-center"><span className="text-gray-700 text-[8px] uppercase">Empty</span></div>}
+            </div>
+            <div className="flex-1 min-w-0 flex items-center px-3">
+              {previewLayout
+                ? <span className="text-white text-xs font-medium truncate">{previewLayout.name}</span>
+                : <span className="text-gray-600 text-xs italic">Click a layout in hotbar to preview</span>}
             </div>
           </div>
 
           {/* TAKE / CUT */}
-          <div className="flex gap-2 shrink-0">
-            <button onClick={handleTake} disabled={!previewLayout}
+          <div className="flex gap-2 shrink-0 items-center">
+            <button onClick={handleTake} disabled={!previewLayout} aria-label="Take preview to program"
               className={`px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
                 ${previewLayout ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}>
               TAKE
             </button>
-            <button onClick={handleCut} disabled={!previewLayout}
+            <button onClick={handleCut} disabled={!previewLayout} aria-label="Cut preview to program"
               className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all
                 ${previewLayout ? 'bg-yellow-600 hover:bg-yellow-500 text-white' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}>
               CUT
             </button>
           </div>
 
-          {/* Program */}
-          <div className="flex items-center gap-3 flex-1 justify-end">
-            <div className="flex-1 flex items-center justify-end gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
-              {programLayout ? (
-                <span className="text-red-400 text-xs font-medium">{programLayout.name}</span>
-              ) : (
-                <span className="text-gray-600 text-xs italic">No program</span>
-              )}
+          {/* PGM card with live thumbnail */}
+          <div className="flex-1 min-w-0 rounded-lg overflow-hidden flex"
+            style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <div className="flex-1 min-w-0 flex items-center px-3 justify-end">
+              {programLayout
+                ? <span className="text-red-300 text-xs font-medium truncate">{programLayout.name}</span>
+                : <span className="text-gray-600 text-xs italic">No program</span>}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-red-400"
-                style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>PGM</span>
+            <div className="w-20 h-12 bg-black shrink-0">
+              {programLayout
+                ? <ScreenPreview layout={programLayout} live />
+                : <div className="w-full h-full flex items-center justify-center"><span className="text-gray-700 text-[8px] uppercase">Dark</span></div>}
+            </div>
+            <div className="flex flex-col justify-center items-center px-2 shrink-0"
+              style={{ background: 'rgba(239,68,68,0.12)', borderLeft: '1px solid rgba(239,68,68,0.2)' }}>
+              <span className="text-red-400 text-[10px] font-bold tracking-widest">PGM</span>
+              <span className="inline-flex items-center gap-0.5 mt-0.5 px-1 py-0.5 bg-red-600 rounded text-[8px] font-bold text-white">
+                <span className="w-1 h-1 rounded-full bg-white animate-pulse" />LIVE
+              </span>
             </div>
           </div>
         </div>
@@ -651,17 +715,20 @@ export default function GodView() {
 
       {/* ===== SCREEN GRID ===== */}
       <div className="flex-1 p-4 overflow-auto" style={{ paddingBottom: '140px' }}>
-        {screens.length === 0 ? (
+        {visibleScreens.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-4">
             <svg className="w-16 h-16 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
                 d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <p className="text-gray-600 text-lg">No screens registered</p>
+            <p className="text-gray-600 text-lg">{hideOffline && screens.length > 0 ? 'All screens offline (hidden)' : 'No screens registered'}</p>
+            {hideOffline && screens.length > 0 && (
+              <button onClick={toggleHideOffline} className="text-xs text-blue-400 hover:text-blue-300">Show offline screens</button>
+            )}
           </div>
         ) : (
           <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}>
-            {screens.map(screen => (
+            {visibleScreens.map(screen => (
               <ScreenTile key={screen.id} screen={screen} layout={getLayout(screen)}
                 onClick={s => { setSelected(s); setShowPushMenu(false); }}
                 selected={selected?.id === screen.id} />
@@ -688,14 +755,14 @@ export default function GodView() {
               {TRANSITIONS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
 
-            <button onClick={() => identifyScreen(selected.id)}
-              className={`${btnStyle} text-yellow-400 hover:text-yellow-300`} style={{ background: 'rgba(234,179,8,0.1)' }}>
-              🔦 Identify
+            <button onClick={() => identifyScreen(selected.id)} aria-label="Identify screen"
+              className={`${btnStyle} flex items-center gap-1.5 text-yellow-400 hover:text-yellow-300`} style={{ background: 'rgba(234,179,8,0.1)' }}>
+              <GvIcon name="identify" /> Identify
             </button>
 
-            <button onClick={() => reloadScreen(selected.id)}
-              className={`${btnStyle} text-orange-400 hover:text-orange-300`} style={{ background: 'rgba(249,115,22,0.1)' }}>
-              🔄 Reload
+            <button onClick={() => reloadScreen(selected.id)} aria-label="Reload screen"
+              className={`${btnStyle} flex items-center gap-1.5 text-orange-400 hover:text-orange-300`} style={{ background: 'rgba(249,115,22,0.1)' }}>
+              <GvIcon name="reload" /> Reload
             </button>
 
             <a href={`/screen/${selected.id}`} target="_blank" rel="noopener noreferrer"

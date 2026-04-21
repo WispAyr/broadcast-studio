@@ -34,6 +34,17 @@ export default function LiveScreenGrid({ screens, layouts, onPushLayout, fetchDa
     }
   }
 
+  async function toggleLock(screen, e) {
+    e.stopPropagation();
+    const next = screen.accepts_broadcasts ? 0 : 1;
+    try {
+      await api.put(`/screens/${screen.id}`, { accepts_broadcasts: next });
+      fetchData?.();
+    } catch (err) {
+      console.error('Lockout toggle failed:', err);
+    }
+  }
+
   if (screens.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-gray-600 text-sm">
@@ -58,8 +69,18 @@ export default function LiveScreenGrid({ screens, layouts, onPushLayout, fetchDa
               {layout ? <ScreenPreview layout={layout} /> : (
                 <span className="text-gray-700 text-[10px] font-mono uppercase">No Layout</span>
               )}
-              {/* Status badge */}
-              <div className="absolute top-1 right-1">
+              {/* Status badge + padlock */}
+              <div className="absolute top-1 right-1 flex items-center gap-1">
+                <button
+                  onClick={e => toggleLock(screen, e)}
+                  title={screen.accepts_broadcasts === 0 ? 'Locked out of studio-wide pushes. Click to unlock.' : 'Accepts studio-wide pushes. Click to lock.'}
+                  className={`p-1 rounded-full backdrop-blur-sm transition-colors ${screen.accepts_broadcasts === 0 ? 'bg-amber-500/25 text-amber-300 ring-1 ring-amber-500/40' : 'bg-gray-800/80 text-gray-500 ring-1 ring-gray-700/30 hover:text-gray-300'}`}>
+                  {screen.accepts_broadcasts === 0 ? (
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  ) : (
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+                  )}
+                </button>
                 <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider backdrop-blur-sm ${
                   isOnline ? 'bg-green-500/15 text-green-400 ring-1 ring-green-500/20' : 'bg-gray-800/80 text-gray-500 ring-1 ring-gray-700/30'
                 }`}>

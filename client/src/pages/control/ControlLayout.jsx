@@ -12,9 +12,11 @@ const navItems = [
   { path: 'shows', label: 'Shows', icon: 'film' },
   { path: 'layouts', label: 'Layouts', icon: 'layout' },
   { path: 'screens', label: 'Screens', icon: 'monitor' },
+  { path: 'displays', label: 'Displays', icon: 'monitor' },
   { path: 'media', label: 'Media', icon: 'media' },
   { path: 'timeline', label: 'Timeline', icon: 'clock' },
   { path: 'templates', label: 'Templates', icon: 'templates' },
+  { path: 'variables', label: 'Variables', icon: 'variables' },
   { path: 'settings', label: 'Settings', icon: 'settings' },
   { path: 'egpk', label: 'EGPK Live', icon: 'plane' },
   { path: 'autocue', label: 'Autocue', icon: 'autocue' }
@@ -64,6 +66,11 @@ const iconMap = {
   autocue: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  ),
+  variables: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h10M4 17h16" />
     </svg>
   ),
   settings: (
