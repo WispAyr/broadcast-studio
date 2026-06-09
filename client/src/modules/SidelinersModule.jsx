@@ -66,8 +66,11 @@ function Bg({ children, from = NAVY, to = NAVY2 }) {
     const el = ref.current;
     if (!el) return;
     const fit = () => {
-      const r = el.getBoundingClientRect();
-      if (r.width && r.height) setScale(Math.min(r.width / 1920, r.height / 1080));
+      // Use the UNtransformed layout size (clientWidth/Height), not
+      // getBoundingClientRect — under fit-to-screen the parent is already
+      // scaled, and measuring the transformed box double-shrinks the stage.
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w && h) setScale(Math.min(w / 1920, h / 1080));
     };
     fit();
     const ro = new ResizeObserver(fit);
