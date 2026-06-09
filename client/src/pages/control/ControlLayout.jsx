@@ -16,6 +16,7 @@ const navItems = [
   { path: 'displays', label: 'Displays', icon: 'monitor' },
   { path: 'media', label: 'Media', icon: 'media' },
   { path: 'timeline', label: 'Timeline', icon: 'clock' },
+  { path: 'schedule', label: 'Schedule', icon: 'clock' },
   { path: 'templates', label: 'Templates', icon: 'templates' },
   { path: 'variables', label: 'Variables', icon: 'variables' },
   { path: 'settings', label: 'Settings', icon: 'settings' },

@@ -29,6 +29,7 @@ const Displays = React.lazy(() => import('./pages/control/Displays'));
 const KiltwalkOps = React.lazy(() => import('./pages/control/KiltwalkOps'));
 const ControlConsole = React.lazy(() => import('./pages/control/Console'));
 const Console = React.lazy(() => import('./pages/Console'));
+const Schedule = React.lazy(() => import('./pages/control/Schedule'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="screens" element={<Screens />} />
         <Route path="media" element={<Media />} />
         <Route path="timeline" element={<Timeline />} />
+        <Route path="schedule" element={<Schedule />} />
         <Route path="templates" element={<Templates />} />
         <Route path="templates/:id/edit" element={<TemplateEditor />} />
         <Route path="settings" element={<Settings />} />

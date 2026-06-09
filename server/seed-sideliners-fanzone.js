@@ -124,6 +124,38 @@ for (const sc of SCREENS) {
   }
 }
 
+// ── Producer console buttons (touch /console + Stream Deck fire URLs) ──
+// Re-seeded each run (FanZone studio only). take_layout = switch scene;
+// push_overlay = fire a graphic; plus utilities.
+try {
+  db.exec('CREATE TABLE IF NOT EXISTS console_buttons (id TEXT PRIMARY KEY, studio_id TEXT, label TEXT, sublabel TEXT, icon TEXT, color TEXT, action_type TEXT, action_payload TEXT, confirm INTEGER DEFAULT 0, sort_order INTEGER, created_at TEXT DEFAULT (datetime(\'now\')), updated_at TEXT DEFAULT (datetime(\'now\')))');
+  const cols = db.prepare('PRAGMA table_info(console_buttons)').all().map((c) => c.name);
+  if (cols.includes('action_type') && cols.includes('action_payload')) {
+    db.prepare('DELETE FROM console_buttons WHERE studio_id = ?').run(studioId);
+    const PUR = '#7a2f9e', NAVY = '#241a40', GOLD = '#caa33a', BLUE = '#1e6fd0', RED = '#d2384f', SLATE = '#475569', GREEN = '#16a34a';
+    const L = (name) => layoutIds[name] || null;
+    const btns = [
+      { label: 'Show Intro', icon: '🎬', color: NAVY, action: 'take_layout', payload: { layout_id: L('🎬 FanZone — Show Intro') } },
+      { label: 'Holding', icon: '🏟', color: PUR, action: 'take_layout', payload: { layout_id: L('🏟 FanZone — Holding') } },
+      { label: 'Match Centre', icon: '📊', color: BLUE, action: 'take_layout', payload: { layout_id: L('📊 Match Centre — Scotland v Haiti') } },
+      { label: 'Auto Loop', icon: '🔁', color: BLUE, action: 'take_layout', payload: { layout_id: L('🔁 Match Centre — Auto Loop') } },
+      { label: 'Profiles', icon: '👤', color: PUR, action: 'take_layout', payload: { layout_id: L('👤 Player Profiles — Rotation') } },
+      { label: 'Scotland', icon: '🏴', color: '#0a2a66', action: 'take_layout', payload: { layout_id: L('🏴 Scotland — Tartan Army') } },
+      { label: 'Match Day', icon: '🟢', color: GREEN, action: 'take_layout', payload: { layout_id: L('🏟 FanZone — Match Day') } },
+      { label: 'STV Live', icon: '📺', color: GOLD, action: 'take_layout', payload: { layout_id: L('📺 STV Live') } },
+      { label: 'BBC One', icon: '📺', color: '#d2384f', action: 'take_layout', payload: { layout_id: L('📺 BBC One') } },
+      { label: 'Half-Time Quiz', icon: '🎯', color: GOLD, action: 'take_layout', payload: { layout_id: L('🏟 FanZone — Half-Time Quiz') } },
+      { label: 'Quiz Join', icon: '🎯', color: PUR, action: 'take_layout', payload: { layout_id: L('🏟 FanZone — Quiz Join') } },
+      { label: 'Now Playing', icon: '💿', color: '#db2777', action: 'push_overlay', payload: { overlay: { type: 'now_playing_l3', stationId: 7719 } } },
+      { label: 'Clear GFX', icon: '🧹', color: SLATE, action: 'clear_overlays', payload: {} },
+      { label: 'Blackout', icon: '⬛', color: '#111827', action: 'blackout', confirm: 1, payload: {} },
+    ];
+    const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');
+    btns.forEach((b, i) => ins.run(uuid(), studioId, b.label, null, b.icon, b.color, b.action, JSON.stringify(b.payload || {}), b.confirm || 0, i));
+    console.log(`[console] seeded ${btns.length} producer buttons`);
+  }
+} catch (e) { console.warn('[console] button seed skipped:', e.message); }
+
 console.log('\n' + '─'.repeat(60));
 console.log(`SideLiner's FanZone ready. Studio: ${studioId}`);
 const scr = db.prepare('SELECT id, name FROM screens WHERE studio_id = ? ORDER BY screen_number').all(studioId);
