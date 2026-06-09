@@ -165,10 +165,12 @@ try {
       { team: 'HAI', name: 'Wilson Isidor', number: 18, pos: 'FW', club: 'Sunderland', caps: 4, intlGoals: 2, role: 'Key man', photo: ph('wilson-isidor', 1) },
       { team: 'HAI', name: 'Jean-Ricner Bellegarde', number: 10, pos: 'MF', club: 'Wolves', caps: 10, intlGoals: 0, role: 'Key man', photo: ph('jean-ricner-bellegarde', 1) },
     ];
+    // GOAL buttons fire the FULL-SCREEN celebration + horn/roar (the big wall
+    // moment). The lower-third version stays available via the Squads panel toggle.
     for (const p of SCORERS) {
       const surname = p.name.split(' ').slice(1).join(' ') || p.name;
-      btns.push({ label: surname, sublabel: 'GOAL', icon: '⚽', color: p.team === 'SCO' ? '#0a2a66' : '#d2384f',
-        action: 'push_overlay', payload: { overlay: { type: 'goal', player: p, layout: 'lower', sound: `/uploads/${studioId}/goal.mp3`, duration: 12 } } });
+      btns.push({ label: surname, sublabel: 'GOAL!', icon: '⚽', color: p.team === 'SCO' ? '#0a2a66' : '#d2384f',
+        action: 'push_overlay', payload: { overlay: { type: 'goal', player: p, layout: 'full', sound: `/uploads/${studioId}/goal.mp3`, duration: 10 } } });
     }
 
     const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');
