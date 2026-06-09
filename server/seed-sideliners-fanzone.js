@@ -54,9 +54,11 @@ const quiz = (mode) => ({ id: uuid(), module: 'quiz', type: 'quiz', x: 0, y: 0, 
 const camera = (label) => ({ id: uuid(), module: 'camera_feed', type: 'camera_feed', x: 0, y: 1, w: 12, h: 6, config: { src: '', label, muted: true } });
 const video = (url) => ({ id: uuid(), module: 'video', type: 'video', x: 0, y: 0, w: 12, h: 8, config: { url, src: url, autoplay: true, loop: false, muted: false } });
 const stats = (view) => ({ id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view } });
+const hero = (cfg) => ({ id: uuid(), module: 'scotland_hero', type: 'scotland_hero', x: 0, y: 0, w: 12, h: 8, config: cfg });
 
 const SCENES = [
   { name: '🎬 FanZone — Show Intro', bg: '#000000', modules: [ video(U('sideliners-intro.mp4')) ] },
+  { name: '🏴 Scotland — Tartan Army', bg: '#0a2a66', modules: [ hero({ title: 'SCOTLAND', subtitle: 'THE TARTAN ARMY', kicker: 'WORLD CUP 26 · GROUP C' }) ] },
   { name: '🏟 FanZone — Holding', bg: BG, modules: [
       img(LOGO_FZ, 1, 1, 10, 5),
       text('Welcome to the SideLiner’s FanZone', 1, 6, 10, 1, '2.6vw'),

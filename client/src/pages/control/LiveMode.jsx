@@ -18,6 +18,7 @@ import ClockTally from './components/ClockTally';
 import ModuleConfigPanel from './components/ModuleConfigPanel';
 import SoundboardPanel from './components/SoundboardPanel';
 import SquadsPanel from './components/SquadsPanel';
+import GfxPanel from './components/GfxPanel';
 import useActiveModuleConfigs from '../../hooks/useActiveModuleConfigs';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { useToast } from '../../components/Toast';
@@ -87,7 +88,7 @@ export default function LiveMode() {
   const isVisible = (id) => panels[id]?.visible;
   const hasLeft = isVisible('cueList');
   const visibleModuleConfigs = moduleConfigs.filter(mc => !hiddenModuleConfigs[mc.moduleId]);
-  const hasRight = isVisible('overlays') || isVisible('macros') || isVisible('soundboard') || isVisible('squads') || visibleModuleConfigs.length > 0;
+  const hasRight = isVisible('overlays') || isVisible('macros') || isVisible('soundboard') || isVisible('squads') || isVisible('gfx') || visibleModuleConfigs.length > 0;
   const hasTop = isVisible('pvwPgm') || isVisible('transitions') || isVisible('clockTally');
   const hasBottom = isVisible('hotbar');
 
@@ -221,6 +222,11 @@ export default function LiveMode() {
             {isVisible('squads') && (
               <PanelShell title="Squads" icon="👕" color="blue" onClose={() => setPanelVisible('squads', false)}>
                 <SquadsPanel inShell studioId={studioId} screens={screens} />
+              </PanelShell>
+            )}
+            {isVisible('gfx') && (
+              <PanelShell title="Graphics" icon="📊" color="cyan" onClose={() => setPanelVisible('gfx', false)}>
+                <GfxPanel inShell studioId={studioId} screens={screens} />
               </PanelShell>
             )}
             {/* Dynamic module config panels */}

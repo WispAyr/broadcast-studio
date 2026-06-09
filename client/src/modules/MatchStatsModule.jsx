@@ -1,6 +1,7 @@
 import React from 'react';
 import PlayerProfileCard from '../components/PlayerProfileCard';
 import { SCOTLAND, HAITI, ALL_PLAYERS } from '../data/squads';
+import { FACTS } from '../data/matchInfo';
 
 // Match stats / info screens — SideLiner's FanZone.
 // One module, many views (config.view): header | form | players | group | road | facts.
@@ -169,13 +170,34 @@ export default function MatchStatsModule({ config = {} }) {
       )} /></div>);
   }
 
-  // facts
-  return (<div style={wrap}><Title>Did You Know</Title>
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2.2vh' }}>
-      {d.facts.map((fct, i) => (
-        <div key={i} style={{ display: 'flex', gap: '1.2vw', fontSize: '3.4vh', lineHeight: 1.3 }}>
-          <span style={{ color: GOLD, fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span><span>{fct}</span>
+  // facts — interactive auto-cycling "Did You Know"
+  return <FactsCycler facts={config.facts || FACTS} interval={config.factSecs || 7} />;
+}
+
+function FactsCycler({ facts, interval }) {
+  const [i, setI] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setI((x) => (x + 1) % facts.length), interval * 1000);
+    return () => clearInterval(t);
+  }, [facts.length, interval]);
+  return (
+    <div style={wrap}>
+      <style>{`@keyframes dykIn { from { opacity:0; transform: translateY(40px) scale(.98);} to {opacity:1; transform:none;} } @keyframes dykBar { from { width:0; } to { width:100%; } }`}</style>
+      <Title>Did You Know</Title>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', right: '1vw', top: '-1vh', fontFamily: HEAD, fontWeight: 700, fontSize: '30vh', color: '#fff', opacity: 0.05, lineHeight: 1 }}>?</div>
+        <div key={i} style={{ animation: 'dykIn 0.6s cubic-bezier(.2,.8,.2,1) both', maxWidth: '85%' }}>
+          <div style={{ fontSize: '2.6vh', letterSpacing: '0.2em', color: GOLD, marginBottom: '2vh' }}>FACT {i + 1} / {facts.length}</div>
+          <div style={{ fontSize: '6vh', fontWeight: 600, lineHeight: 1.18 }}>{facts[i]}</div>
         </div>
-      ))}
-    </div></div>);
+      </div>
+      <div style={{ display: 'flex', gap: '1vw', marginTop: '2vh' }}>
+        {facts.map((_, n) => (
+          <div key={n} style={{ flex: 1, height: '0.7vh', borderRadius: 4, background: n === i ? PURPLE_HI : 'rgba(255,255,255,0.12)', position: 'relative', overflow: 'hidden' }}>
+            {n === i && <div style={{ position: 'absolute', inset: 0, background: GOLD, animation: `dykBar ${interval}s linear` }} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

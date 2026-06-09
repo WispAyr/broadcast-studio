@@ -69,6 +69,7 @@ import NARWarningsModule from './NARWarningsModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
 import MatchStatsModule from './MatchStatsModule';
+import ScotlandHero from './ScotlandHero';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -187,6 +188,9 @@ const moduleRegistry = {
   music_bed: AudioModule,
   // Match stats / info screens (view: header|form|players|group|road|facts)
   match_stats: MatchStatsModule,
+  // Scotland branding hero — animated saltire + tartan (high impact)
+  scotland_hero: ScotlandHero,
+  tartan_bg: ScotlandHero,
 };
 
 export default moduleRegistry;

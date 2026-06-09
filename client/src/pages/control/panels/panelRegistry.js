@@ -92,6 +92,15 @@ export const PANELS = [
     color: 'blue',
     description: 'Fire player profiles + goalscorer graphics',
   },
+  {
+    id: 'gfx',
+    label: 'Graphics',
+    icon: '📊',
+    defaultZone: 'right',
+    defaultVisible: false,
+    color: 'cyan',
+    description: 'Fire fact + stat lower-thirds',
+  },
 ];
 
 // Built-in workspace presets

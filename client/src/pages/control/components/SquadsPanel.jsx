@@ -13,6 +13,7 @@ export default function SquadsPanel({ studioId, screens = [], inShell }) {
   const [tab, setTab] = useState('SCO');
   const [minute, setMinute] = useState('');
   const [hold, setHold] = useState(false); // hold = stay on screen until cleared
+  const [l3, setL3] = useState(true); // lower-third (overlay match) vs full-screen
 
   const tgt = () => (target === 'studio' ? { studioId } : { screenId: target, studioId });
   const players = tab === 'HAI' ? HAITI : SCOTLAND;
@@ -24,6 +25,7 @@ export default function SquadsPanel({ studioId, screens = [], inShell }) {
       ...tgt(),
       overlay: {
         type, player,
+        layout: l3 ? 'lower' : 'full',
         minute: type === 'goal' && minute ? Number(minute) : undefined,
         duration: hold ? undefined : (type === 'goal' ? 12 : 14),
       },
@@ -56,7 +58,13 @@ export default function SquadsPanel({ studioId, screens = [], inShell }) {
         </div>
         <input value={minute} onChange={(e) => setMinute(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="min'"
           className="w-14 px-2 py-1 bg-gray-900 border border-gray-700 text-white rounded text-xs" title="Goal minute (optional)" />
-        <label className="flex items-center gap-1 text-[10px] text-gray-400 ml-auto cursor-pointer">
+        <div className="flex rounded-md overflow-hidden border border-gray-700 ml-auto">
+          {[['L3', true], ['Full', false]].map(([lbl, v]) => (
+            <button key={lbl} onClick={() => setL3(v)}
+              className={`px-2 py-1 text-[10px] font-bold ${l3 === v ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{lbl}</button>
+          ))}
+        </div>
+        <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer">
           <input type="checkbox" checked={hold} onChange={(e) => setHold(e.target.checked)} className="accent-purple-500" /> hold
         </label>
       </div>

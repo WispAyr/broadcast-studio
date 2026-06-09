@@ -53,12 +53,46 @@ function StatBlock({ label, value }) {
   );
 }
 
-export default function PlayerProfileCard({ player, mode = 'profile', minute }) {
+export default function PlayerProfileCard({ player, mode = 'profile', minute, layout = 'full' }) {
   if (!player) return null;
   const t = TEAM[player.team] || TEAM.SCO;
   const isGoal = mode === 'goal';
   const [first, ...rest] = (player.name || '').split(' ');
   const surname = rest.join(' ') || first;
+
+  // ── Lower-third band (overlay the match feed without covering it) ──
+  if (layout === 'lower') {
+    return (
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: '4vh', display: 'flex', justifyContent: 'flex-start', pointerEvents: 'none' }}>
+        <style>{`@keyframes l3in { from { opacity:0; transform: translateX(-60px);} to {opacity:1; transform:translateX(0);} } @keyframes l3pulse {0%,100%{opacity:1}50%{opacity:.85}}`}</style>
+        <div style={{ display: 'flex', alignItems: 'stretch', height: '17vh', minWidth: '62vw', maxWidth: '88vw',
+          animation: 'l3in 0.45s cubic-bezier(.2,.8,.2,1) both', fontFamily: HEAD, color: '#fff',
+          background: `linear-gradient(90deg, ${t.primary} 0%, ${PURPLE} 55%, #241a40 100%)`,
+          borderLeft: `1vh solid ${isGoal ? GOLD : t.accent}`, boxShadow: '0 10px 40px rgba(0,0,0,.5)', overflow: 'hidden' }}>
+          {/* thumb */}
+          <div style={{ width: '17vh', flexShrink: 0, position: 'relative', overflow: 'hidden', background: t.primary }}>
+            {player.photo
+              ? <img src={player.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} />
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '8vh', opacity: 0.9 }}>{player.number ?? ''}</div>}
+          </div>
+          <div style={{ flex: 1, padding: '0 3vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+            {isGoal
+              ? <div style={{ fontSize: '3vh', fontWeight: 700, color: GOLD, letterSpacing: '0.1em', animation: 'l3pulse 0.9s infinite' }}>⚽ GOAL{minute ? ` · ${minute}'` : ''}</div>
+              : <div style={{ fontSize: '2.4vh', fontWeight: 600, color: '#d9c7f0', letterSpacing: '0.12em' }}>{t.name}{player.role ? ` · ${player.role}` : ''}</div>}
+            <div style={{ fontSize: '7vh', fontWeight: 700, lineHeight: 0.95, textShadow: '0 3px 14px rgba(0,0,0,.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {player.number ? <span style={{ color: t.accent, marginRight: '1vw' }}>{player.number}</span> : null}{player.name}
+            </div>
+            <div style={{ fontSize: '2.6vh', opacity: 0.85 }}>{player.pos} · {player.club}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2.5vw', padding: '0 3vw', borderLeft: '1px solid rgba(255,255,255,.15)' }}>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '5vh', fontWeight: 700, lineHeight: 1 }}>{player.caps ?? '—'}</div><div style={{ fontSize: '1.8vh', color: PURPLE_HI, letterSpacing: '0.12em' }}>CAPS</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '5vh', fontWeight: 700, lineHeight: 1 }}>{player.intlGoals ?? '—'}</div><div style={{ fontSize: '1.8vh', color: PURPLE_HI, letterSpacing: '0.12em' }}>GOALS</div></div>
+            <div style={{ alignSelf: 'center' }}><Flag kind={t.flag} h="5vh" /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
