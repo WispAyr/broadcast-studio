@@ -27,6 +27,8 @@ const Deploy = React.lazy(() => import('./pages/control/Deploy'));
 const Variables = React.lazy(() => import('./pages/control/Variables'));
 const Displays = React.lazy(() => import('./pages/control/Displays'));
 const KiltwalkOps = React.lazy(() => import('./pages/control/KiltwalkOps'));
+const ControlConsole = React.lazy(() => import('./pages/control/Console'));
+const Console = React.lazy(() => import('./pages/Console'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -80,7 +82,9 @@ export default function App() {
         <Route path="admin" element={<Admin />} />
         <Route path="egpk" element={<EgpkScenes />} />
         <Route path="kiltwalk" element={<KiltwalkOps />} />
+        <Route path="console" element={<ControlConsole />} />
       </Route>
+      <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/screen/:id" element={<ScreenDisplay />} />
       <Route path="/deploy" element={<Deploy />} />
       <Route path="/god" element={<ProtectedRoute><GodView /></ProtectedRoute>} />

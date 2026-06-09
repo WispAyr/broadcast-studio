@@ -60,6 +60,7 @@ app.use("/api/egpk", require("./routes/egpk"));
 app.use('/api/nuro', require('./routes/nuro'));
 app.use('/api/display-nodes', require('./routes/display-nodes'));
 app.use('/api/scenes', require('./routes/scenes'));
+app.use('/api/console', require('./routes/console'));
 app.use('/api/pavilion-festival', require('./routes/pavilion-festival'));
 // Banner/emergency push + scheduled layout changes (Kiltwalk live-event ops).
 const broadcastRoutes = require('./routes/broadcast');
