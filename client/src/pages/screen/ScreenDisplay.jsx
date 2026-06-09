@@ -181,6 +181,12 @@ export default function ScreenDisplay() {
   // Whether this screen is a PA / audio-output feed. `?audio=1` forces it on
   // (handy for a laptop playout); otherwise read from the screen's config.
   const [audioOutput, setAudioOutput] = useState(searchParams.get('audio') === '1');
+  // Fit-to-screen: render the layout at its design resolution and scale it to
+  // fill the display, so fixed-px module fonts/content scale up proportionally
+  // on larger/higher-res screens instead of looking small. Opt-in per screen
+  // (config.fitToScreen) or via ?fit=1; default off = no change to a screen.
+  const [fitToScreen, setFitToScreen] = useState(searchParams.get('fit') === '1');
+  const [fitScale, setFitScale] = useState(1);
 
   const [layout, setLayout] = useState(null);
   const [modules, setModules] = useState([]);
@@ -203,6 +209,17 @@ export default function ScreenDisplay() {
   // block autoplay-with-sound. Locked-down kiosks should also launch Chromium
   // with --autoplay-policy=no-user-gesture-required (see docs).
   useEffect(() => { installUnlockListener(); }, []);
+
+  // Compute the fit-to-screen scale factor (design resolution → viewport).
+  useEffect(() => {
+    if (!fitToScreen) { setFitScale(1); return; }
+    const resW = layout?.resolution_w || 1920;
+    const resH = layout?.resolution_h || 1080;
+    const calc = () => setFitScale(Math.min(window.innerWidth / resW, window.innerHeight / resH));
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, [fitToScreen, layout]);
 
   const heartbeatRef = useRef(null);
   const socketRef = useRef(null);
@@ -332,6 +349,7 @@ export default function ScreenDisplay() {
         }
         if (cfg.disconnectBehavior) setDisconnectBehavior(cfg.disconnectBehavior);
         if (cfg.audioOutput) setAudioOutput(true);
+        if (cfg.fitToScreen) setFitToScreen(true);
         if (cfg.screenType === 'led' || cfg.screenType === 'video_wall') setDisconnectBehavior(prev => prev === 'message' ? 'black' : prev);
       }
       // Store configured dimensions
@@ -680,9 +698,11 @@ export default function ScreenDisplay() {
   const gridRows = layout?.grid_rows || 3;
   const gridColumns = layout?.grid_cols || layout?.grid_columns || 4;
   const background = layout?.background || '#000000';
+  const fitResW = layout?.resolution_w || 1920;
+  const fitResH = layout?.resolution_h || 1080;
 
   return (
-    <div className="screen-display" style={{ background, position: 'relative', cursor: 'none',
+    <div className="screen-display" style={{ background, position: fitToScreen ? 'fixed' : 'relative', cursor: 'none',
       ...(screenDimensions ? { width: screenDimensions.width, height: screenDimensions.height, overflow: 'hidden' } : {}),
       ...(displayProfile ? {
         filter: [
@@ -698,6 +718,13 @@ export default function ScreenDisplay() {
           displayProfile.contentScale && displayProfile.contentScale !== 100 ? `scale(${displayProfile.contentScale / 100})` : '',
           displayProfile.offsetX || displayProfile.offsetY ? `translate(${displayProfile.offsetX || 0}px, ${displayProfile.offsetY || 0}px)` : '',
         ].filter(Boolean).join(' ') || undefined,
+        transformOrigin: 'center center',
+      } : {}),
+      // Fit-to-screen override: pin a design-resolution box centred in the
+      // viewport and scale it to fit. Wins over displayProfile transform.
+      ...(fitToScreen ? {
+        left: '50%', top: '50%', width: fitResW, height: fitResH, overflow: 'hidden',
+        transform: `translate(-50%, -50%) scale(${fitScale})${displayProfile?.rotation ? ` rotate(${displayProfile.rotation}deg)` : ''}`,
         transformOrigin: 'center center',
       } : {}),
     }}>
@@ -719,7 +746,7 @@ export default function ScreenDisplay() {
           display: 'grid',
           gridTemplateRows: `repeat(${prevLayout.grid_rows || 3}, 1fr)`,
           gridTemplateColumns: `repeat(${prevLayout.grid_cols || prevLayout.grid_columns || 4}, 1fr)`,
-          width: '100vw', height: '100vh',
+          width: fitToScreen ? '100%' : '100vw', height: fitToScreen ? '100%' : '100vh',
           background: prevLayout.background || '#000',
           gap: '2px',
           position: 'absolute', top: 0, left: 0, zIndex: 2,
@@ -751,8 +778,8 @@ export default function ScreenDisplay() {
         ref={gridRef}
         style={{
           position: 'relative',
-          width: '100vw',
-          height: '100vh',
+          width: fitToScreen ? '100%' : '100vw',
+          height: fitToScreen ? '100%' : '100vh',
           opacity: projectionActive ? 0 : undefined,
           pointerEvents: projectionActive ? 'none' : 'auto',
           animation: transitioning ? (
