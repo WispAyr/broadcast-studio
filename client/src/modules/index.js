@@ -41,6 +41,7 @@ import VisualizerModule from './VisualizerModule';
 import RemotionModule from './RemotionModule';
 import CanvaModule from './CanvaModule';
 import TemplateModule from './TemplateModule';
+import SidelinersModule from './SidelinersModule';
 import SurfaceCarouselModule from './SurfaceCarouselModule';
 
 
@@ -114,6 +115,7 @@ const moduleRegistry = {
   remotion: RemotionModule,
   canva: CanvaModule,
   template: TemplateModule,    // Live template composition player
+  sideliners: SidelinersModule, // SideLiner's sports-show graphics package
   surface_carousel: SurfaceCarouselModule,  // Rotating iframe carousel — office wall views from live.wispayr.online
   // Kiltwalk event modules
   kiltwalk_finish: KiltwalkerCounterModule,

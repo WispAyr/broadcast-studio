@@ -168,6 +168,27 @@ async function dispatchAction(studioId, button, io, userId) {
       logBroadcast(studioId, 'clear', {}, userId);
       return { type };
     }
+    case 'push_overlay': {
+      // Generic transient-graphic push. action_payload IS the overlay object
+      // (must carry a `type`, e.g. sl_lower_third / sl_sting / sl_breaking).
+      // A `duration` (seconds) auto-dismisses it client-side; for safety we
+      // also schedule a server-side remove_overlay by type.
+      const overlay = p.overlay || p;
+      if (!overlay || !overlay.type) throw new Error('overlay.type required');
+      io.to(`studio:${studioId}`).emit('push_overlay', { overlay });
+      if (overlay.duration) {
+        setTimeout(() => {
+          try { io.to(`studio:${studioId}`).emit('remove_overlay', { overlayType: overlay.type }); } catch {}
+        }, overlay.duration * 1000);
+      }
+      return { type, overlay_type: overlay.type };
+    }
+    case 'remove_overlay': {
+      // Pull a specific overlay type (e.g. the persistent score bug).
+      if (!p.overlay_type) throw new Error('overlay_type required');
+      io.to(`studio:${studioId}`).emit('remove_overlay', { overlayType: p.overlay_type });
+      return { type, overlay_type: p.overlay_type };
+    }
     case 'live_text': {
       if (!p.moduleId) throw new Error('moduleId required');
       io.to(`studio:${studioId}`).emit('update_module_text', {

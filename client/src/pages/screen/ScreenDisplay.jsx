@@ -75,8 +75,102 @@ function BedOverlay({ overlay, audioOutput }) {
   return <audio ref={ref} src={overlay.url} loop muted={!audioOutput} preload="auto" playsInline />;
 }
 
+// ── SideLiner's branded overlays ──────────────────────────────────────────
+// Transient sports-show graphics matching the SideLiner's logo lockup:
+// skewed parallelogram panels, purple→navy, gold accent, italic Oswald.
+// Pushed with `duration` (seconds) so they auto-dismiss.
+const SL_NAVY = '#241a40', SL_PURPLE = '#7a2f9e', SL_PURPLE_HI = '#a44ad0', SL_GOLD = '#ffd24a';
+const SL_HEAD = "'Oswald','Rajdhani',sans-serif";
+function SidelinersOverlay({ overlay }) {
+  const t = overlay.type;
+  const skew = { display: 'inline-block', transform: 'skewX(-12deg)' };
+  const unskew = { display: 'inline-block', transform: 'skewX(12deg)' };
+  const inAnim = 'overlaySlideUp 0.5s cubic-bezier(.2,.8,.2,1)';
+
+  // Animated logo / wordmark sting — full-frame, auto-dismiss via duration.
+  if (t === 'sl_sting') {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${SL_NAVY}, #171026)`, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'overlayIn 0.35s ease-out' }}>
+        <style>{`@keyframes slStingShine{0%{transform:translateX(-150%) skewX(-20deg);}100%{transform:translateX(350%) skewX(-20deg);}}@keyframes slStingPop{0%{opacity:0;transform:scale(0.6) skewX(-12deg);}60%{transform:scale(1.07) skewX(-12deg);}100%{opacity:1;transform:scale(1) skewX(-12deg);}}`}</style>
+        {overlay.url
+          ? <img src={overlay.url} alt="SideLiner's" style={{ height: '34vh', animation: 'slStingPop 0.7s cubic-bezier(.2,.9,.2,1) both' }} />
+          : <div style={{ position: 'relative', fontFamily: SL_HEAD, fontStyle: 'italic', fontWeight: 700, fontSize: '17vh', color: '#fff', animation: 'slStingPop 0.7s cubic-bezier(.2,.9,.2,1) both', transform: 'skewX(-12deg)' }}>
+              <span style={{ display: 'inline-block', transform: 'skewX(12deg)' }}>Side<span style={{ color: SL_GOLD }}>Liner's</span></span>
+              <span style={{ position: 'absolute', top: 0, left: 0, width: '12vw', height: '100%', background: 'rgba(255,255,255,0.4)', animation: 'slStingShine 0.9s ease-in 0.5s both' }} />
+            </div>}
+      </div>
+    );
+  }
+
+  // Lower third — presenter / guest / caller.
+  if (t === 'sl_lower_third') {
+    return (
+      <div style={{ position: 'absolute', bottom: '9vh', left: '5vw', fontFamily: SL_HEAD, animation: inAnim }}>
+        <div style={{ ...skew, background: SL_GOLD, padding: '0.4vh 1.4vw', marginLeft: '0.5vw' }}>
+          <span style={{ ...unskew, color: SL_NAVY, fontWeight: 700, fontSize: '2vh', letterSpacing: '0.2em', textTransform: 'uppercase' }}>{overlay.kicker || 'On air'}</span>
+        </div>
+        <div style={{ ...skew, background: `linear-gradient(120deg, ${SL_PURPLE}, ${SL_NAVY})`, padding: '1.4vh 2.6vw', marginTop: '0.6vh', boxShadow: '0 1vh 3vh rgba(0,0,0,0.45)' }}>
+          <div style={unskew}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '4.4vh', lineHeight: 1 }}>{overlay.name || ''}</div>
+            {overlay.title && <div style={{ color: SL_PURPLE_HI, fontWeight: 500, fontSize: '2.4vh', marginTop: '0.4vh', letterSpacing: '0.04em' }}>{overlay.title}</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Breaking sports news — bottom strip.
+  if (t === 'sl_breaking') {
+    return (
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', alignItems: 'stretch', fontFamily: SL_HEAD, animation: 'overlaySlideUp 0.45s cubic-bezier(.2,.8,.2,1)' }}>
+        <div style={{ background: SL_GOLD, display: 'flex', alignItems: 'center', padding: '0 2.4vw' }}>
+          <span style={{ color: SL_NAVY, fontWeight: 800, fontSize: '3.2vh', letterSpacing: '0.12em', animation: 'slBreakPulse 1.4s ease-in-out infinite' }}>BREAKING</span>
+        </div>
+        <div style={{ flex: 1, background: `linear-gradient(120deg, ${SL_PURPLE}, ${SL_NAVY})`, display: 'flex', alignItems: 'center', padding: '1.6vh 2.4vw' }}>
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: '3.4vh' }}>{overlay.text || ''}</span>
+        </div>
+        <style>{`@keyframes slBreakPulse{0%,100%{opacity:1;}50%{opacity:0.5;}}`}</style>
+      </div>
+    );
+  }
+
+  // "Your Shout" — listener text-in / caller comment.
+  if (t === 'sl_text') {
+    return (
+      <div style={{ position: 'absolute', bottom: '8vh', left: '6vw', right: '6vw', fontFamily: SL_HEAD, animation: inAnim }}>
+        <div style={{ ...skew, background: SL_PURPLE, padding: '0.4vh 1.4vw' }}>
+          <span style={{ ...unskew, color: '#fff', fontWeight: 700, fontSize: '2vh', letterSpacing: '0.2em', textTransform: 'uppercase' }}>{overlay.kicker || 'Your shout'}</span>
+        </div>
+        <div style={{ background: 'rgba(23,16,38,0.92)', borderLeft: `0.5vw solid ${SL_GOLD}`, padding: '1.8vh 2.6vw', marginTop: '0.6vh' }}>
+          <div style={{ color: '#fff', fontSize: '3.4vh', fontWeight: 500, fontStyle: 'italic', lineHeight: 1.2 }}>“{overlay.text || ''}”</div>
+          {overlay.name && <div style={{ color: SL_PURPLE_HI, fontSize: '2.4vh', marginTop: '0.8vh' }}>— {overlay.name}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // Compact corner score bug — persists until removed.
+  if (t === 'sl_score') {
+    return (
+      <div style={{ position: 'absolute', top: '4vh', left: '4vw', fontFamily: SL_HEAD, animation: inAnim, display: 'flex', boxShadow: '0 1vh 3vh rgba(0,0,0,0.5)' }}>
+        <div style={{ background: SL_NAVY, display: 'flex', alignItems: 'center', gap: '1.2vw', padding: '1vh 1.6vw' }}>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: '3vh' }}>{overlay.home || 'KIL'}</span>
+          <span style={{ background: SL_GOLD, color: SL_NAVY, fontWeight: 800, fontSize: '3vh', padding: '0.3vh 1vw' }}>{overlay.score || '0-0'}</span>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: '3vh' }}>{overlay.away || 'OPP'}</span>
+        </div>
+        {overlay.minute && <div style={{ background: SL_PURPLE, color: '#fff', display: 'flex', alignItems: 'center', padding: '0 1.2vw', fontWeight: 700, fontSize: '2.6vh' }}>{overlay.minute}</div>}
+      </div>
+    );
+  }
+  return null;
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
+
+  if (typeof overlay.type === 'string' && overlay.type.startsWith('sl_')) {
+    return <SidelinersOverlay overlay={overlay} />;
+  }
 
   switch (overlay.type) {
     case 'sting':
@@ -766,6 +860,7 @@ export default function ScreenDisplay() {
         @keyframes dissolveOut { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(10px); } }
         @keyframes wipeIn { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
         @keyframes overlayIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes overlaySlideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
       {/* Previous layout (transitioning out) */}
