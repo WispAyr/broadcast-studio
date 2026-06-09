@@ -96,7 +96,7 @@ function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
       return (
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: '4vh', display: 'flex', animation: 'overlayIn 0.45s ease-out' }}>
           <div style={{ display: 'flex', alignItems: 'stretch', minWidth: '60vw', maxWidth: '90vw', height: '14vh',
-            fontFamily: "'Oswald','Rajdhani',sans-serif", color: '#fff', borderLeft: '1vh solid #ffd24a',
+            fontFamily: "'MuseoModerno','Oswald',sans-serif", color: '#fff', borderLeft: '1vh solid #ffd24a',
             background: 'linear-gradient(90deg, #7a2f9e 0%, #241a40 100%)', boxShadow: '0 10px 40px rgba(0,0,0,.5)' }}>
             <div style={{ display: 'flex', alignItems: 'center', padding: '0 2.5vw', background: 'rgba(0,0,0,0.2)' }}>
               <span style={{ fontWeight: 700, fontSize: '2.6vh', letterSpacing: '0.18em', color: '#ffd24a' }}>{overlay.label || 'DID YOU KNOW'}</span>

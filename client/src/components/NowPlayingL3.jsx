@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 // (auto-updates) until cleared. Used by the `now_playing_l3` overlay.
 
 const PURPLE = '#7a2f9e', PURPLE_HI = '#a44ad0', NAVY = '#241a40';
-const HEAD = "'Oswald','Rajdhani',sans-serif";
+const HEAD = "'MuseoModerno','Oswald',sans-serif";
 
 export default function NowPlayingL3({ stationId = 7719, refreshMs = 15000 }) {
   const [np, setNp] = useState(null);

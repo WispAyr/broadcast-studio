@@ -35,7 +35,7 @@ const DATA = {
 };
 
 const PURPLE = '#7a2f9e', PURPLE_HI = '#a44ad0', NAVY = '#241a40', NAVY_DEEP = '#15102b', GOLD = '#ffd24a';
-const HEAD = "'Oswald','Rajdhani',sans-serif";
+const HEAD = "'MuseoModerno','Oswald',sans-serif";
 const wrap = { width: '100%', height: '100%', color: '#fff', fontFamily: HEAD, padding: '3vh 3vw', boxSizing: 'border-box',
   background: `radial-gradient(120% 120% at 25% 0%, ${PURPLE} 0%, ${NAVY} 50%, ${NAVY_DEEP} 100%)`, overflow: 'hidden', display: 'flex', flexDirection: 'column' };
 
@@ -126,21 +126,23 @@ export default function MatchStatsModule({ config = {} }) {
     const top = (players) => [...players].sort((a, b) => prom(b) - prom(a)).slice(0, 7);
     const col = (players, team, mgr, tint) => (
       <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2vh 1.6vw', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', marginBottom: '1.4vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', marginBottom: '1vh', paddingBottom: '1vh', borderBottom: `2px solid ${tint}` }}>
           <span style={{ fontWeight: 700, fontSize: '4vh' }}>{team}</span>
           <span style={{ marginLeft: 'auto', fontSize: '2.2vh', color: PURPLE_HI }}>Mgr: {mgr}</span>
         </div>
-        {top(players).map((p, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1vw', padding: '0.7vh 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ width: '6vh', height: '6vh', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `linear-gradient(150deg, ${tint}, ${tint}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.4vh' }}>
-              {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 0 }}>
+          {top(players).map((p, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1vw', flex: 1, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ width: '7vh', height: '7vh', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `linear-gradient(150deg, ${tint}, ${tint}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.6vh' }}>
+                {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '3vh', lineHeight: 1.05 }}>{p.name}{p.role ? <span style={{ color: GOLD, fontSize: '2vh' }}>  · {p.role}</span> : null}</div>
+                <div style={{ fontSize: '2.1vh', opacity: 0.7 }}>{p.pos} · {p.club}</div>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: '2.9vh', lineHeight: 1.05 }}>{p.name}{p.role ? <span style={{ color: GOLD, fontSize: '2vh' }}>  · {p.role}</span> : null}</div>
-              <div style={{ fontSize: '2.1vh', opacity: 0.7 }}>{p.pos} · {p.club}</div>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
     return (<div style={wrap}><Title>Key Players</Title>

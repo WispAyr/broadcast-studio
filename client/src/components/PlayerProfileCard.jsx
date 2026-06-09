@@ -12,7 +12,7 @@ const TEAM = {
   HAI: { name: 'HAITI', primary: '#101a5c', accent: '#d21034', flag: 'haiti' },
 };
 const PURPLE = '#7a2f9e', PURPLE_HI = '#a44ad0', GOLD = '#ffd24a';
-const HEAD = "'Oswald','Rajdhani',sans-serif";
+const HEAD = "'MuseoModerno','Oswald',sans-serif";
 
 function Flag({ kind, h = '4vh' }) {
   if (kind === 'saltire') return (
