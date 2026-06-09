@@ -71,6 +71,20 @@ function OverlayRenderer({ overlay }) {
   }
 }
 
+// Layouts may store modules as a JSON string, a flat array, or a {layers:[{modules:[...]}]} object.
+// Always return a flat module array.
+function flattenLayoutModules(rawInput) {
+  let raw = rawInput;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch { return []; }
+  }
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw.layers)) return raw.layers.flatMap(l => Array.isArray(l?.modules) ? l.modules : []);
+  if (Array.isArray(raw.modules)) return raw.modules;
+  return [];
+}
+
 function CountdownOverlay({ targetTime }) {
   const [remaining, setRemaining] = React.useState('');
   React.useEffect(() => {
@@ -118,6 +132,43 @@ export default function ScreenDisplay() {
   const canvasRef = useRef(null);
   const sourceCanvasRef = useRef(null);
   const projectionRef = useRef(null);
+  // Latest known variable values, indexed by variable_id. Survives layout swaps so
+  // a snapshot that arrives before the layout finishes loading isn't lost.
+  const variablesRef = useRef({});
+
+  const injectModule = useCallback((m) => {
+    if (!m || !m.config || !m.config.variable_id) return m;
+    const v = variablesRef.current[m.config.variable_id];
+    if (v === undefined) return m;
+    const field = m.config.variable_field || 'count';
+    return { ...m, config: { ...m.config, [field]: v } };
+  }, []);
+
+  const injectVariables = useCallback((mods) => {
+    if (!Array.isArray(mods)) return mods;
+    return mods.map(injectModule);
+  }, [injectModule]);
+
+  // Apply variable values into a full layout (preserves layered structure that
+  // the render path reads from layout.modules). Returns a new layout object.
+  const injectLayoutVariables = useCallback((lay) => {
+    if (!lay || typeof lay !== 'object') return lay;
+    const next = { ...lay };
+    const data = typeof lay.modules === 'string' ? (() => { try { return JSON.parse(lay.modules); } catch { return null; } })() : lay.modules;
+    if (data && Array.isArray(data.layers)) {
+      const layers = data.layers.map((l) => ({
+        ...l,
+        modules: Array.isArray(l.modules) ? l.modules.map(injectModule) : l.modules,
+      }));
+      const flat = Array.isArray(data.modules) ? data.modules.map(injectModule) : layers.flatMap(l => l.modules || []);
+      next.modules = { ...data, layers, modules: flat };
+    } else if (Array.isArray(data)) {
+      next.modules = data.map(injectModule);
+    } else if (data && Array.isArray(data.modules)) {
+      next.modules = { ...data, modules: data.modules.map(injectModule) };
+    }
+    return next;
+  }, [injectModule]);
 
   // Load cached layout from localStorage immediately (before WS connects)
   // so screen is never blank on browser restart / power cycle
@@ -126,9 +177,8 @@ export default function ScreenDisplay() {
       const cached = localStorage.getItem(`bs_layout_${id}`);
       if (cached) {
         const l = JSON.parse(cached);
-        setLayout(l);
-        const raw = typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []);
-        setModules(Array.isArray(raw) ? raw : (raw.layers ? raw.layers.flatMap(layer => layer.modules || []) : []));
+        setLayout(injectLayoutVariables(l));
+        setModules(injectVariables(flattenLayoutModules(l.modules)));
       }
     } catch { /* corrupted cache — ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,12 +206,8 @@ export default function ScreenDisplay() {
     setPrevModules(modules);
     setTransitioning(true);
     setTimeout(() => {
-      setLayout(newLayout);
-      const raw = typeof newLayout.modules === 'string'
-        ? JSON.parse(newLayout.modules)
-        : (newLayout.modules || []);
-      const mods = Array.isArray(raw) ? raw : (raw.layers ? raw.layers.flatMap(l => l.modules || []) : []);
-      setModules(mods);
+      setLayout(injectLayoutVariables(newLayout));
+      setModules(injectVariables(flattenLayoutModules(newLayout.modules)));
       // Persist to localStorage so cold-start has something to show
       try {
         localStorage.setItem(`bs_layout_${id}`, JSON.stringify(newLayout));
@@ -184,16 +230,16 @@ export default function ScreenDisplay() {
 
       if (screen.current_layout) {
         const l = screen.current_layout;
-        setLayout(l);
-        setModules(typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []));
+        setLayout(injectLayoutVariables(l));
+        setModules(injectVariables(flattenLayoutModules(l.modules)));
       } else if (screen.current_layout_id) {
         try {
           const layoutRes = await fetch(`/api/layouts/${screen.current_layout_id}`);
           if (layoutRes.ok) {
             const layoutData = await layoutRes.json();
             const l = layoutData.layout || layoutData;
-            setLayout(l);
-            setModules(typeof l.modules === 'string' ? JSON.parse(l.modules) : (l.modules || []));
+            setLayout(injectLayoutVariables(l));
+            setModules(injectVariables(flattenLayoutModules(l.modules)));
           }
         } catch {
           // Layout fetch failed
@@ -225,10 +271,8 @@ export default function ScreenDisplay() {
           const data = await res.json();
           const screen = data.screen || data;
           if (screen.current_layout) {
-            setLayout(screen.current_layout);
-            setModules(typeof screen.current_layout.modules === 'string'
-              ? JSON.parse(screen.current_layout.modules)
-              : (screen.current_layout.modules || []));
+            setLayout(injectLayoutVariables(screen.current_layout));
+            setModules(injectVariables(flattenLayoutModules(screen.current_layout.modules)));
             setError(null);
           }
         }
@@ -295,6 +339,34 @@ export default function ScreenDisplay() {
           m.id === data.moduleId ? { ...m, config: { ...m.config, ...data.config } } : m
         )
       );
+    });
+
+    socket.on('variable_update', (data) => {
+      if (data && data.id) variablesRef.current[data.id] = data.value;
+      setModules((prev) =>
+        prev.map((m) => {
+          if (!m.config || m.config.variable_id !== data.id) return m;
+          const field = m.config.variable_field || 'count';
+          return { ...m, config: { ...m.config, [field]: data.value } };
+        })
+      );
+      setLayout((prev) => prev ? injectLayoutVariables(prev) : prev);
+    });
+
+    socket.on('variable_snapshot', (data) => {
+      const vars = data && data.variables;
+      if (!vars || typeof vars !== 'object') return;
+      variablesRef.current = { ...variablesRef.current, ...vars };
+      setModules((prev) =>
+        prev.map((m) => {
+          if (!m.config || !m.config.variable_id) return m;
+          const v = vars[m.config.variable_id];
+          if (v === undefined) return m;
+          const field = m.config.variable_field || 'count';
+          return { ...m, config: { ...m.config, [field]: v } };
+        })
+      );
+      setLayout((prev) => prev ? injectLayoutVariables(prev) : prev);
     });
 
     socket.on('sync_all', (data) => {

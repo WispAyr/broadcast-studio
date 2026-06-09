@@ -129,47 +129,73 @@ function extractRoute(title, routeFilter) {
   return match ? match[0] : 'Unknown';
 }
 
-async function fetchTrafficScotland(config) {
-  const feeds = {
-    incident: 'https://trafficscotland.org/rss/feeds/currentincidents.aspx',
-    roadworks: 'https://trafficscotland.org/rss/feeds/roadworks.aspx',
-    planned: 'https://trafficscotland.org/rss/feeds/plannedevents.aspx',
+// Pulls DATEX II incidents + roadworks from the WispAyr siphon service
+// (https://siphon.wispayr.online). Replaced the dead trafficscotland.org RSS
+// feeds — upstream 404s everywhere, and siphon already ingests the same
+// DATEX II source with richer fields (lat/lon, severity, datex_type).
+const SIPHON_BASE = process.env.SIPHON_BASE || 'https://siphon.wispayr.online';
+
+async function fetchSiphonJson(pathname, ttlMs) {
+  const cacheKey = `siphon:${pathname}`;
+  const cached = getCached(cacheKey, ttlMs);
+  if (cached) return cached;
+  const url = `${SIPHON_BASE}${pathname}`;
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'BroadcastStudio/1.0', Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    setCache(cacheKey, data);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function normaliseDatex(item, type, routeFilter) {
+  const title = item.title || '';
+  const desc = item.description || '';
+  const route = extractRoute(title, routeFilter);
+  const severity = item.severity === 'red' || item.severity === 'amber' || item.severity === 'green'
+    ? item.severity
+    : classifySeverity(title, desc);
+  return {
+    id: item.id || `datex-${type}-${hashCode(title + (item.url || ''))}`,
+    route,
+    type,
+    severity,
+    title: title || 'Traffic update',
+    detail: desc,
+    location: title,
+    lat: item.lat ?? null,
+    lon: item.lon ?? null,
+    since: item.pub_date ? new Date(item.pub_date).toISOString() : new Date().toISOString(),
   };
+}
+
+async function fetchTrafficScotland(config) {
+  const ttl = config.sources.trafficScotland.refreshMs || 120000;
+  const [incidentsDoc, roadworksDoc] = await Promise.all([
+    fetchSiphonJson('/api/traffic/datex2/incidents', ttl),
+    fetchSiphonJson('/api/traffic/datex2/roadworks', ttl),
+  ]);
+
+  const incidents = Array.isArray(incidentsDoc?.incidents) ? incidentsDoc.incidents : [];
+  const roadworks = Array.isArray(roadworksDoc?.roadworks) ? roadworksDoc.roadworks : [];
 
   const roads = [];
-
-  for (const [type, url] of Object.entries(feeds)) {
-    const cacheKey = `ts:${type}`;
-    const ttl = config.sources.trafficScotland.refreshMs || 120000;
-    let items = getCached(cacheKey, ttl);
-
-    if (!items) {
-      const xml = await safeFetch(url);
-      if (xml && !xml.includes('<html') && xml.includes('<item')) {
-        items = parseRSS(xml);
-        setCache(cacheKey, items);
-      } else {
-        items = [];
-      }
-    }
-
-    for (const item of items) {
-      const combined = `${item.title} ${item.description}`;
-      if (!isAyrshireRelevant(combined, config.routeFilter)) continue;
-
-      roads.push({
-        id: `ts-${type}-${hashCode(item.title + item.link)}`,
-        route: extractRoute(item.title, config.routeFilter),
-        type: type === 'roadworks' ? 'roadworks' : type === 'planned' ? 'planned' : 'incident',
-        severity: classifySeverity(item.title, item.description),
-        title: item.title || 'Traffic update',
-        detail: item.description || '',
-        location: item.title || '',
-        since: item.pubDate ? new Date(item.pubDate).toISOString() : new Date().toISOString(),
-      });
-    }
+  for (const item of incidents) {
+    const combined = `${item.title || ''} ${item.description || ''}`;
+    if (!isAyrshireRelevant(combined, config.routeFilter)) continue;
+    roads.push(normaliseDatex(item, 'incident', config.routeFilter));
   }
-
+  for (const item of roadworks) {
+    const combined = `${item.title || ''} ${item.description || ''}`;
+    if (!isAyrshireRelevant(combined, config.routeFilter)) continue;
+    roads.push(normaliseDatex(item, 'roadworks', config.routeFilter));
+  }
   return roads;
 }
 

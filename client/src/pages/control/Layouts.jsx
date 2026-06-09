@@ -13,6 +13,7 @@ const MODULE_ICONS = {
   autocue: '📺', social: '📱', breaking_news: '🚨', travel: '🚗',
   weather_radar: '🌧', aircraft_tracker: '✈️', camera_feed: '📷',
   alert_ticker: '🔔', time_local: '🕰', rss_feed: '📰', news_ticker: '📡',
+  'go2rtc-feed': '📡',
   social_embed: '💬', web_source: '🌐', youtube_player: '▶️', news_tv: '📺',
   nar_schedule: '📅', nar_news: '📰', nar_sport: '⚽', nar_partners: '🤝',
   travel_screen: '🗺', travel_times: '⏰',
@@ -164,6 +165,14 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'label', label: 'Camera Label', type: 'text', default: '' },
     { key: 'muted', label: 'Muted', type: 'checkbox', default: true },
     { key: 'autoplay', label: 'Autoplay', type: 'checkbox', default: true },
+  ],
+  'go2rtc-feed': [
+    { key: 'host', label: 'go2rtc Base URL', type: 'text', default: 'http://localhost:1984' },
+    { key: 'stream', label: 'Stream Name', type: 'text', default: '' },
+    { key: 'mode', label: 'Transport', type: 'select', options: ['webrtc', 'mse', 'mp4'], default: 'webrtc' },
+    { key: 'label', label: 'Overlay Label', type: 'text', default: '' },
+    { key: 'showLabel', label: 'Show Label', type: 'checkbox', default: true },
+    { key: 'muted', label: 'Muted', type: 'checkbox', default: true },
   ],
   alert_ticker: [
     { key: 'mode', label: 'Mode', type: 'select', options: ['scroll', 'cycle'], default: 'scroll' },

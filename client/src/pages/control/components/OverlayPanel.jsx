@@ -34,22 +34,24 @@ const activeColorMap = {
   cyan: 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-600/30',
 };
 
-export default function OverlayPanel({ activeOverlays, setActiveOverlays, collapsed: controlledCollapsed, setCollapsed: controlledSetCollapsed, compact = false, inShell = false }) {
+export default function OverlayPanel({ activeOverlays, setActiveOverlays, collapsed: controlledCollapsed, setCollapsed: controlledSetCollapsed, compact = false, inShell = false, studioId: studioIdProp }) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
   const setCollapsed = controlledSetCollapsed || setInternalCollapsed;
   const [configOverlay, setConfigOverlay] = useState(null);
   const [overlayConfig, setOverlayConfig] = useState({});
 
-  const studioId = JSON.parse(localStorage.getItem('broadcast_user') || '{}').studio_id || 'default';
+  const studioId = studioIdProp || (JSON.parse(localStorage.getItem('broadcast_user') || '{}').studio_id || null);
 
   function pushOverlay(type, config = {}) {
+    if (!studioId) { console.warn('OverlayPanel: no studioId; select a studio first'); return; }
     const socket = getSocket();
     socket.emit('push_overlay', { studioId, overlay: { type, ...config, id: `${type}_${Date.now()}` } });
     setActiveOverlays(prev => ({ ...prev, [type]: { ...config, active: true } }));
   }
 
   function removeOverlay(type) {
+    if (!studioId) return;
     const socket = getSocket();
     socket.emit('remove_overlay', { studioId, overlayType: type });
     setActiveOverlays(prev => {
@@ -60,6 +62,7 @@ export default function OverlayPanel({ activeOverlays, setActiveOverlays, collap
   }
 
   function clearAll() {
+    if (!studioId) return;
     const socket = getSocket();
     socket.emit('clear_overlays', { studioId });
     setActiveOverlays({});

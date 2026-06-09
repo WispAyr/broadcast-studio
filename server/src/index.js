@@ -55,6 +55,8 @@ app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 app.use("/api/obs", require("./routes/obs"));
 app.use("/api/egpk", require("./routes/egpk"));
 app.use('/api/nuro', require('./routes/nuro'));
+app.use('/api/nar', require('./routes/nar'));
+app.use('/api/ingest', require('./routes/ingest'));
 
 // ── Health endpoint — required by Nuro hub coherence sweeps ──
 app.get('/api/health', (req, res) => {

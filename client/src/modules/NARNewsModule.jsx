@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const NEWS_API = 'https://www.nowayrshireradio.co.uk/wp-json/wp/v2/posts';
-const NEWS_CAT = 87;
-const SPORT_CAT = 88;
+// Backed by siphon source `now_ayrshire_radio` (endpoint=news|sport) via /api/nar/news?cat=
 
 function decodeHtml(str) {
   if (!str) return '';
@@ -10,23 +8,14 @@ function decodeHtml(str) {
   txt.innerHTML = str;
   return txt.value;
 }
-function stripHtml(str) { return str ? str.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : ''; }
 function timeAgo(dateStr) {
+  if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-function extractImageUrl(post) {
-  try {
-    const media = post._embedded?.['wp:featuredmedia']?.[0];
-    if (media?.source_url) return media.source_url;
-    if (media?.media_details?.sizes?.medium?.source_url) return media.media_details.sizes.medium.source_url;
-  } catch {}
-  const imgMatch = post.content?.rendered?.match(/<img[^>]+src="([^"]+)"/);
-  return imgMatch ? imgMatch[1] : null;
 }
 
 export default function NARNewsModule({ config = {} }) {
@@ -41,25 +30,25 @@ export default function NARNewsModule({ config = {} }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [fadeIn, setFadeIn] = useState(true);
 
-  const catIds = categories === 'sport' ? SPORT_CAT : categories === 'all' ? `${NEWS_CAT},${SPORT_CAT}` : NEWS_CAT;
-  const displayTitle = title || (categories === 'sport' ? 'SPORT' : categories === 'all' ? 'NEWS & SPORT' : 'LOCAL NEWS');
+  const cat = categories === 'sport' ? 'sport' : categories === 'all' ? 'all' : 'news';
+  const displayTitle = title || (cat === 'sport' ? 'SPORT' : cat === 'all' ? 'NEWS & SPORT' : 'LOCAL NEWS');
 
   useEffect(() => {
     let mounted = true;
     const fetchPosts = async () => {
       try {
-        const url = `${NEWS_API}?per_page=${maxItems}&_embed&categories=${catIds}`;
-        const res = await fetch(`/api/proxy/fetch?url=${encodeURIComponent(url)}`);
+        const res = await fetch(`/api/nar/news?cat=${cat}`);
         if (!res.ok) throw new Error(`${res.status}`);
-        const data = JSON.parse(await res.text());
-        if (mounted && Array.isArray(data)) setPosts(data);
+        const payload = await res.json();
+        const items = (payload?.data?.items || []).slice(0, maxItems);
+        if (mounted) setPosts(items);
         setError(null);
       } catch (e) { if (mounted) setError(e.message); }
     };
     fetchPosts();
     const timer = setInterval(fetchPosts, refreshInterval);
     return () => { mounted = false; clearInterval(timer); };
-  }, [refreshInterval, maxItems, catIds]);
+  }, [refreshInterval, maxItems, cat]);
 
   useEffect(() => {
     if (!autoScroll || layout !== 'hero' || posts.length <= 1) return;
@@ -91,18 +80,16 @@ export default function NARNewsModule({ config = {} }) {
   if (layout === 'hero') {
     const post = posts[activeIdx] || posts[0];
     if (!post) return null;
-    const imgUrl = extractImageUrl(post);
     return (
       <div className="w-full h-full relative overflow-hidden" style={{ background: '#000', color }}>
         <style>{`
-          @keyframes heroFadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
           @keyframes heroImgZoom { from { transform: scale(1); } to { transform: scale(1.05); } }
           .hero-content { transition: opacity 0.4s ease, transform 0.4s ease; }
           .hero-content-visible { opacity: 1; transform: translateY(0); }
           .hero-content-hidden { opacity: 0; transform: translateY(12px); }
         `}</style>
-        {showImages && imgUrl && (
-          <img src={imgUrl} alt="" className="absolute inset-0 w-full h-full object-cover"
+        {showImages && post.image && (
+          <img src={post.image} alt="" className="absolute inset-0 w-full h-full object-cover"
             style={{ opacity: 0.35, animation: 'heroImgZoom 20s ease-in-out infinite alternate' }} />
         )}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.2) 100%)' }} />
@@ -117,15 +104,14 @@ export default function NARNewsModule({ config = {} }) {
             <span className="ml-auto text-xs opacity-20 font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>{activeIdx + 1}/{posts.length}</span>
           </div>
           <h1 className="text-2xl font-black leading-tight mb-2" style={{ textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
-            {decodeHtml(post.title?.rendered)}
+            {decodeHtml(post.title)}
           </h1>
-          {showExcerpts && (
+          {showExcerpts && post.excerpt && (
             <p className="text-sm opacity-60 line-clamp-2 leading-relaxed max-w-[80%]">
-              {stripHtml(decodeHtml(post.excerpt?.rendered))}
+              {post.excerpt}
             </p>
           )}
         </div>
-        {/* Progress bar */}
         <div className="absolute bottom-0 left-0 right-0 h-0.5 flex">
           {posts.slice(0, 8).map((_, i) => (
             <div key={i} className="flex-1" style={{ background: i === activeIdx ? accentColor : 'rgba(255,255,255,0.1)', transition: 'background 0.3s' }} />
@@ -154,14 +140,13 @@ export default function NARNewsModule({ config = {} }) {
 
       <div className="flex-1 overflow-y-auto">
         {posts.map((post, i) => {
-          const imgUrl = showImages ? extractImageUrl(post) : null;
-          const cats = post.class_list?.filter(c => c.startsWith('category-')).map(c => c.replace('category-', '')) || [];
+          const cats = post.categories || [];
           return (
-            <div key={post.id} className="list-card flex gap-3 px-4 py-3 transition-all"
+            <div key={post.id || i} className="list-card flex gap-3 px-4 py-3 transition-all"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', animationDelay: `${i * 0.08}s`, opacity: 0, background: i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
-              {imgUrl && !compact && (
+              {showImages && post.image && !compact && (
                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative">
-                  <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={post.image} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.3))' }} />
                 </div>
               )}
@@ -174,11 +159,11 @@ export default function NARNewsModule({ config = {} }) {
                   <span className="text-[10px] opacity-30">{timeAgo(post.date)}</span>
                 </div>
                 <h3 className={`font-semibold leading-snug ${compact ? 'text-xs' : 'text-sm'} line-clamp-2`}>
-                  {decodeHtml(post.title?.rendered)}
+                  {decodeHtml(post.title)}
                 </h3>
-                {showExcerpts && !compact && (
+                {showExcerpts && !compact && post.excerpt && (
                   <p className="text-xs opacity-40 mt-1 line-clamp-2 leading-relaxed">
-                    {stripHtml(decodeHtml(post.excerpt?.rendered)).substring(0, 150)}
+                    {post.excerpt.substring(0, 150)}
                   </p>
                 )}
               </div>
@@ -206,7 +191,7 @@ function NewsTicker({ posts, config }) {
         <div className="whitespace-nowrap flex gap-8" style={{ animation: 'narMarquee 40s linear infinite' }}>
           {[...posts, ...posts].map((post, i) => (
             <span key={i} className="text-sm font-semibold">
-              {decodeHtml(post.title?.rendered)}
+              {decodeHtml(post.title)}
               <span className="opacity-30 mx-3">●</span>
             </span>
           ))}

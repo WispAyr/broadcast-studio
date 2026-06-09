@@ -10,21 +10,14 @@ import React, { useState, useEffect, useRef } from 'react';
  *   combined  — milestone counter + pace underneath
  */
 
-const MILESTONES = [100, 250, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000];
+const MILESTONE_STEP = 25;
 
 function getMilestone(count) {
-  let best = 0;
-  for (const m of MILESTONES) {
-    if (count >= m) best = m;
-  }
-  return best;
+  return Math.floor(Math.max(0, count) / MILESTONE_STEP) * MILESTONE_STEP;
 }
 
 function getNextMilestone(count) {
-  for (const m of MILESTONES) {
-    if (count < m) return m;
-  }
-  return MILESTONES[MILESTONES.length - 1] + 5000;
+  return getMilestone(count) + MILESTONE_STEP;
 }
 
 export default function KiltwalkerCounterModule({ config = {} }) {
@@ -78,8 +71,8 @@ export default function KiltwalkerCounterModule({ config = {} }) {
       }, 20);
       return () => clearTimeout(timer);
     } else {
-      // For milestone mode: update when buffer threshold crossed
-      if (target - displayCount >= smoothBuffer || displayCount === 0) {
+      // Milestones step every 25 — ramp displayCount smoothly toward target.
+      if (target !== displayCount && (target - displayCount >= smoothBuffer || displayCount === 0)) {
         const step = Math.max(1, Math.ceil(Math.abs(target - displayCount) / 30));
         const timer = setTimeout(() => {
           setDisplayCount(prev => Math.min(prev + step, target));
@@ -138,12 +131,21 @@ export default function KiltwalkerCounterModule({ config = {} }) {
     if (mode === 'milestone') {
       return (
         <>
-          <span className="relative z-10 text-lg font-bold mb-1" style={{ color: accentColor }}>OVER</span>
+          <span
+            className="relative z-10 font-black tracking-[0.4em] mb-2"
+            style={{
+              color: accentColor,
+              fontSize: 'clamp(1.25rem, 3.2vw, 2.75rem)',
+              lineHeight: 1,
+              textShadow: '0 2px 12px rgba(0,0,0,0.55), 0 0 24px rgba(241, 102, 78, 0.45)',
+              WebkitTextStroke: '1px rgba(0,0,0,0.35)',
+            }}
+          >{milestone > 0 ? 'OVER' : '\u00A0'}</span>
           <span className="font-black kilt-counter-num" style={{
             fontSize: `clamp(3rem, 15vw, ${fontSize})`,
             color, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
           }}>
-            {milestone > 0 ? milestone.toLocaleString() : '—'}
+            {milestone > 0 ? milestone.toLocaleString() : displayCount.toLocaleString()}
           </span>
           {/* Progress to next milestone */}
           <div className="relative z-10 w-2/3 mt-4">
@@ -164,12 +166,21 @@ export default function KiltwalkerCounterModule({ config = {} }) {
     if (mode === 'combined') {
       return (
         <>
-          <span className="relative z-10 text-lg font-bold mb-1" style={{ color: accentColor }}>OVER</span>
+          <span
+            className="relative z-10 font-black tracking-[0.4em] mb-2"
+            style={{
+              color: accentColor,
+              fontSize: 'clamp(1.25rem, 3.2vw, 2.75rem)',
+              lineHeight: 1,
+              textShadow: '0 2px 12px rgba(0,0,0,0.55), 0 0 24px rgba(241, 102, 78, 0.45)',
+              WebkitTextStroke: '1px rgba(0,0,0,0.35)',
+            }}
+          >{milestone > 0 ? 'OVER' : '\u00A0'}</span>
           <span className="font-black kilt-counter-num" style={{
             fontSize: `clamp(3rem, 15vw, ${fontSize})`,
             color, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
           }}>
-            {milestone > 0 ? milestone.toLocaleString() : '—'}
+            {milestone > 0 ? milestone.toLocaleString() : displayCount.toLocaleString()}
           </span>
           {/* Pace underneath */}
           {pace > 0 && (

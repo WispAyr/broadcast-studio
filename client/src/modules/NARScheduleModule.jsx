@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const SCHEDULE_API = 'https://www.nowayrshireradio.co.uk/wp-json/proradio/v1/schedule-today-full';
+// Backed by siphon source `now_ayrshire_radio` (endpoint=schedule) via /api/nar/schedule
 
 function decodeHtml(str) {
   if (!str) return '';
@@ -17,8 +17,8 @@ function formatTime(iso) {
   catch { return ''; }
 }
 
-function getGenreTags(tags) {
-  return (tags || []).map(t => t.name).filter(Boolean);
+function getGenreTags(genres) {
+  return (genres || []).filter(Boolean);
 }
 
 function getShowProgress(start, end) {
@@ -32,7 +32,7 @@ function getShowProgress(start, end) {
 
 export default function NARScheduleModule({ config = {} }) {
   const {
-    apiUrl = SCHEDULE_API, refreshInterval = 60000, background, color = '#ffffff',
+    refreshInterval = 60000, background, color = '#ffffff',
     accentColor = '#e11d48', showThumbnails = true, showGenres = true,
     maxUpcoming = 4, title = 'NOW AYRSHIRE RADIO', compact = false,
   } = config;
@@ -45,13 +45,11 @@ export default function NARScheduleModule({ config = {} }) {
     let mounted = true;
     const fetchSchedule = async () => {
       try {
-        const res = await fetch(`/api/proxy/fetch?url=${encodeURIComponent(apiUrl)}`);
+        const res = await fetch('/api/nar/schedule');
         if (!res.ok) throw new Error(`${res.status}`);
-        const contentType = res.headers.get('content-type') || '';
-        let data;
-        if (contentType.includes('application/json')) data = await res.json();
-        else data = JSON.parse(await res.text());
-        if (mounted && Array.isArray(data)) setSchedule(data);
+        const payload = await res.json();
+        const items = payload?.data?.items || [];
+        if (mounted) setSchedule(items);
         setError(null);
       } catch (e) { if (mounted) setError(e.message); }
     };
@@ -59,7 +57,7 @@ export default function NARScheduleModule({ config = {} }) {
     const timer = setInterval(fetchSchedule, refreshInterval);
     const clockTimer = setInterval(() => setNow(new Date()), 15000);
     return () => { mounted = false; clearInterval(timer); clearInterval(clockTimer); };
-  }, [apiUrl, refreshInterval]);
+  }, [refreshInterval]);
 
   const { onAir, upNext, upcoming } = useMemo(() => {
     if (!schedule.length) return { onAir: null, upNext: null, upcoming: [] };
@@ -149,9 +147,9 @@ export default function NARScheduleModule({ config = {} }) {
             <h2 className={`font-black leading-tight truncate ${compact ? 'text-base' : 'text-xl'}`}>
               {decodeHtml(onAir.name)}
             </h2>
-            {showGenres && getGenreTags(onAir.tags).length > 0 && (
+            {showGenres && getGenreTags(onAir.genres).length > 0 && (
               <div className="flex gap-1 mt-2 flex-wrap">
-                {getGenreTags(onAir.tags).map(tag => (
+                {getGenreTags(onAir.genres).map(tag => (
                   <span key={tag} className="px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wider"
                     style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     {tag}
@@ -206,8 +204,8 @@ export default function NARScheduleModule({ config = {} }) {
                 </span>
                 <div className="w-px h-4 opacity-10 bg-white" />
                 <span className="text-sm truncate opacity-50">{decodeHtml(show.name)}</span>
-                {showGenres && getGenreTags(show.tags).length > 0 && (
-                  <span className="ml-auto text-[10px] opacity-20 flex-shrink-0">{getGenreTags(show.tags)[0]}</span>
+                {showGenres && getGenreTags(show.genres).length > 0 && (
+                  <span className="ml-auto text-[10px] opacity-20 flex-shrink-0">{getGenreTags(show.genres)[0]}</span>
                 )}
               </div>
             ))}

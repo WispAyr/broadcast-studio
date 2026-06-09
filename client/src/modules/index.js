@@ -50,6 +50,11 @@ import KiltwalkLogoAnimModule from './KiltwalkLogoAnimModule';
 import SiphonDataModule from './SiphonDataModule';
 import PrismLensModule from './PrismLensModule';
 import EMGlobeModule from './EMGlobeModule';
+import Go2rtcFeedModule from './Go2rtcFeedModule';
+import IngestFeedModule from './IngestFeedModule';
+import IngestGridModule from './IngestGridModule';
+import CallGuestModule from './CallGuestModule';
+import CallGridModule from './CallGridModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -128,6 +133,22 @@ const moduleRegistry = {
   'em-globe-seismic': EMGlobeModule,
   'em-globe-flare-ops': EMGlobeModule,
   'em-globe-cycle': EMGlobeModule,
+  // go2rtc feed (WebRTC / MSE / MP4) — defaults to localhost:1984 for on-host displays (e.g. bravo)
+  go2rtc: Go2rtcFeedModule,
+  'go2rtc-feed': Go2rtcFeedModule,
+  'go2rtc-bravo': Go2rtcFeedModule,
+  // ── Ingest Centre ────────────────────────────────────────────────────────
+  // Single named ingest slot — phone, YouTube, HLS, RTMP, or iframe
+  'ingest-feed': IngestFeedModule,
+  ingest: IngestFeedModule,
+  // Live mosaic of all active ingest slots (fanzone multi-view)
+  'ingest-grid': IngestGridModule,
+  'fanzone-grid': IngestGridModule,
+  // ── studio-call (two-way remote video callers, LiveKit SFU) ───────────────
+  // One specific remote caller by identity — full-frame / PiP / side-by-side
+  'call-guest': CallGuestModule,
+  // All on-air callers composited as a grid — the program "call" source
+  'call-grid': CallGridModule,
 };
 
 export default moduleRegistry;

@@ -28,13 +28,14 @@ router.get('/', (req, res) => {
 // POST / - create studio
 router.post('/', (req, res) => {
   try {
-    const { name, slug } = req.body;
+    const { name, slug, public_only } = req.body;
     if (!name || !slug) {
       return res.status(400).json({ error: 'name and slug are required' });
     }
 
     const id = uuidv4();
-    db.prepare('INSERT INTO studios (id, name, slug) VALUES (?, ?, ?)').run(id, name, slug);
+    const po = public_only ? 1 : 0;
+    db.prepare('INSERT INTO studios (id, name, slug, public_only) VALUES (?, ?, ?, ?)').run(id, name, slug, po);
 
     const studio = getStudioById(id);
     res.status(201).json(studio);
@@ -67,15 +68,17 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ error: 'Studio not found' });
     }
 
-    const { name, slug, active } = req.body;
+    const { name, slug, active, public_only } = req.body;
+    const po = public_only === undefined ? null : (public_only ? 1 : 0);
     db.prepare(`
       UPDATE studios SET
         name = COALESCE(?, name),
         slug = COALESCE(?, slug),
         active = COALESCE(?, active),
+        public_only = COALESCE(?, public_only),
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name || null, slug || null, active !== undefined ? active : null, req.params.id);
+    `).run(name || null, slug || null, active !== undefined ? active : null, po, req.params.id);
 
     const updated = getStudioById(req.params.id);
     res.json(updated);
