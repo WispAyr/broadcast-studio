@@ -51,16 +51,30 @@ function HaitiFlag({ s = '5vh' }) {
 }
 const Flag = ({ kind, s }) => (kind === 'saltire' ? <Saltire s={s} /> : <HaitiFlag s={s} />);
 
-const Title = ({ children }) => (
-  <div style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700, fontSize: '4.2vh', color: GOLD,
-    borderLeft: `0.6vw solid ${PURPLE_HI}`, paddingLeft: '1vw', marginBottom: '2.5vh', flexShrink: 0 }}>{children}</div>
+const KEYS = `@keyframes msTitle{from{opacity:0;transform:translateX(-30px)}to{opacity:1;transform:none}}
+@keyframes msCard{from{opacity:0;transform:translateY(45px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes msPop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes msRise{from{opacity:0;transform:translateY(25px)}to{opacity:1;transform:none}}`;
+const Keys = () => <style>{KEYS}</style>;
+
+// Flag framed as a crest badge (white-ringed shield).
+const Crest = ({ kind, s = '6vh', delay = 0 }) => (
+  <div style={{ padding: '0.5vh', background: '#fff', borderRadius: '1vh', boxShadow: '0 5px 18px rgba(0,0,0,.45)', display: 'inline-flex', animation: `msPop .5s cubic-bezier(.2,1.2,.4,1) ${delay}s both` }}>
+    <Flag kind={kind} s={s} />
+  </div>
 );
+
+const Title = ({ children }) => (<>
+  <Keys />
+  <div style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700, fontSize: '4.2vh', color: GOLD,
+    borderLeft: `0.6vw solid ${PURPLE_HI}`, paddingLeft: '1vw', marginBottom: '2.5vh', flexShrink: 0, animation: 'msTitle .5s ease-out both' }}>{children}</div>
+</>);
 const TeamCols = ({ d, render }) => (
   <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2vw', minHeight: 0 }}>
-    {[d.home, d.away].map((t) => (
-      <div key={t.code} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2.5vh 2vw', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    {[d.home, d.away].map((t, idx) => (
+      <div key={t.code} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2.5vh 2vw', display: 'flex', flexDirection: 'column', minHeight: 0, animation: `msCard .55s ease-out ${idx * 0.12}s both` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1vw', marginBottom: '2vh' }}>
-          <Flag kind={t.flag} s="6vh" />
+          <Crest kind={t.flag} s="6vh" delay={idx * 0.12 + 0.1} />
           <div style={{ fontWeight: 700, fontSize: '5vh', lineHeight: 1 }}>{t.name}</div>
           <div style={{ marginLeft: 'auto', color: PURPLE_HI, fontSize: '2.6vh', fontWeight: 600 }}>FIFA {t.rank}</div>
         </div>
@@ -77,15 +91,16 @@ export default function MatchStatsModule({ config = {} }) {
   if (view === 'header') {
     return (
       <div style={{ ...wrap, justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-        <div style={{ color: GOLD, letterSpacing: '0.2em', fontSize: '2.8vh', fontWeight: 600 }}>{d.competition}</div>
+        <Keys />
+        <div style={{ color: GOLD, letterSpacing: '0.2em', fontSize: '2.8vh', fontWeight: 600, animation: 'msRise .5s ease-out both' }}>{d.competition}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3vw', margin: '3vh 0' }}>
-          <div style={{ textAlign: 'center' }}><Flag kind={d.home.flag} s="9vh" /><div style={{ fontWeight: 700, fontSize: '8.5vh', lineHeight: 1 }}>{d.home.name}</div><div style={{ color: PURPLE_HI, fontSize: '3vh' }}>FIFA {d.home.rank}</div></div>
-          <div style={{ width: '11vh', height: '11vh', borderRadius: '50%', background: `linear-gradient(135deg, ${PURPLE_HI}, ${PURPLE})`, border: '0.4vh solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6vh', fontWeight: 700, flexShrink: 0 }}>V</div>
-          <div style={{ textAlign: 'center' }}><Flag kind={d.away.flag} s="9vh" /><div style={{ fontWeight: 700, fontSize: '8.5vh', lineHeight: 1 }}>{d.away.name}</div><div style={{ color: PURPLE_HI, fontSize: '3vh' }}>FIFA {d.away.rank}</div></div>
+          <div style={{ textAlign: 'center', animation: 'msCard .6s ease-out .1s both' }}><Crest kind={d.home.flag} s="9vh" delay={0.25} /><div style={{ fontWeight: 700, fontSize: '8.5vh', lineHeight: 1, marginTop: '1vh' }}>{d.home.name}</div><div style={{ color: PURPLE_HI, fontSize: '3vh' }}>FIFA {d.home.rank}</div></div>
+          <div style={{ width: '11vh', height: '11vh', borderRadius: '50%', background: `linear-gradient(135deg, ${PURPLE_HI}, ${PURPLE})`, border: '0.4vh solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '6vh', fontWeight: 700, flexShrink: 0, animation: 'msPop .6s cubic-bezier(.2,1.3,.4,1) .35s both' }}>V</div>
+          <div style={{ textAlign: 'center', animation: 'msCard .6s ease-out .2s both' }}><Crest kind={d.away.flag} s="9vh" delay={0.35} /><div style={{ fontWeight: 700, fontSize: '8.5vh', lineHeight: 1, marginTop: '1vh' }}>{d.away.name}</div><div style={{ color: PURPLE_HI, fontSize: '3vh' }}>FIFA {d.away.rank}</div></div>
         </div>
-        <div style={{ fontSize: '3.6vh', fontWeight: 600 }}>{d.kickoff}</div>
-        <div style={{ fontSize: '2.6vh', opacity: 0.85, marginTop: '0.6vh' }}>{d.venue}</div>
-        <div style={{ marginTop: '2vh', background: PURPLE, padding: '1vh 2.5vw', borderRadius: '5vh', fontSize: '2.6vh', fontWeight: 600, letterSpacing: '0.1em', transform: 'skewX(-10deg)' }}><span style={{ display: 'inline-block', transform: 'skewX(10deg)' }}>FIRST-EVER MEETING · {d.tv}</span></div>
+        <div style={{ fontSize: '3.6vh', fontWeight: 600, animation: 'msRise .5s ease-out .45s both' }}>{d.kickoff}</div>
+        <div style={{ fontSize: '2.6vh', opacity: 0.85, marginTop: '0.6vh', animation: 'msRise .5s ease-out .55s both' }}>{d.venue}</div>
+        <div style={{ marginTop: '2vh', background: PURPLE, padding: '1vh 2.5vw', borderRadius: '5vh', fontSize: '2.6vh', fontWeight: 600, letterSpacing: '0.1em', transform: 'skewX(-10deg)', animation: 'msRise .5s ease-out .65s both' }}><span style={{ display: 'inline-block', transform: 'skewX(10deg)' }}>FIRST-EVER MEETING · {d.tv}</span></div>
       </div>
     );
   }

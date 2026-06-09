@@ -52,6 +52,7 @@ const text = (t, x, y, w, h, fontSize = '3vw') => ({ id: uuid(), module: 'text',
 const ticker = (t) => ({ id: uuid(), module: 'ticker', type: 'ticker', x: 0, y: 7, w: 12, h: 1, config: { text: t, speed: 5 } });
 const quiz = (mode) => ({ id: uuid(), module: 'quiz', type: 'quiz', x: 0, y: 0, w: 12, h: 8, config: { base: 'https://quiz.wispayr.online', mode, code: '' } });
 const camera = (label) => ({ id: uuid(), module: 'camera_feed', type: 'camera_feed', x: 0, y: 1, w: 12, h: 6, config: { src: '', label, muted: true } });
+const tv = (label, src) => ({ id: uuid(), module: 'camera_feed', type: 'camera_feed', x: 0, y: 0, w: 12, h: 8, config: { src, label, muted: false } });
 const video = (url) => ({ id: uuid(), module: 'video', type: 'video', x: 0, y: 0, w: 12, h: 8, config: { url, src: url, autoplay: true, loop: false, muted: false } });
 const stats = (view) => ({ id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view } });
 const hero = (cfg) => ({ id: uuid(), module: 'scotland_hero', type: 'scotland_hero', x: 0, y: 0, w: 12, h: 8, config: cfg });
@@ -70,6 +71,8 @@ const SCENES = [
   { name: '📊 Group C', bg: BG, modules: [ stats('group') ] },
   { name: '📊 Road to the World Cup', bg: BG, modules: [ stats('road') ] },
   { name: '📊 Did You Know', bg: BG, modules: [ stats('facts') ] },
+  { name: '📺 STV Live', bg: '#000000', modules: [ tv('STV — Scotland v Haiti', 'https://live.wispayr.online/playout/stv-live/index.m3u8') ] },
+  { name: '📺 BBC One', bg: '#000000', modules: [ tv('BBC One — Scotland v Haiti', 'https://live.wispayr.online/playout/bbc-one/index.m3u8') ] },
   { name: '🏟 FanZone — Match Day', bg: '#000000', modules: [
       img(LOGO_SL, 0, 0, 3, 1),
       camera('Match Feed'),

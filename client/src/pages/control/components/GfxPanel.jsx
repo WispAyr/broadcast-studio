@@ -13,7 +13,11 @@ export default function GfxPanel({ studioId, screens = [], inShell }) {
   const fire = (label, text) => {
     connectSocket().emit('push_overlay', { ...tgt(), overlay: { type: 'fact', label, text, duration: hold ? undefined : 14 } });
   };
-  const clear = () => connectSocket().emit('remove_overlay', { ...tgt(), overlayType: 'fact' });
+  const nowPlaying = () => connectSocket().emit('push_overlay', { ...tgt(), overlay: { type: 'now_playing_l3', stationId: 7719 } });
+  const clear = () => {
+    const s = connectSocket();
+    ['fact', 'now_playing_l3'].forEach((t) => s.emit('remove_overlay', { ...tgt(), overlayType: t }));
+  };
 
   const body = (
     <div className="p-2 space-y-2">
@@ -29,6 +33,13 @@ export default function GfxPanel({ studioId, screens = [], inShell }) {
         </label>
         <button onClick={clear} className="px-2 py-1 rounded text-[10px] font-bold bg-red-600/30 text-red-400 hover:bg-red-600/50">CLEAR</button>
       </div>
+
+      <button onClick={nowPlaying}
+        className="w-full text-left px-3 py-2 rounded-md bg-purple-700/40 hover:bg-purple-600/60 transition-colors flex items-center gap-2">
+        <span className="text-base">♪</span>
+        <span className="text-[12px] text-white font-semibold">Now Playing lower-third</span>
+        <span className="ml-auto text-[9px] text-purple-300">stays until CLEAR</span>
+      </button>
 
       <div className="text-[10px] uppercase tracking-wider text-amber-400/80">Quick stats</div>
       <div className="grid grid-cols-1 gap-1">

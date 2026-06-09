@@ -7,6 +7,7 @@ import { ProjectionMapper } from '../../lib/webgl-projection';
 import { getLayers, getChromaStyles } from '../../lib/layers';
 import ChromaFilter from '../../components/ChromaFilter';
 import PlayerProfileCard from '../../components/PlayerProfileCard';
+import NowPlayingL3 from '../../components/NowPlayingL3';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
@@ -89,6 +90,8 @@ function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
           <PlayerProfileCard player={overlay.player} mode={overlay.type === 'goal' ? 'goal' : 'profile'} minute={overlay.minute} layout={overlay.layout || 'full'} />
         </div>
       );
+    case 'now_playing_l3':
+      return <NowPlayingL3 stationId={overlay.stationId || 7719} />;
     case 'fact':
       return (
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: '4vh', display: 'flex', animation: 'overlayIn 0.45s ease-out' }}>
