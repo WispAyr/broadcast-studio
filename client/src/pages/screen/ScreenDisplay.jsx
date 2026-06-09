@@ -6,6 +6,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { ProjectionMapper } from '../../lib/webgl-projection';
 import { getLayers, getChromaStyles } from '../../lib/layers';
 import ChromaFilter from '../../components/ChromaFilter';
+import PlayerProfileCard from '../../components/PlayerProfileCard';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
@@ -81,6 +82,13 @@ function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
       return <StingOverlay overlay={overlay} audioOutput={audioOutput} onEnd={() => onStingEnd?.(overlay)} />;
     case 'bed':
       return <BedOverlay overlay={overlay} audioOutput={audioOutput} />;
+    case 'player_profile':
+    case 'goal':
+      return (
+        <div style={{ position: 'absolute', inset: 0, animation: 'overlayIn 0.5s ease-out' }}>
+          <PlayerProfileCard player={overlay.player} mode={overlay.type === 'goal' ? 'goal' : 'profile'} minute={overlay.minute} />
+        </div>
+      );
     case 'lower_third':
       return (
         <div style={{ ...baseStyle, bottom: '10%', left: '5%', right: '30%' }}>
@@ -498,11 +506,13 @@ export default function ScreenDisplay() {
           const filtered = prev.filter(o => o.type !== data.overlay.type);
           return [...filtered, { ...data.overlay, _addedAt: Date.now() }];
         });
-        // Auto-remove announcements
-        if (data.overlay.type === 'announcement' && data.overlay.duration) {
+        // Auto-remove any overlay that carries a duration (announcements,
+        // goalscorer/player-profile graphics, etc.) after `duration` seconds.
+        if (data.overlay.duration) {
+          const t = data.overlay.type;
           setTimeout(() => {
-            setOverlays(prev => prev.filter(o => o.type !== 'announcement'));
-          }, (data.overlay.duration || 5) * 1000);
+            setOverlays(prev => prev.filter(o => o.type !== t));
+          }, data.overlay.duration * 1000);
         }
       }
     });

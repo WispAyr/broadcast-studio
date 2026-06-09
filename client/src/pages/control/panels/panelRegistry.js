@@ -83,6 +83,15 @@ export const PANELS = [
     color: 'green',
     description: 'Fire audio/video stings + drive the music bed',
   },
+  {
+    id: 'squads',
+    label: 'Squads',
+    icon: '👕',
+    defaultZone: 'right',
+    defaultVisible: false,
+    color: 'blue',
+    description: 'Fire player profiles + goalscorer graphics',
+  },
 ];
 
 // Built-in workspace presets

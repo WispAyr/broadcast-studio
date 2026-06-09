@@ -1,4 +1,6 @@
 import React from 'react';
+import PlayerProfileCard from '../components/PlayerProfileCard';
+import { SCOTLAND, HAITI, ALL_PLAYERS } from '../data/squads';
 
 // Match stats / info screens — SideLiner's FanZone.
 // One module, many views (config.view): header | form | players | group | road | facts.
@@ -102,17 +104,36 @@ export default function MatchStatsModule({ config = {} }) {
   }
 
   if (view === 'players') {
-    return (<div style={wrap}><Title>Key Players</Title>
-      <TeamCols d={d} render={(t) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1vh' }}>
-          <div style={{ fontSize: '2.4vh', color: PURPLE_HI, marginBottom: '0.5vh' }}>Manager: {t.mgr}</div>
-          {t.players.map(([n, club], i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '2.9vh', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.6vh' }}>
-              <span style={{ fontWeight: 600 }}>{n}</span><span style={{ opacity: 0.7, fontSize: '2.4vh' }}>{club}</span>
-            </div>
-          ))}
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(-2).join('');
+    const col = (players, team, mgr, tint) => (
+      <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2vh 1.6vw', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', marginBottom: '1.4vh' }}>
+          <span style={{ fontWeight: 700, fontSize: '4vh' }}>{team}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '2.2vh', color: PURPLE_HI }}>Mgr: {mgr}</span>
         </div>
-      )} /></div>);
+        {players.slice(0, 6).map((p, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1vw', padding: '0.7vh 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ width: '6vh', height: '6vh', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `linear-gradient(150deg, ${tint}, ${tint}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.4vh' }}>
+              {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: '2.9vh', lineHeight: 1.05 }}>{p.name}{p.role ? <span style={{ color: GOLD, fontSize: '2vh' }}>  · {p.role}</span> : null}</div>
+              <div style={{ fontSize: '2.1vh', opacity: 0.7 }}>{p.pos} · {p.club}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+    return (<div style={wrap}><Title>Key Players</Title>
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2vw', minHeight: 0 }}>
+        {col(SCOTLAND, 'SCOTLAND', d.home.mgr, '#0a2a66')}
+        {col(HAITI, 'HAITI', d.away.mgr, '#101a5c')}
+      </div></div>);
+  }
+
+  if (view === 'profile') {
+    const p = config.player || ALL_PLAYERS.find((x) => x.name === config.playerName) || SCOTLAND[2];
+    return <div style={{ width: '100%', height: '100%' }}><PlayerProfileCard player={p} mode={config.goal ? 'goal' : 'profile'} minute={config.minute} /></div>;
   }
 
   if (view === 'group') {
