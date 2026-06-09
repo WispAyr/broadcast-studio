@@ -62,6 +62,7 @@ import IngestGridModule from './IngestGridModule';
 import CallGuestModule from './CallGuestModule';
 import CallGridModule from './CallGridModule';
 import TrafficAyrshireModule from './TrafficAyrshireModule';
+import NARNowPlayingModule from './NARNowPlayingModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
 
@@ -164,6 +165,9 @@ const moduleRegistry = {
   pavilion_sponsor: PavilionSponsorModule,
   // NAR Travel — embedded studio view
   traffic_ayrshire: TrafficAyrshireModule,
+  // NAR live now-playing (broadcast.radio station 7719) — spinning vinyl + history
+  nar_nowplaying: NARNowPlayingModule,
+  now_playing: NARNowPlayingModule,
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
   quiz: QuizModule,
   quizcast: QuizModule,

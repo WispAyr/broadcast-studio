@@ -276,6 +276,26 @@ app.post('/api/counter/:id/reset', (req, res) => {
   res.json({ id, count });
 });
 
+// ── Now-playing feed (broadcast.radio cloud API) ──
+// GET /api/nowplaying/:stationId — normalised live track + show + 5-song history.
+// Served from the in-memory poller cache; falls back to a live fetch (and starts
+// a poller) if the station hasn't been polled yet.
+const { fetchNowPlaying, getCachedNowPlaying, startNowPlayingPoll } = require('./nowplaying');
+app.get('/api/nowplaying/:stationId', async (req, res) => {
+  const stationId = req.params.stationId;
+  try {
+    let np = getCachedNowPlaying(stationId);
+    if (!np) {
+      np = await fetchNowPlaying(stationId);
+      startNowPlayingPoll(stationId, {}); // warm a poller for next time
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json(np);
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // Generic module config update API
 app.post('/api/modules/:moduleId/config', express.json(), (req, res) => {
   const { getIO } = require('./ws');
@@ -325,4 +345,6 @@ server.listen(PORT, () => {
   startNuro();
   // Layout scheduler — 15s worker that fires due scheduled pushes.
   scheduledRoutes.startScheduler();
+  // Now-playing poller for NAR (broadcast.radio station 7719).
+  require('./nowplaying').startNarNowPlaying();
 });

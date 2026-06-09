@@ -73,22 +73,21 @@ function logBroadcast(studioId, kind, overlay, userId) {
 
 async function pushNowPlaying(studioId, payload, io) {
   const moduleId = payload.moduleId || 'now-playing';
-  let text = payload.text || '';
-  let subtitle = payload.subtitle || '';
-  if (!text) {
-    // Best-effort live "now / next": ProRadio current-show is reliable and
-    // carries the per-show sponsor; track-level metadata can be layered later.
-    try {
-      const r = await fetch('https://www.nowayrshireradio.co.uk/wp-json/proradio/v1/current-show', { timeout: 8000 });
-      const d = await r.json();
-      text = (d.title || 'Now Ayrshire Radio').replace(/&#0?38;/g, '&');
-      subtitle = d.subtitle2 || d.subtitle || '';
-    } catch (e) {
-      text = 'Now Ayrshire Radio';
-    }
+  // Live track + show from broadcast.radio (station 7719 for NAR). Pushes the
+  // structured feed to nar_nowplaying modules AND a text lower-third fallback.
+  try {
+    const { fetchNowPlaying } = require('../nowplaying');
+    const stationId = payload.stationId || process.env.NAR_STATION_ID || '7719';
+    const np = await fetchNowPlaying(stationId);
+    io.to(`studio:${studioId}`).emit('update_module_config', { moduleId, config: { nowPlaying: np } });
+    const text = np.isMusic && np.title ? np.title : (np.onAir?.title || 'Now Ayrshire Radio');
+    const subtitle = np.isMusic ? np.artist : (np.onAir?.presenter || '');
+    io.to(`studio:${studioId}`).emit('update_module_text', { moduleId, text, subtitle });
+    return { moduleId, nowPlaying: { artist: np.artist, title: np.title, show: np.onAir?.title } };
+  } catch (e) {
+    io.to(`studio:${studioId}`).emit('update_module_text', { moduleId, text: 'Now Ayrshire Radio', subtitle: '' });
+    return { moduleId, error: e.message };
   }
-  io.to(`studio:${studioId}`).emit('update_module_text', { moduleId, text, subtitle });
-  return { moduleId, text, subtitle };
 }
 
 async function dispatchAction(studioId, button, io, userId) {
