@@ -121,13 +121,16 @@ export default function MatchStatsModule({ config = {} }) {
 
   if (view === 'players') {
     const ini = (n) => n.split(' ').map((w) => w[0]).slice(-2).join('');
+    // Lead with the marquee names, not squad order (which is GKs first).
+    const prom = (p) => (p.role ? 1000 : 0) + (p.intlGoals || 0) * 3 + (p.caps || 0) / 5 + (p.photo ? 8 : 0);
+    const top = (players) => [...players].sort((a, b) => prom(b) - prom(a)).slice(0, 7);
     const col = (players, team, mgr, tint) => (
       <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2vh 1.6vw', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', marginBottom: '1.4vh' }}>
           <span style={{ fontWeight: 700, fontSize: '4vh' }}>{team}</span>
           <span style={{ marginLeft: 'auto', fontSize: '2.2vh', color: PURPLE_HI }}>Mgr: {mgr}</span>
         </div>
-        {players.slice(0, 6).map((p, i) => (
+        {top(players).map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1vw', padding: '0.7vh 0', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             <div style={{ width: '6vh', height: '6vh', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: `linear-gradient(150deg, ${tint}, ${tint}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.4vh' }}>
               {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
