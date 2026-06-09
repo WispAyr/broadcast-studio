@@ -270,14 +270,16 @@ function ensureModuleTypes() {
     { name: 'qrcode', description: 'QR code display', category: 'broadcast', icon: '📱' },
     { name: 'visualizer', description: 'Music visualizer with audio-reactive modes', category: 'broadcast', icon: '🎵' },
     { name: 'surface_carousel', description: 'Rotating iframe carousel for live.wispayr.online office wall views', category: 'media', icon: '🖥' },
+    { name: 'quiz', description: 'QuizCast live audience quiz — big-screen game view + scan-to-join card', category: 'broadcast', icon: '🎯',
+      default_config: JSON.stringify({ base: 'https://quiz.wispayr.online', mode: 'screen', code: '' }) },
   ];
 
   const insertOrIgnore = db.prepare(`
-    INSERT OR IGNORE INTO module_types (id, name, description, category, icon, default_config) VALUES (?, ?, ?, ?, ?, '{}')
+    INSERT OR IGNORE INTO module_types (id, name, description, category, icon, default_config) VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   for (const mod of newTypes) {
-    insertOrIgnore.run(uuidv4(), mod.name, mod.description, mod.category, mod.icon);
+    insertOrIgnore.run(uuidv4(), mod.name, mod.description, mod.category, mod.icon, mod.default_config || '{}');
   }
 }
 

@@ -3,6 +3,21 @@
 // Field types: text, number, datetime, button_group, tag_group, range, textarea, toggle
 
 const MODULE_CONFIGS = {
+  quiz: {
+    label: 'Quiz',
+    icon: '🎯',
+    color: 'blue',
+    fields: [
+      { key: 'code', type: 'text', label: 'Join Code', placeholder: 'e.g. ABCDE' },
+      { key: 'mode', type: 'button_group', label: 'View', options: ['screen', 'join'], default: 'screen' },
+    ],
+    socketEvent: 'update_module_config',
+    buildPayload: (studioId, moduleId, values) => ({
+      studioId, moduleId,
+      config: { code: (values.code || '').toUpperCase().trim(), mode: values.mode || 'screen' },
+    }),
+  },
+
   live_text: {
     label: 'Live Text',
     icon: '📝',

@@ -62,6 +62,7 @@ import IngestGridModule from './IngestGridModule';
 import CallGuestModule from './CallGuestModule';
 import CallGridModule from './CallGridModule';
 import TrafficAyrshireModule from './TrafficAyrshireModule';
+import QuizModule from './QuizModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -162,6 +163,9 @@ const moduleRegistry = {
   pavilion_sponsor: PavilionSponsorModule,
   // NAR Travel — embedded studio view
   traffic_ayrshire: TrafficAyrshireModule,
+  // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
+  quiz: QuizModule,
+  quizcast: QuizModule,
 };
 
 export default moduleRegistry;
