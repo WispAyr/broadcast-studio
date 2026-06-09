@@ -53,7 +53,11 @@ function StatBlock({ label, value }) {
   );
 }
 
-export default function PlayerProfileCard({ player, mode = 'profile', minute, layout = 'full' }) {
+export default function PlayerProfileCard({ player, mode = 'profile', minute, layout = 'full', noAnim = false }) {
+  // noAnim: skip the opacity-from-0 entrance (used by the rotator's crossfade so
+  // a backgrounded/throttled tab can never freeze the card on a dark frame).
+  const photoAnim = noAnim ? undefined : 'ppcPhoto 0.5s ease-out both';
+  const detailAnim = noAnim ? undefined : 'ppcIn 0.5s ease-out both';
   if (!player) return null;
   const t = TEAM[player.team] || TEAM.SCO;
   const isGoal = mode === 'goal';
@@ -112,7 +116,7 @@ export default function PlayerProfileCard({ player, mode = 'profile', minute, la
         color: '#ffffff', opacity: 0.05, lineHeight: 1, pointerEvents: 'none' }}>{player.number ?? ''}</div>
 
       {/* Photo panel (left), skewed brand edge */}
-      <div style={{ width: '38%', position: 'relative', flexShrink: 0, overflow: 'hidden', animation: 'ppcPhoto 0.5s ease-out both',
+      <div style={{ width: '38%', position: 'relative', flexShrink: 0, overflow: 'hidden', animation: photoAnim,
         borderRight: `0.5vh solid ${t.accent}` }}>
         <Avatar player={player} t={t} />
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(90deg, transparent 60%, #241a4099)` }} />
@@ -124,7 +128,7 @@ export default function PlayerProfileCard({ player, mode = 'profile', minute, la
       </div>
 
       {/* Detail panel */}
-      <div style={{ flex: 1, padding: '5vh 4vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', animation: 'ppcIn 0.5s ease-out both' }}>
+      <div style={{ flex: 1, padding: '5vh 4vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', animation: detailAnim }}>
         {isGoal ? (
           <div style={{ marginBottom: '2vh', display: 'flex', alignItems: 'center', gap: '1.5vw', animation: 'goalPulse 0.9s ease-in-out infinite', transformOrigin: 'left center' }}>
             <span style={{ fontSize: '9vh', lineHeight: 1 }}>⚽</span>

@@ -72,6 +72,7 @@ const SCENES = [
   { name: '📊 Group C', bg: BG, modules: [ stats('group') ] },
   { name: '📊 Road to the World Cup', bg: BG, modules: [ stats('road') ] },
   { name: '📊 Did You Know', bg: BG, modules: [ stats('facts') ] },
+  { name: '🔁 Match Centre — Auto Loop', bg: BG, modules: [ { id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view: 'loop', secs: 14 } } ] },
   { name: '👤 Player Profiles — Rotation', bg: BG, modules: [ profiles('both') ] },
   { name: '👤 Scotland Profiles', bg: BG, modules: [ profiles('SCO') ] },
   { name: '👤 Haiti Profiles', bg: BG, modules: [ profiles('HAI') ] },

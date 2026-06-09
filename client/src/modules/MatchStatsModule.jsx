@@ -177,6 +177,10 @@ export default function MatchStatsModule({ config = {} }) {
     return <ProfileRotator team={config.team || 'both'} secs={config.secs || 9} keyOnly={!!config.keyOnly} />;
   }
 
+  if (view === 'loop') {
+    return <MatchLoop views={config.views} secs={config.secs || 14} config={config} />;
+  }
+
   if (view === 'group') {
     return (<div style={wrap}><Title>Group C</Title>
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '2vw', minHeight: 0 }}>
@@ -243,29 +247,52 @@ function FactsCycler({ facts, interval }) {
 }
 
 // Full-page player profiles, auto-rotating through the squad (stars first).
+// Crossfade: the previous card stays mounted underneath (always fully visible)
+// while the new one fades in on top — so a throttled/backgrounded tab can never
+// leave a dark frame. Both cards use noAnim (no opacity-from-0 entrance).
 function ProfileRotator({ team, secs, keyOnly }) {
   const list = React.useMemo(() => roster(team, keyOnly), [team, keyOnly]);
-  const [i, setI] = React.useState(0);
+  const period = Math.max(3, Number(secs) || 9);
+  const [s, setS] = React.useState({ cur: 0, prev: 0, n: 0 });
   React.useEffect(() => {
     if (list.length <= 1) return;
-    const t = setInterval(() => setI((x) => (x + 1) % list.length), secs * 1000);
+    const t = setInterval(() => setS((p) => ({ cur: (p.cur + 1) % list.length, prev: p.cur, n: p.n + 1 })), period * 1000);
     return () => clearInterval(t);
-  }, [list.length, secs]);
-  const p = list[i % list.length];
-  if (!p) return null;
+  }, [list.length, period]);
+  const cur = list[s.cur % list.length];
+  const prev = list[s.prev % list.length];
+  if (!cur) return null;
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      <style>{`@keyframes prBar { from { width: 0; } to { width: 100%; } }`}</style>
-      {/* key={i} remounts the card so its entrance animation replays as a transition */}
-      <div key={i} style={{ width: '100%', height: '100%' }}>
-        <PlayerProfileCard player={p} mode="profile" layout="full" />
+    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: NAVY_DEEP }}>
+      <style>{`@keyframes prFade { from { opacity: 0; } to { opacity: 1; } } @keyframes prBar { from { width: 0; } to { width: 100%; } }`}</style>
+      <div style={{ position: 'absolute', inset: 0 }}><PlayerProfileCard player={prev} mode="profile" layout="full" noAnim /></div>
+      <div key={s.n} style={{ position: 'absolute', inset: 0, animation: 'prFade 0.6s ease-out both' }}>
+        <PlayerProfileCard player={cur} mode="profile" layout="full" noAnim />
       </div>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '0.6vh', background: 'rgba(255,255,255,0.15)', zIndex: 5 }}>
-        <div key={i} style={{ height: '100%', background: GOLD, animation: `prBar ${secs}s linear` }} />
+        <div key={s.n} style={{ height: '100%', background: GOLD, animation: `prBar ${period}s linear` }} />
       </div>
       <div style={{ position: 'absolute', top: '2.5vh', right: '3vw', fontFamily: HEAD, fontSize: '2vh', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.15em', zIndex: 5 }}>
-        {((i % list.length) + 1)} / {list.length}
+        {(s.cur % list.length) + 1} / {list.length}
       </div>
+    </div>
+  );
+}
+
+// Match Centre loop — hands-free carousel of the info screens.
+const LOOP_VIEWS = ['header', 'form', 'players', 'group', 'road', 'facts'];
+function MatchLoop({ views, secs, config }) {
+  const vs = (Array.isArray(views) && views.length) ? views : LOOP_VIEWS;
+  const period = Math.max(5, Number(secs) || 14);
+  const [i, setI] = React.useState(0);
+  React.useEffect(() => {
+    const t = setInterval(() => setI((x) => (x + 1) % vs.length), period * 1000);
+    return () => clearInterval(t);
+  }, [vs.length, period]);
+  return (
+    <div key={i} style={{ width: '100%', height: '100%', animation: 'prFade 0.6s ease-out both' }}>
+      <style>{`@keyframes prFade { from { opacity: 0; } to { opacity: 1; } }`}</style>
+      <MatchStatsModule config={{ ...config, view: vs[i % vs.length] }} />
     </div>
   );
 }
