@@ -79,9 +79,11 @@ router.put('/:id', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    const { name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe } = req.body;
+    const { name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe, project } = req.body;
     const modulesJson = modules ? JSON.stringify(modules) : null;
     const ps = public_safe === undefined ? null : (public_safe ? 1 : 0);
+    // project: undefined → unchanged; '' → cleared (Ungrouped); string → set.
+    const proj = project === undefined ? null : (project || '');
 
     db.prepare(`
       UPDATE layouts SET
@@ -94,9 +96,10 @@ router.put('/:id', authenticate, (req, res) => {
         resolution_h = COALESCE(?, resolution_h),
         background = COALESCE(?, background),
         public_safe = COALESCE(?, public_safe),
+        project = COALESCE(?, project),
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name || null, grid_cols || null, grid_rows || null, modulesJson, orientation || null, resolution_w || null, resolution_h || null, background || null, ps, req.params.id);
+    `).run(name || null, grid_cols || null, grid_rows || null, modulesJson, orientation || null, resolution_w || null, resolution_h || null, background || null, ps, proj, req.params.id);
 
     const updated = getLayoutById(req.params.id);
     try { updated.modules = typeof updated.modules === 'string' ? JSON.parse(updated.modules) : updated.modules; } catch { updated.modules = []; }

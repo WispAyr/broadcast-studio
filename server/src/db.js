@@ -128,6 +128,35 @@ db.exec(`
   );
 `);
 
+// ── Migration: layouts.project — groups layouts into "projects" in the UI ──
+try { db.exec('ALTER TABLE layouts ADD COLUMN project TEXT'); } catch (e) { /* column already exists */ }
+
+// Derive a sensible project from a layout name (used to tidy existing layouts
+// and as a fallback for any without one set).
+function deriveProject(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('kiltwalk')) return 'Kiltwalk';
+  if (n.includes('pavilion')) return 'Pavilion';
+  if (n.includes('quiz') || (name || '').includes('🎯')) return 'Quiz';
+  if (n.includes('bbc') || n.includes('playout') || (name || '').includes('📺')) return 'Playout';
+  if (n.includes('nar') || n.includes('now ayrshire') || n.includes('now playing') || n.includes('schedule') || n.includes('travel')) return 'NAR Radio';
+  if (n.includes('egpk') || n.includes('prestwick')) return 'EGPK';
+  if (n.includes('csu') || n.includes('van') || n.includes('camera')) return 'CSU / Van';
+  if (n.includes('office') || n.includes('surface') || n.includes('wall')) return 'Office';
+  if (n.includes('blackout')) return 'System';
+  return null;
+}
+
+// One-time backfill: assign a project to any layout that doesn't have one yet.
+(function backfillLayoutProjects() {
+  const rows = db.prepare("SELECT id, name FROM layouts WHERE project IS NULL OR project = ''").all();
+  if (!rows.length) return;
+  const set = db.prepare('UPDATE layouts SET project = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const r of rows) { const p = deriveProject(r.name); if (p) set.run(p, r.id); }
+  })();
+})();
+
 // Seed function
 function seed() {
   const studioCount = db.prepare('SELECT COUNT(*) as count FROM studios').get();
@@ -276,6 +305,8 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ src: '', playing: true, volume: 0.8, loop: true, fadeMs: 800, showNowPlaying: true }) },
     { name: 'nar_nowplaying', description: 'NAR live now-playing — spinning vinyl, track/artist/artwork + just-played + show/presenter (broadcast.radio)', category: 'broadcast', icon: '💿',
       default_config: JSON.stringify({ stationId: 7719, variant: 'vinyl', showHistory: true, showShow: true }) },
+    { name: 'nar_fuel', description: 'Cheapest fuel in Ayrshire — petrol + diesel price board (fuel.wispayr.online)', category: 'data', icon: '⛽',
+      default_config: JSON.stringify({ count: 4, fuels: ['E10', 'B7_STANDARD'] }) },
   ];
 
   const insertOrIgnore = db.prepare(`

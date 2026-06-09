@@ -652,6 +652,7 @@ export default function Layouts() {
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState(null); // { x, y, layoutId }
+  const [collapsedProjects, setCollapsedProjects] = useState(() => new Set());
 
   const saveTimer = useRef(null);
 
@@ -952,70 +953,114 @@ export default function Layouts() {
             </div>
           )}
 
-          {layouts.map((layout) => {
-            const isActive = selectedId === layout.id;
-            const isRenaming = renamingId === layout.id;
-            const icon = '⬛';
+          {(() => {
+            // Group layouts into "projects" for a tidy, collapsible list. Uses
+            // the stored `project` field, falling back to a name-derived guess.
+            const projectOf = (l) => {
+              if (l.project) return l.project;
+              const n = (l.name || '').toLowerCase();
+              if (n.includes('kiltwalk')) return 'Kiltwalk';
+              if (n.includes('pavilion')) return 'Pavilion';
+              if (n.includes('quiz') || (l.name || '').includes('🎯')) return 'Quiz';
+              if (n.includes('bbc') || n.includes('playout') || (l.name || '').includes('📺')) return 'Playout';
+              if (n.includes('nar') || n.includes('now ayrshire') || n.includes('now playing') || n.includes('schedule') || n.includes('travel')) return 'NAR Radio';
+              if (n.includes('egpk') || n.includes('prestwick')) return 'EGPK';
+              if (n.includes('csu') || n.includes('van') || n.includes('camera')) return 'CSU / Van';
+              if (n.includes('office') || n.includes('surface') || n.includes('wall')) return 'Office';
+              if (n.includes('blackout')) return 'System';
+              return 'Ungrouped';
+            };
+            const groups = {};
+            for (const l of layouts) { const k = projectOf(l); (groups[k] = groups[k] || []).push(l); }
+            // Alphabetical, with Ungrouped pinned last.
+            const order = Object.keys(groups).sort((a, b) => (a === 'Ungrouped') - (b === 'Ungrouped') || a.localeCompare(b));
 
-            return (
-              <div
-                key={layout.id}
-                onContextMenu={(e) => handleContextMenu(e, layout.id)}
-                className={`group relative rounded-xl transition-all duration-150 cursor-pointer ${
-                  isActive
-                    ? 'bg-blue-600/20 ring-1 ring-blue-500/40'
-                    : 'hover:bg-gray-800/60'
-                }`}
-              >
-                <div
-                  className="flex items-center gap-2.5 px-3 py-2.5"
-                  onClick={() => !isRenaming && setSelectedId(layout.id)}
-                  onDoubleClick={() => startRename(layout.id, layout.name)}
-                >
-                  <LayoutThumbnail gridCols={layout.grid_cols} gridRows={layout.grid_rows} />
-
-                  <div className="flex-1 min-w-0">
-                    {isRenaming ? (
-                      <input
-                        ref={renameInputRef}
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={commitRename}
-                        onKeyDown={handleRenameKeyDown}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-full bg-gray-800 border border-blue-500 rounded px-1.5 py-0.5 text-white text-sm focus:outline-none"
-                      />
-                    ) : (
-                      <p className={`text-sm font-medium truncate leading-tight transition-colors ${
-                        isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'
-                      }`}>
-                        {layout.name || 'Untitled'}
-                      </p>
-                    )}
-                    <p className="text-[10px] text-gray-600 mt-0.5">
-                      {layout.grid_cols || '?'}×{layout.grid_rows || '?'} grid
-                    </p>
-                  </div>
-
-                  {/* Context menu trigger */}
+            return order.map((proj) => {
+              const items = groups[proj];
+              const collapsed = collapsedProjects.has(proj);
+              return (
+                <div key={proj} className="mb-1.5">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleContextMenu(e, layout.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all"
-                    title="More options"
+                    onClick={() => setCollapsedProjects((prev) => { const n = new Set(prev); n.has(proj) ? n.delete(proj) : n.add(proj); return n; })}
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-300 hover:bg-gray-800/40 transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                      <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+                    <svg className={`w-3 h-3 shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                     </svg>
+                    <span className="flex-1 text-left truncate">{proj}</span>
+                    <span className="text-gray-500 bg-gray-800/70 rounded-full px-1.5 leading-tight">{items.length}</span>
                   </button>
-                </div>
 
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-500 rounded-r" />
-                )}
-              </div>
-            );
-          })}
+                  {!collapsed && (
+                    <div className="space-y-1 mt-0.5">
+                      {items.map((layout) => {
+                        const isActive = selectedId === layout.id;
+                        const isRenaming = renamingId === layout.id;
+                        return (
+                          <div
+                            key={layout.id}
+                            onContextMenu={(e) => handleContextMenu(e, layout.id)}
+                            className={`group relative rounded-xl transition-all duration-150 cursor-pointer ${
+                              isActive
+                                ? 'bg-blue-600/20 ring-1 ring-blue-500/40'
+                                : 'hover:bg-gray-800/60'
+                            }`}
+                          >
+                            <div
+                              className="flex items-center gap-2.5 px-3 py-2.5"
+                              onClick={() => !isRenaming && setSelectedId(layout.id)}
+                              onDoubleClick={() => startRename(layout.id, layout.name)}
+                            >
+                              <LayoutThumbnail gridCols={layout.grid_cols} gridRows={layout.grid_rows} />
+
+                              <div className="flex-1 min-w-0">
+                                {isRenaming ? (
+                                  <input
+                                    ref={renameInputRef}
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onBlur={commitRename}
+                                    onKeyDown={handleRenameKeyDown}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full bg-gray-800 border border-blue-500 rounded px-1.5 py-0.5 text-white text-sm focus:outline-none"
+                                  />
+                                ) : (
+                                  <p className={`text-sm font-medium truncate leading-tight transition-colors ${
+                                    isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'
+                                  }`}>
+                                    {layout.name || 'Untitled'}
+                                  </p>
+                                )}
+                                <p className="text-[10px] text-gray-600 mt-0.5">
+                                  {layout.grid_cols || '?'}×{layout.grid_rows || '?'} grid
+                                </p>
+                              </div>
+
+                              {/* Context menu trigger */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleContextMenu(e, layout.id); }}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all"
+                                title="More options"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+                                </svg>
+                              </button>
+                            </div>
+
+                            {/* Active indicator */}
+                            {isActive && (
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-500 rounded-r" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
 
         {/* Footer hint */}
@@ -1108,6 +1153,25 @@ export default function Layouts() {
                   )}
                   {selectedLayout.public_safe ? 'Public-safe' : 'Internal only'}
                 </button>
+                {/* Project — groups this layout in the sidebar. Free text; pick
+                    an existing project from the list or type a new one. */}
+                <div className="flex items-center gap-2 bg-gray-800/50 rounded-lg px-3 py-1.5 border border-gray-700/50">
+                  <label className="text-xs text-gray-500">📁 Project</label>
+                  <input
+                    list="bs-project-list"
+                    value={selectedLayout.project || ''}
+                    onChange={(e) => {
+                      const project = e.target.value;
+                      updateLayout({ project });
+                      setLayouts((prev) => prev.map((l) => l.id === selectedLayout.id ? { ...l, project } : l));
+                    }}
+                    placeholder="Ungrouped"
+                    className="w-32 bg-transparent text-white text-sm focus:outline-none placeholder-gray-600"
+                  />
+                  <datalist id="bs-project-list">
+                    {[...new Set(layouts.map((l) => l.project).filter(Boolean))].sort().map((p) => <option key={p} value={p} />)}
+                  </datalist>
+                </div>
                 <button
                   onClick={() => { setPlacingCell(null); setShowModulePicker(true); }}
                   className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-all shadow-lg shadow-blue-900/30"
