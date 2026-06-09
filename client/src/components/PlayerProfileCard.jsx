@@ -92,11 +92,10 @@ export default function PlayerProfileCard({ player, mode = 'profile', minute }) 
       {/* Detail panel */}
       <div style={{ flex: 1, padding: '5vh 4vw', display: 'flex', flexDirection: 'column', justifyContent: 'center', animation: 'ppcIn 0.5s ease-out both' }}>
         {isGoal ? (
-          <div style={{ marginBottom: '2vh', animation: 'goalPulse 0.9s ease-in-out infinite' }}>
-            <span style={{ fontWeight: 700, fontSize: '9vh', letterSpacing: '0.1em',
-              background: `linear-gradient(90deg, ${GOLD}, #fff, ${GOLD})`, backgroundSize: '200% 100%',
-              WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', animation: 'goalSweep 2s linear infinite' }}>
-              ⚽ GOAL!{minute ? ` ${minute}'` : ''}
+          <div style={{ marginBottom: '2vh', display: 'flex', alignItems: 'center', gap: '1.5vw', animation: 'goalPulse 0.9s ease-in-out infinite', transformOrigin: 'left center' }}>
+            <span style={{ fontSize: '9vh', lineHeight: 1 }}>⚽</span>
+            <span style={{ fontWeight: 700, fontSize: '9vh', letterSpacing: '0.08em', color: GOLD, textShadow: `0 0 30px ${GOLD}aa, 0 4px 10px rgba(0,0,0,.6)` }}>
+              GOAL!{minute ? ` ${minute}'` : ''}
             </span>
           </div>
         ) : (
