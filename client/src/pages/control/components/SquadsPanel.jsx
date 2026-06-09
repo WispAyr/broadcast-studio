@@ -27,6 +27,7 @@ export default function SquadsPanel({ studioId, screens = [], inShell }) {
         type, player,
         layout: l3 ? 'lower' : 'full',
         minute: type === 'goal' && minute ? Number(minute) : undefined,
+        sound: type === 'goal' ? `/uploads/${studioId}/goal.mp3` : undefined,
         duration: hold ? undefined : (type === 'goal' ? 12 : 14),
       },
     });

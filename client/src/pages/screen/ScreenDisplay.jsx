@@ -8,6 +8,7 @@ import { getLayers, getChromaStyles } from '../../lib/layers';
 import ChromaFilter from '../../components/ChromaFilter';
 import PlayerProfileCard from '../../components/PlayerProfileCard';
 import NowPlayingL3 from '../../components/NowPlayingL3';
+import GoalGraphic, { GoalAudio } from '../../components/GoalGraphic';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
@@ -178,12 +179,24 @@ function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
     case 'bed':
       return <BedOverlay overlay={overlay} audioOutput={audioOutput} />;
     case 'player_profile':
-    case 'goal':
       return (
         <div style={{ position: 'absolute', inset: 0, animation: 'overlayIn 0.4s ease-out' }}>
-          <PlayerProfileCard player={overlay.player} mode={overlay.type === 'goal' ? 'goal' : 'profile'} minute={overlay.minute} layout={overlay.layout || 'full'} />
+          <PlayerProfileCard player={overlay.player} mode="profile" minute={overlay.minute} layout={overlay.layout || 'full'} />
         </div>
       );
+    case 'goal': {
+      // lower → subtle band over the match; full → big celebration graphic.
+      // Either way the goal audio fires on the PA-feed screen.
+      const lower = overlay.layout === 'lower';
+      return (
+        <div style={{ position: 'absolute', inset: 0, animation: 'overlayIn 0.4s ease-out' }}>
+          {lower
+            ? <PlayerProfileCard player={overlay.player} mode="goal" minute={overlay.minute} layout="lower" />
+            : <GoalGraphic player={overlay.player} minute={overlay.minute} />}
+          <GoalAudio sound={overlay.sound} audioOutput={audioOutput} />
+        </div>
+      );
+    }
     case 'now_playing_l3':
       return <NowPlayingL3 stationId={overlay.stationId || 7719} />;
     case 'fact':
