@@ -61,6 +61,7 @@ const CARDS = [
   { n: 19, key: 'contact',               name: 'Contact — Jam Dodger / WhatsApp', slot: 'Anytime',     sponsor: null,                     kind: 'contact' },
   { n: 20, key: 'entry-form',            name: "£500 Friday's — Postal Entry Form", slot: 'Promo',     sponsor: null,                     kind: 'promo' },
   { n: 21, key: 'school-funding',        name: 'School Funding — Entries Open', slot: 'Promo',         sponsor: null,                     kind: 'promo' },
+  { n: 22, key: 'overnight',             name: 'Through the Night',             slot: 'Overnight',     sponsor: null,                     kind: 'overnight' },
 ];
 
 const fileFor = (c) => `tvcard-${String(c.n).padStart(2, '0')}-${c.key}.png`;
@@ -128,6 +129,11 @@ add(0, '10:00', 'ayrshire-insights');
 add(0, '13:00', 'sunday-afternoon');
 add(0, '16:00', 'sunday-service');
 add(0, '19:00', 'now-country');
+// Overnight ident — fills the small hours so the wall doesn't sit on a stale
+// show card all night. 01:00 every night except Saturday, where "The after,
+// after Party" (Sat 00:00) gets until 02:00 first.
+for (const d of [0, 1, 2, 3, 4, 5]) add(d, '01:00', 'overnight');
+add(6, '02:00', 'overnight');
 
 db.prepare("DELETE FROM card_wall_schedule WHERE studio_id = ?").run(studioId);
 const insSlot = db.prepare(
@@ -154,7 +160,10 @@ const insBtn = db.prepare(`INSERT INTO console_buttons (id, studio_id, label, su
 
 insBtn.run(uuidv4(), studioId, 'Resume Daypart', 'Auto card by time', '🔄', GREEN, 'card_wall_resume', '{}', ++order);
 for (const c of CARDS) {
-  const sub = c.kind === 'show' ? c.slot : (c.kind === 'contact' ? 'Contact card' : 'Promo card');
+  const sub = c.kind === 'show' ? c.slot
+    : c.kind === 'contact' ? 'Contact card'
+    : c.kind === 'overnight' ? 'Overnight ident'
+    : 'Promo card';
   insBtn.run(uuidv4(), studioId, c.name.length > 26 ? c.name.slice(0, 25) + '…' : c.name,
     sub, '📺', c.kind === 'show' ? NAVY : SLATE, 'card_wall_take',
     JSON.stringify({ layout_id: layoutIdByKey[c.key] }), ++order);
