@@ -307,6 +307,10 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ stationId: 7719, variant: 'vinyl', showHistory: true, showShow: true }) },
     { name: 'nar_fuel', description: 'Cheapest fuel in Ayrshire — petrol + diesel price board (fuel.wispayr.online)', category: 'data', icon: '⛽',
       default_config: JSON.stringify({ count: 4, fuels: ['E10', 'B7_STANDARD'] }) },
+    { name: 'nar_trains', description: 'Live ScotRail Ayr departures — northbound/southbound board (trains.wispayr.online)', category: 'data', icon: '🚆',
+      default_config: JSON.stringify({ count: 4, station: 'Ayr', layout: 'split' }) },
+    { name: 'nar_warnings', description: 'Met Office weather warnings for Ayrshire — all-clear or coloured alert strip', category: 'situational', icon: '⚠️',
+      default_config: JSON.stringify({ variant: 'strip' }) },
   ];
 
   const insertOrIgnore = db.prepare(`

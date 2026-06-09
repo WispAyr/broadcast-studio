@@ -64,6 +64,8 @@ import CallGridModule from './CallGridModule';
 import TrafficAyrshireModule from './TrafficAyrshireModule';
 import NARNowPlayingModule from './NARNowPlayingModule';
 import NARFuelModule from './NARFuelModule';
+import NARTrainsModule from './NARTrainsModule';
+import NARWarningsModule from './NARWarningsModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
 
@@ -171,6 +173,10 @@ const moduleRegistry = {
   now_playing: NARNowPlayingModule,
   // Cheapest fuel in Ayrshire (fuel.wispayr.online) — drivetime content
   nar_fuel: NARFuelModule,
+  // Live ScotRail Ayr departures (trains.wispayr.online)
+  nar_trains: NARTrainsModule,
+  // Met Office weather warnings for Ayrshire (live.wispayr.online/api/wx/warnings)
+  nar_warnings: NARWarningsModule,
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
   quiz: QuizModule,
   quizcast: QuizModule,
