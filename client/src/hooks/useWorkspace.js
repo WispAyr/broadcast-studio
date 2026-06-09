@@ -73,8 +73,9 @@ export default function useWorkspace() {
     setState(prev => {
       const ws = prev.workspaces[prev.activeWorkspaceId];
       if (!ws) return prev;
-      const panel = ws.panels[panelId];
-      if (!panel) return prev;
+      // Panels added after a workspace was saved to localStorage won't exist in
+      // the saved state — initialise them so their toggle still works.
+      const panel = ws.panels[panelId] || { visible: false, zone: 'right' };
       return {
         ...prev,
         workspaces: {
@@ -94,7 +95,8 @@ export default function useWorkspace() {
   const setPanelVisible = useCallback((panelId, visible) => {
     setState(prev => {
       const ws = prev.workspaces[prev.activeWorkspaceId];
-      if (!ws || !ws.panels[panelId]) return prev;
+      if (!ws) return prev;
+      const panel = ws.panels[panelId] || { visible: false, zone: 'right' };
       return {
         ...prev,
         workspaces: {
@@ -103,7 +105,7 @@ export default function useWorkspace() {
             ...ws,
             panels: {
               ...ws.panels,
-              [panelId]: { ...ws.panels[panelId], visible },
+              [panelId]: { ...panel, visible },
             },
           },
         },

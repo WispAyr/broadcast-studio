@@ -74,6 +74,15 @@ export const PANELS = [
     color: 'gray',
     description: 'Quick layout switching with keyboard shortcuts',
   },
+  {
+    id: 'soundboard',
+    label: 'Soundboard',
+    icon: '🎚️',
+    defaultZone: 'right',
+    defaultVisible: false,
+    color: 'green',
+    description: 'Fire audio/video stings + drive the music bed',
+  },
 ];
 
 // Built-in workspace presets

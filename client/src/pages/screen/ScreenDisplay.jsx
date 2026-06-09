@@ -6,11 +6,81 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { ProjectionMapper } from '../../lib/webgl-projection';
 import { getLayers, getChromaStyles } from '../../lib/layers';
 import ChromaFilter from '../../components/ChromaFilter';
+import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
 
-function OverlayRenderer({ overlay }) {
+// A one-shot video/audio sting played over the screen. Ducks the bed on play,
+// restores + removes itself when the media ends. `audioOutput` gates sound:
+// on a muted video wall a video sting still shows its visual (muted), an
+// audio-only sting is silent there. On the PA-feed screen it carries audio.
+function StingOverlay({ overlay, audioOutput, onEnd }) {
+  const ref = useRef(null);
+  const audioOnly = overlay.audioOnly || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(overlay.url || '');
+  const wantsAudio = audioOutput && !overlay.silent;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (wantsAudio) duck(overlay.duckTo ?? 0.12, overlay.duckMs ?? 180);
+    const off = autoPlay(el);
+    // Fallback removal in case `ended` never fires (e.g. element can't load).
+    const ms = (overlay.maxDuration || 30) * 1000;
+    const t = setTimeout(() => onEnd?.(), ms);
+    return () => { off(); clearTimeout(t); if (wantsAudio) unduck(overlay.duckMs ?? 400); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const done = () => onEnd?.();
+  const fit = overlay.fit || 'cover';
+  const corner = overlay.position === 'corner';
+  const wrap = corner
+    ? { position: 'absolute', bottom: '4%', right: '3%', width: '22vw', height: 'auto' }
+    : { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+  if (audioOnly) {
+    return <audio ref={ref} src={overlay.url} muted={!wantsAudio} onEnded={done} preload="auto" playsInline />;
+  }
+  return (
+    <div style={wrap}>
+      <video ref={ref} src={overlay.url} muted={!wantsAudio} onEnded={done} preload="auto" playsInline
+        style={{ width: '100%', height: corner ? 'auto' : '100%', objectFit: fit, background: corner ? 'transparent' : '#000' }} />
+    </div>
+  );
+}
+
+// A persistent looping music bed driven from the soundboard (distinct from the
+// layout-placed AudioModule). Audible only on the PA-feed screen; ducks under
+// stings. Removed via remove_overlay / a new bed with no url.
+function BedOverlay({ overlay, audioOutput }) {
+  const ref = useRef(null);
+  const baseVol = useRef(overlay.volume ?? 0.8);
+  const duckGain = useRef(1);
+  const apply = (ms) => rampVolume(ref.current, baseVol.current * duckGain.current, ms);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !audioOutput) return;
+    el.volume = 0;
+    const off = autoPlay(el);
+    rampVolume(el, baseVol.current, 800);
+    return () => off();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlay.url]);
+
+  useEffect(() => { baseVol.current = overlay.volume ?? 0.8; apply(250); }, [overlay.volume]);
+  useEffect(() => onDuck((gain, ms) => { duckGain.current = gain; apply(ms); }), []);
+
+  if (!overlay.url) return null;
+  return <audio ref={ref} src={overlay.url} loop muted={!audioOutput} preload="auto" playsInline />;
+}
+
+function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
 
   switch (overlay.type) {
+    case 'sting':
+      return <StingOverlay overlay={overlay} audioOutput={audioOutput} onEnd={() => onStingEnd?.(overlay)} />;
+    case 'bed':
+      return <BedOverlay overlay={overlay} audioOutput={audioOutput} />;
     case 'lower_third':
       return (
         <div style={{ ...baseStyle, bottom: '10%', left: '5%', right: '30%' }}>
@@ -108,6 +178,9 @@ export default function ScreenDisplay() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const setupMode = searchParams.get('setup') === 'true';
+  // Whether this screen is a PA / audio-output feed. `?audio=1` forces it on
+  // (handy for a laptop playout); otherwise read from the screen's config.
+  const [audioOutput, setAudioOutput] = useState(searchParams.get('audio') === '1');
 
   const [layout, setLayout] = useState(null);
   const [modules, setModules] = useState([]);
@@ -125,6 +198,11 @@ export default function ScreenDisplay() {
   const [transitionDurationMs, setTransitionDurationMs] = useState(600);
   const [disconnectBehavior, setDisconnectBehavior] = useState('message'); // 'message' | 'black' | 'freeze'
   const [screenDimensions, setScreenDimensions] = useState(null); // {width, height}
+
+  // Allow audio to start after the first user gesture on browsers/kiosks that
+  // block autoplay-with-sound. Locked-down kiosks should also launch Chromium
+  // with --autoplay-policy=no-user-gesture-required (see docs).
+  useEffect(() => { installUnlockListener(); }, []);
 
   const heartbeatRef = useRef(null);
   const socketRef = useRef(null);
@@ -253,6 +331,7 @@ export default function ScreenDisplay() {
           setDisplayProfile({ ...gp, ...cfg.displayProfile });
         }
         if (cfg.disconnectBehavior) setDisconnectBehavior(cfg.disconnectBehavior);
+        if (cfg.audioOutput) setAudioOutput(true);
         if (cfg.screenType === 'led' || cfg.screenType === 'video_wall') setDisconnectBehavior(prev => prev === 'message' ? 'black' : prev);
       }
       // Store configured dimensions
@@ -774,7 +853,8 @@ export default function ScreenDisplay() {
       {overlays.length > 0 && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
           {overlays.map(ov => (
-            <OverlayRenderer key={ov.type} overlay={ov} />
+            <OverlayRenderer key={ov.type} overlay={ov} audioOutput={audioOutput}
+              onStingEnd={() => setOverlays(prev => prev.filter(o => o.type !== 'sting'))} />
           ))}
         </div>
       )}

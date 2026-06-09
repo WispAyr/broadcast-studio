@@ -40,7 +40,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|avi|mp3|wav|ogg)$/i;
+    const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|avi|mp3|wav|ogg|m4a|aac|flac)$/i;
     if (allowed.test(path.extname(file.originalname))) {
       cb(null, true);
     } else {
@@ -80,7 +80,8 @@ router.get('/', authenticate, (req, res) => {
         const ext = path.extname(filename).toLowerCase();
         const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
         const videoExts = ['.mp4', '.webm', '.mov', '.avi'];
-        const type = imageExts.includes(ext) ? 'image' : videoExts.includes(ext) ? 'video' : 'other';
+        const audioExts = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+        const type = imageExts.includes(ext) ? 'image' : videoExts.includes(ext) ? 'video' : audioExts.includes(ext) ? 'audio' : 'other';
         return {
           filename,
           url: `/uploads/${folder}/${filename}`,

@@ -3,6 +3,28 @@
 // Field types: text, number, datetime, button_group, tag_group, range, textarea, toggle
 
 const MODULE_CONFIGS = {
+  audio: {
+    label: 'Audio Bed',
+    icon: '🔊',
+    color: 'green',
+    fields: [
+      { key: 'src', type: 'text', label: 'File URL', placeholder: '/uploads/.../bed.mp3' },
+      { key: 'playing', type: 'toggle', label: 'Playing', default: true },
+      { key: 'volume', type: 'range', label: 'Volume', min: 0, max: 1, step: 0.05, default: 0.8 },
+      { key: 'loop', type: 'toggle', label: 'Loop', default: true },
+    ],
+    socketEvent: 'update_module_config',
+    buildPayload: (studioId, moduleId, values) => ({
+      studioId, moduleId,
+      config: {
+        src: values.src,
+        playing: values.playing !== false,
+        volume: values.volume ?? 0.8,
+        loop: values.loop !== false,
+      },
+    }),
+  },
+
   quiz: {
     label: 'Quiz',
     icon: '🎯',

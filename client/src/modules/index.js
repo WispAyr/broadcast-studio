@@ -63,6 +63,7 @@ import CallGuestModule from './CallGuestModule';
 import CallGridModule from './CallGridModule';
 import TrafficAyrshireModule from './TrafficAyrshireModule';
 import QuizModule from './QuizModule';
+import AudioModule from './AudioModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -166,6 +167,10 @@ const moduleRegistry = {
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
   quiz: QuizModule,
   quizcast: QuizModule,
+  // Audio bed / playout player — music bed, ducks under stings
+  audio: AudioModule,
+  audio_bed: AudioModule,
+  music_bed: AudioModule,
 };
 
 export default moduleRegistry;

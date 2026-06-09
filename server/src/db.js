@@ -272,6 +272,8 @@ function ensureModuleTypes() {
     { name: 'surface_carousel', description: 'Rotating iframe carousel for live.wispayr.online office wall views', category: 'media', icon: '🖥' },
     { name: 'quiz', description: 'QuizCast live audience quiz — big-screen game view + scan-to-join card', category: 'broadcast', icon: '🎯',
       default_config: JSON.stringify({ base: 'https://quiz.wispayr.online', mode: 'screen', code: '' }) },
+    { name: 'audio', description: 'Audio bed / playout player — music bed with volume, loop, fades, auto-ducks under stings', category: 'broadcast', icon: '🔊',
+      default_config: JSON.stringify({ src: '', playing: true, volume: 0.8, loop: true, fadeMs: 800, showNowPlaying: true }) },
   ];
 
   const insertOrIgnore = db.prepare(`
@@ -337,6 +339,30 @@ ensureModuleTypes();
     description TEXT,
     assignments TEXT NOT NULL DEFAULT '[]',
     icon TEXT,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (studio_id) REFERENCES studios(id)
+  )`);
+
+  // Console buttons — the "dumb console" / Stream Deck button grid. Each row
+  // is one big labelled action button for a studio. The same rows render as
+  // the in-studio touch console (/console) AND are fired one-per-button by a
+  // physical Stream Deck / Bitfocus Companion via /api/console/:studio/fire/:id.
+  // action_type drives the dispatcher (take_layout, apply_scene, breaking_news,
+  // resume_schedule, blackout, live_text, module_config, now_playing,
+  // reload_screens, clear_overlays, webhook); action_payload is type-specific JSON.
+  db.exec(`CREATE TABLE IF NOT EXISTS console_buttons (
+    id TEXT PRIMARY KEY,
+    studio_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    sublabel TEXT,
+    icon TEXT,
+    color TEXT,
+    action_type TEXT NOT NULL,
+    action_payload TEXT DEFAULT '{}',
+    confirm INTEGER DEFAULT 0,
+    enabled INTEGER DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
