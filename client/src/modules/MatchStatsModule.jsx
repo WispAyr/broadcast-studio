@@ -264,9 +264,11 @@ function ProfileRotator({ team, secs, keyOnly }) {
   if (!cur) return null;
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: NAVY_DEEP }}>
-      <style>{`@keyframes prFade { from { opacity: 0; } to { opacity: 1; } } @keyframes prBar { from { width: 0; } to { width: 100%; } }`}</style>
+      <style>{`@keyframes prWipe { from { transform: translateX(102%); } to { transform: translateX(0); } } @keyframes prBar { from { width: 0; } to { width: 100%; } }`}</style>
+      {/* Previous card sits underneath; the new one slides in fully OPAQUE (a
+          clean push wipe) so the two never blend into a washed-out ghost. */}
       <div style={{ position: 'absolute', inset: 0 }}><PlayerProfileCard player={prev} mode="profile" layout="full" noAnim /></div>
-      <div key={s.n} style={{ position: 'absolute', inset: 0, animation: 'prFade 0.6s ease-out both' }}>
+      <div key={s.n} style={{ position: 'absolute', inset: 0, animation: 'prWipe 0.55s cubic-bezier(.4,0,.15,1) both', boxShadow: '-2vw 0 5vw rgba(0,0,0,0.5)' }}>
         <PlayerProfileCard player={cur} mode="profile" layout="full" noAnim />
       </div>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '0.6vh', background: 'rgba(255,255,255,0.15)', zIndex: 5 }}>
