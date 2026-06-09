@@ -7,6 +7,7 @@ export default defineConfig({
     port: 5945,
     proxy: {
       '/api': 'http://localhost:3945',
+      '/uploads': 'http://localhost:3945',
       '/socket.io': { target: 'http://localhost:3945', ws: true }
     }
   }

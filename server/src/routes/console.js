@@ -6,6 +6,7 @@ const { requireStudioAuth } = require('../middleware/apiKey');
 const { getIO } = require('../ws');
 const { enrichLayout } = require('../lib/enrich-layout');
 const { startTimeline, stopTimeline, getCurrentState } = require('../timeline');
+const cardWall = require('../card-wall');
 
 const router = express.Router();
 
@@ -132,6 +133,18 @@ async function dispatchAction(studioId, button, io, userId) {
       if (!show) throw new Error('no active show to resume');
       startTimeline(studioId, show);
       return { type, show_id: show.id };
+    }
+    case 'card_wall_take': {
+      // Hold a TV card on the main screen wall (wall-scoped, does NOT touch
+      // other monitors). Holds until the next scheduled show unless minutes set.
+      if (!p.layout_id) throw new Error('layout_id required');
+      cardWall.override(studioId, p.layout_id, p.minutes ? Number(p.minutes) : null);
+      return { type, layout_id: p.layout_id };
+    }
+    case 'card_wall_resume': {
+      // Drop any manual card and return the wall to the daypart schedule.
+      cardWall.resume(studioId);
+      return { type };
     }
     case 'breaking_news': {
       const overlay = {
