@@ -63,6 +63,7 @@ import CallGuestModule from './CallGuestModule';
 import CallGridModule from './CallGridModule';
 import TrafficAyrshireModule from './TrafficAyrshireModule';
 import NARNowPlayingModule from './NARNowPlayingModule';
+import NARFuelModule from './NARFuelModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
 
@@ -168,6 +169,8 @@ const moduleRegistry = {
   // NAR live now-playing (broadcast.radio station 7719) — spinning vinyl + history
   nar_nowplaying: NARNowPlayingModule,
   now_playing: NARNowPlayingModule,
+  // Cheapest fuel in Ayrshire (fuel.wispayr.online) — drivetime content
+  nar_fuel: NARFuelModule,
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
   quiz: QuizModule,
   quizcast: QuizModule,
