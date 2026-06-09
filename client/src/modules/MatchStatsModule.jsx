@@ -39,6 +39,23 @@ const HEAD = "'MuseoModerno','Oswald',sans-serif";
 const wrap = { width: '100%', height: '100%', color: '#fff', fontFamily: HEAD, padding: '3vh 3vw', boxSizing: 'border-box',
   background: `radial-gradient(120% 120% at 25% 0%, ${PURPLE} 0%, ${NAVY} 50%, ${NAVY_DEEP} 100%)`, overflow: 'hidden', display: 'flex', flexDirection: 'column' };
 
+// Player prominence (stars first) — shared by Key Players + the profile rotator.
+const prominence = (p) => (p.role ? 1000 : 0) + (p.intlGoals || 0) * 3 + (p.caps || 0) / 5 + (p.photo ? 8 : 0);
+
+// Build a rotation roster: team='SCO'|'HAI'|'both'; keyOnly limits to role-tagged;
+// 'both' interleaves the two squads (alternating) so it feels like a match line-up.
+function roster(team = 'both', keyOnly = false) {
+  const ord = (a) => [...a].sort((x, y) => prominence(y) - prominence(x));
+  let list;
+  if (team === 'SCO') list = ord(SCOTLAND);
+  else if (team === 'HAI') list = ord(HAITI);
+  else {
+    const s = ord(SCOTLAND), h = ord(HAITI); list = [];
+    for (let i = 0; i < Math.max(s.length, h.length); i++) { if (s[i]) list.push(s[i]); if (h[i]) list.push(h[i]); }
+  }
+  return keyOnly ? list.filter((p) => p.role) : list;
+}
+
 function Saltire({ s = '5vh' }) {
   return <div style={{ width: `calc(${s} * 1.5)`, height: s, background: '#0065bf', position: 'relative', overflow: 'hidden', borderRadius: 3, display: 'inline-block' }}>
     <div style={{ position: 'absolute', top: '50%', left: '-10%', width: '120%', height: '18%', background: '#fff', transform: 'translateY(-50%) rotate(31deg)' }} />
@@ -122,8 +139,7 @@ export default function MatchStatsModule({ config = {} }) {
   if (view === 'players') {
     const ini = (n) => n.split(' ').map((w) => w[0]).slice(-2).join('');
     // Lead with the marquee names, not squad order (which is GKs first).
-    const prom = (p) => (p.role ? 1000 : 0) + (p.intlGoals || 0) * 3 + (p.caps || 0) / 5 + (p.photo ? 8 : 0);
-    const top = (players) => [...players].sort((a, b) => prom(b) - prom(a)).slice(0, 7);
+    const top = (players) => [...players].sort((a, b) => prominence(b) - prominence(a)).slice(0, 7);
     const col = (players, team, mgr, tint) => (
       <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2vh 1.6vw', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8vw', marginBottom: '1vh', paddingBottom: '1vh', borderBottom: `2px solid ${tint}` }}>
@@ -155,6 +171,10 @@ export default function MatchStatsModule({ config = {} }) {
   if (view === 'profile') {
     const p = config.player || ALL_PLAYERS.find((x) => x.name === config.playerName) || SCOTLAND[2];
     return <div style={{ width: '100%', height: '100%' }}><PlayerProfileCard player={p} mode={config.goal ? 'goal' : 'profile'} minute={config.minute} /></div>;
+  }
+
+  if (view === 'profiles' || view === 'profile_rotation') {
+    return <ProfileRotator team={config.team || 'both'} secs={config.secs || 9} keyOnly={!!config.keyOnly} />;
   }
 
   if (view === 'group') {
@@ -217,6 +237,34 @@ function FactsCycler({ facts, interval }) {
             {n === i && <div style={{ position: 'absolute', inset: 0, background: GOLD, animation: `dykBar ${interval}s linear` }} />}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// Full-page player profiles, auto-rotating through the squad (stars first).
+function ProfileRotator({ team, secs, keyOnly }) {
+  const list = React.useMemo(() => roster(team, keyOnly), [team, keyOnly]);
+  const [i, setI] = React.useState(0);
+  React.useEffect(() => {
+    if (list.length <= 1) return;
+    const t = setInterval(() => setI((x) => (x + 1) % list.length), secs * 1000);
+    return () => clearInterval(t);
+  }, [list.length, secs]);
+  const p = list[i % list.length];
+  if (!p) return null;
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <style>{`@keyframes prBar { from { width: 0; } to { width: 100%; } }`}</style>
+      {/* key={i} remounts the card so its entrance animation replays as a transition */}
+      <div key={i} style={{ width: '100%', height: '100%' }}>
+        <PlayerProfileCard player={p} mode="profile" layout="full" />
+      </div>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '0.6vh', background: 'rgba(255,255,255,0.15)', zIndex: 5 }}>
+        <div key={i} style={{ height: '100%', background: GOLD, animation: `prBar ${secs}s linear` }} />
+      </div>
+      <div style={{ position: 'absolute', top: '2.5vh', right: '3vw', fontFamily: HEAD, fontSize: '2vh', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.15em', zIndex: 5 }}>
+        {((i % list.length) + 1)} / {list.length}
       </div>
     </div>
   );

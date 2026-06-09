@@ -56,6 +56,7 @@ const tv = (label, src) => ({ id: uuid(), module: 'camera_feed', type: 'camera_f
 const video = (url) => ({ id: uuid(), module: 'video', type: 'video', x: 0, y: 0, w: 12, h: 8, config: { url, src: url, autoplay: true, loop: false, muted: false } });
 const stats = (view) => ({ id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view } });
 const hero = (cfg) => ({ id: uuid(), module: 'scotland_hero', type: 'scotland_hero', x: 0, y: 0, w: 12, h: 8, config: cfg });
+const profiles = (team, secs = 9) => ({ id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view: 'profiles', team, secs } });
 
 const SCENES = [
   { name: '🎬 FanZone — Show Intro', bg: '#000000', modules: [ video(U('sideliners-intro.mp4')) ] },
@@ -71,6 +72,9 @@ const SCENES = [
   { name: '📊 Group C', bg: BG, modules: [ stats('group') ] },
   { name: '📊 Road to the World Cup', bg: BG, modules: [ stats('road') ] },
   { name: '📊 Did You Know', bg: BG, modules: [ stats('facts') ] },
+  { name: '👤 Player Profiles — Rotation', bg: BG, modules: [ profiles('both') ] },
+  { name: '👤 Scotland Profiles', bg: BG, modules: [ profiles('SCO') ] },
+  { name: '👤 Haiti Profiles', bg: BG, modules: [ profiles('HAI') ] },
   { name: '📺 STV Live', bg: '#000000', modules: [ tv('STV — Scotland v Haiti', 'https://live.wispayr.online/playout/stv-live/index.m3u8') ] },
   { name: '📺 BBC One', bg: '#000000', modules: [ tv('BBC One — Scotland v Haiti', 'https://live.wispayr.online/playout/bbc-one/index.m3u8') ] },
   { name: '🏟 FanZone — Match Day', bg: '#000000', modules: [
