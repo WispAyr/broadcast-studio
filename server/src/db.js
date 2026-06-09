@@ -303,6 +303,8 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ base: 'https://quiz.wispayr.online', mode: 'screen', code: '' }) },
     { name: 'audio', description: 'Audio bed / playout player — music bed with volume, loop, fades, auto-ducks under stings', category: 'broadcast', icon: '🔊',
       default_config: JSON.stringify({ src: '', playing: true, volume: 0.8, loop: true, fadeMs: 800, showNowPlaying: true }) },
+    { name: 'match_stats', description: 'Match info/stats screens (view: header/form/players/group/road/facts)', category: 'broadcast', icon: '📊',
+      default_config: JSON.stringify({ view: 'header' }) },
     { name: 'nar_nowplaying', description: 'NAR live now-playing — spinning vinyl, track/artist/artwork + just-played + show/presenter (broadcast.radio)', category: 'broadcast', icon: '💿',
       default_config: JSON.stringify({ stationId: 7719, variant: 'vinyl', showHistory: true, showShow: true }) },
     { name: 'nar_fuel', description: 'Cheapest fuel in Ayrshire — petrol + diesel price board (fuel.wispayr.online)', category: 'data', icon: '⛽',

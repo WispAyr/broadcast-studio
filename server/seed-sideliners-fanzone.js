@@ -52,13 +52,22 @@ const text = (t, x, y, w, h, fontSize = '3vw') => ({ id: uuid(), module: 'text',
 const ticker = (t) => ({ id: uuid(), module: 'ticker', type: 'ticker', x: 0, y: 7, w: 12, h: 1, config: { text: t, speed: 5 } });
 const quiz = (mode) => ({ id: uuid(), module: 'quiz', type: 'quiz', x: 0, y: 0, w: 12, h: 8, config: { base: 'https://quiz.wispayr.online', mode, code: '' } });
 const camera = (label) => ({ id: uuid(), module: 'camera_feed', type: 'camera_feed', x: 0, y: 1, w: 12, h: 6, config: { src: '', label, muted: true } });
+const video = (url) => ({ id: uuid(), module: 'video', type: 'video', x: 0, y: 0, w: 12, h: 8, config: { url, src: url, autoplay: true, loop: false, muted: false } });
+const stats = (view) => ({ id: uuid(), module: 'match_stats', type: 'match_stats', x: 0, y: 0, w: 12, h: 8, config: { view } });
 
 const SCENES = [
+  { name: '🎬 FanZone — Show Intro', bg: '#000000', modules: [ video(U('sideliners-intro.mp4')) ] },
   { name: '🏟 FanZone — Holding', bg: BG, modules: [
       img(LOGO_FZ, 1, 1, 10, 5),
       text('Welcome to the SideLiner’s FanZone', 1, 6, 10, 1, '2.6vw'),
       ticker('NOW Ayrshire Radio  ·  SideLiner’s FanZone  ·  FIFA World Cup 26  ·  Live from venue38'),
   ] },
+  { name: '📊 Match Centre — Scotland v Haiti', bg: BG, modules: [ stats('header') ] },
+  { name: '📊 Form Guide', bg: BG, modules: [ stats('form') ] },
+  { name: '📊 Key Players', bg: BG, modules: [ stats('players') ] },
+  { name: '📊 Group C', bg: BG, modules: [ stats('group') ] },
+  { name: '📊 Road to the World Cup', bg: BG, modules: [ stats('road') ] },
+  { name: '📊 Did You Know', bg: BG, modules: [ stats('facts') ] },
   { name: '🏟 FanZone — Match Day', bg: '#000000', modules: [
       img(LOGO_SL, 0, 0, 3, 1),
       camera('Match Feed'),

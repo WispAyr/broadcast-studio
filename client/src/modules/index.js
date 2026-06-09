@@ -68,6 +68,7 @@ import NARTrainsModule from './NARTrainsModule';
 import NARWarningsModule from './NARWarningsModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
+import MatchStatsModule from './MatchStatsModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -184,6 +185,8 @@ const moduleRegistry = {
   audio: AudioModule,
   audio_bed: AudioModule,
   music_bed: AudioModule,
+  // Match stats / info screens (view: header|form|players|group|road|facts)
+  match_stats: MatchStatsModule,
 };
 
 export default moduleRegistry;
