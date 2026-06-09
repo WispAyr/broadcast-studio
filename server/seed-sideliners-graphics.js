@@ -36,27 +36,22 @@ const SCENES = [
   { name: '⏹ SL — End Card',       cfg: { variant: 'ident_close', title: 'Thanks for listening', subtitle: 'Same time next week · NOW Ayrshire Radio' } },
   { name: '🤝 SL — Sponsor',        cfg: { variant: 'sponsor', sponsor: 'Kilmarnock FC' } },
   { name: '☕ SL — Break Bumper',   cfg: { variant: 'break', subtitle: 'More sport, more shouts — stay with us' } },
-  { name: '📋 SL — Coming Up',      cfg: { variant: 'coming_up', items: ['Killie team news ahead of Saturday', 'The Old Firm verdict', 'Your shouts on the SPFL run-in', 'World Cup 26 build-up'] } },
-  { name: '💬 SL — Talking Point',  cfg: { variant: 'talking_point', title: 'Can Killie crack the top six?', subtitle: 'Your shouts from 1pm — text 81400' } },
-  { name: '🔢 SL — Score',          cfg: { variant: 'score', competition: 'SPFL Premiership', home: 'KILMARNOCK', away: 'RANGERS', score: '0 - 0', minute: 'KICK-OFF 15:00' } },
-  { name: '📅 SL — Fixtures',       cfg: { variant: 'fixtures', title: 'This Weekend', items: [
-      { home: 'Kilmarnock', away: 'Rangers', time: 'Sat 15:00' },
-      { home: 'Celtic', away: 'Aberdeen', time: 'Sat 15:00' },
-      { home: 'Hearts', away: 'Hibernian', time: 'Sun 12:00' },
-      { home: 'St Mirren', away: 'Motherwell', time: 'Sun 15:00' } ] } },
-  { name: '✅ SL — Results',        cfg: { variant: 'results', title: 'Last Time Out', items: [
-      { home: 'Kilmarnock', away: 'St Mirren', score: '2-1' },
-      { home: 'Rangers', away: 'Motherwell', score: '3-0' },
-      { home: 'Celtic', away: 'Dundee', score: '4-1' },
-      { home: 'Aberdeen', away: 'Hearts', score: '1-1' } ] } },
-  { name: '🏆 SL — League Table',   cfg: { variant: 'table', title: 'SPFL Premiership', rows: [
-      { pos: 1, team: 'Celtic', pl: 30, pts: 70 },
-      { pos: 2, team: 'Rangers', pl: 30, pts: 64 },
-      { pos: 3, team: 'Hibernian', pl: 30, pts: 51 },
-      { pos: 4, team: 'Aberdeen', pl: 30, pts: 48 },
-      { pos: 5, team: 'Hearts', pl: 30, pts: 46 },
-      { pos: 6, team: 'Kilmarnock', pl: 30, pts: 44, hl: true } ] } },
-  { name: '📊 SL — Poll',           cfg: { variant: 'poll', question: 'Will Killie finish in the top six?', options: [{ label: 'Aye', pct: 62 }, { label: 'Naw', pct: 38 }] } },
+  { name: '📋 SL — Coming Up',      cfg: { variant: 'coming_up', items: ['Scotland v Haiti — the big World Cup preview', 'Can the Tartan Army roar them out the group?', 'Brazil & Morocco — sizing up Group C', 'Your shouts: predict the score'] } },
+  { name: '💬 SL — Talking Point',  cfg: { variant: 'talking_point', title: 'Can Scotland escape Group C?', subtitle: 'v Haiti tonight — Brazil & Morocco await. Your shouts on SideLiner\'s' } },
+  { name: '🔢 SL — Score',          cfg: { variant: 'score', competition: 'FIFA World Cup 26 · Group C', home: 'SCOTLAND', away: 'HAITI', score: '0 - 0', minute: 'KICK-OFF 2:00 BST · GILLETTE STADIUM, BOSTON' } },
+  { name: '📅 SL — Fixtures',       cfg: { variant: 'fixtures', title: 'World Cup 26 · Group C', items: [
+      { home: 'Scotland', away: 'Haiti', time: '2:00 BST' },
+      { home: 'Brazil', away: 'Morocco', time: '11:00 BST' } ] } },
+  { name: '✅ SL — Results',        cfg: { variant: 'results', title: 'How They Got Here', items: [
+      { home: 'Scotland', away: 'Bolivia', score: '4-0' },
+      { home: 'Haiti', away: 'New Zealand', score: '4-0' },
+      { home: 'Scotland', away: 'Denmark', score: '4-2' } ] } },
+  { name: '🏆 SL — League Table',   cfg: { variant: 'table', title: 'World Cup 26 · Group C', rows: [
+      { pos: 1, team: 'Brazil', pl: 0, pts: 0 },
+      { pos: 2, team: 'Morocco', pl: 0, pts: 0 },
+      { pos: 3, team: 'Scotland', pl: 0, pts: 0, hl: true },
+      { pos: 4, team: 'Haiti', pl: 0, pts: 0 } ] } },
+  { name: '📊 SL — Poll',           cfg: { variant: 'poll', question: 'Will Scotland get out of the group?', options: [{ label: 'Aye — Tartan Army!', pct: 71 }, { label: 'Naw', pct: 29 }] } },
 ];
 
 const layoutIds = {};
@@ -107,9 +102,9 @@ btn('SL Sting', 'Logo transition', '✨', GOLD, 'push_overlay', { overlay: { typ
 btn('L3 · Scott Watson', 'Presenter', '🎙', PURPLE, 'push_overlay', { overlay: { type: 'sl_lower_third', kicker: 'Your host', name: 'Scott Watson', title: "SideLiner's · Ayrshire's Best Sports Show", duration: 8 } });
 btn('L3 · Guest', 'Guest name', '🎤', PURPLE, 'push_overlay', { overlay: { type: 'sl_lower_third', kicker: 'In the studio', name: 'Guest Name', title: 'Guest · Role', duration: 8 } });
 btn('L3 · Caller', 'Phone-in', '☎', PURPLE, 'push_overlay', { overlay: { type: 'sl_lower_third', kicker: 'On the line', name: 'Caller', title: 'Live from Ayrshire', duration: 8 } });
-btn('Your Shout', 'Listener text-in', '💭', NAVY, 'push_overlay', { overlay: { type: 'sl_text', kicker: 'Your shout', text: "We're going up! Killie all the way.", name: 'Davie, Kilmarnock', duration: 10 } });
-btn('BREAKING', 'Sport breaking', '🚨', RED, 'push_overlay', { overlay: { type: 'sl_breaking', text: 'Breaking sports news', duration: 14 } }, 1);
-btn('Score Bug ON', 'Corner score', '🔼', GREEN, 'push_overlay', { overlay: { type: 'sl_score', home: 'KIL', away: 'RAN', score: '0-0', minute: "1'" } });
+btn('Your Shout', 'Listener text-in', '💭', NAVY, 'push_overlay', { overlay: { type: 'sl_text', kicker: 'Your shout', text: "C'mon Scotland — get us out that group!", name: 'Davie, Kilmarnock', duration: 10 } });
+btn('BREAKING', 'Sport breaking', '🚨', RED, 'push_overlay', { overlay: { type: 'sl_breaking', text: 'Scotland team news in', duration: 14 } }, 1);
+btn('Score Bug ON', 'Corner score', '🔼', GREEN, 'push_overlay', { overlay: { type: 'sl_score', home: 'SCO', away: 'HAI', score: '0-0', minute: "1'" } });
 btn('Score Bug OFF', 'Hide score', '🔽', SLATE, 'remove_overlay', { overlay_type: 'sl_score' });
 btn('Clear Graphics', 'Remove overlays', '🧹', SLATE, 'clear_overlays', {});
 
