@@ -26,6 +26,7 @@ const AutocueController = React.lazy(() => import('./pages/control/AutocueContro
 const Deploy = React.lazy(() => import('./pages/control/Deploy'));
 const Variables = React.lazy(() => import('./pages/control/Variables'));
 const Displays = React.lazy(() => import('./pages/control/Displays'));
+const KiltwalkOps = React.lazy(() => import('./pages/control/KiltwalkOps'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="displays" element={<Displays />} />
         <Route path="admin" element={<Admin />} />
         <Route path="egpk" element={<EgpkScenes />} />
+        <Route path="kiltwalk" element={<KiltwalkOps />} />
       </Route>
       <Route path="/screen/:id" element={<ScreenDisplay />} />
       <Route path="/deploy" element={<Deploy />} />

@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 
 function RouteStatsControl() {
   const [mighty, setMighty] = useState(0);
-  const [big, setBig] = useState(0);
   const [wee, setWee] = useState(0);
   const [pace, setPace] = useState(0);
   const [pushed, setPushed] = useState('');
 
-  const total = mighty + big + wee;
-  const registered = 10000;
+  const total = mighty + wee;
+  const registered = 4500;
   const pct = Math.round((total / registered) * 100);
 
   const pushRoutes = async () => {
@@ -17,9 +16,8 @@ function RouteStatsControl() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           routes: [
-            { name: 'Mighty Stride', distance: '23 miles', registered: 2500, finished: mighty, color: '#e63b2b', start: 'Glasgow Green' },
-            { name: 'Big Stroll', distance: '14.5 miles', registered: 4000, finished: big, color: '#008bc7', start: 'Clydebank' },
-            { name: 'Wee Wander', distance: '3 miles', registered: 3500, finished: wee, color: '#006a47', start: 'Loch Lomond' },
+            { name: 'Mighty Stride', distance: '18 miles', registered: 2500, finished: mighty, color: '#e63b2b', start: 'Bellfield Park, Banchory' },
+            { name: 'Wee Wander', distance: '4 miles', registered: 2000, finished: wee, color: '#006a47', start: 'Cults Academy' },
           ],
         }),
       });
@@ -34,11 +32,11 @@ function RouteStatsControl() {
   };
 
   const presets = [
-    { label: 'Early (10%)', m: 100, b: 200, w: 100, p: 80 },
-    { label: 'Mid (30%)', m: 400, b: 1200, w: 800, p: 180 },
-    { label: 'Peak (60%)', m: 1200, b: 2800, w: 2500, p: 320 },
-    { label: 'Late (85%)', m: 2000, b: 3600, w: 3200, p: 150 },
-    { label: 'Done (98%)', m: 2450, b: 3900, w: 3450, p: 40 },
+    { label: 'Early (10%)', m: 250, w: 200, p: 80 },
+    { label: 'Mid (30%)', m: 750, w: 600, p: 180 },
+    { label: 'Peak (60%)', m: 1500, w: 1200, p: 320 },
+    { label: 'Late (85%)', m: 2100, w: 1700, p: 150 },
+    { label: 'Done (98%)', m: 2450, w: 1950, p: 40 },
   ];
 
   return (
@@ -48,23 +46,18 @@ function RouteStatsControl() {
       {/* Quick presets */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {presets.map(p => (
-          <button key={p.label} onClick={() => { setMighty(p.m); setBig(p.b); setWee(p.w); setPace(p.p); }}
+          <button key={p.label} onClick={() => { setMighty(p.m); setWee(p.w); setPace(p.p); }}
             className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 transition-all">
             {p.label}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mb-3">
+      <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="text-[10px] text-red-400 font-bold uppercase block mb-1">Mighty Stride</label>
           <input type="number" value={mighty} onChange={e => setMighty(parseInt(e.target.value) || 0)}
             className="w-full bg-gray-800 rounded-lg px-3 py-2 text-white text-center font-bold border border-red-900 focus:border-red-500 outline-none" />
-        </div>
-        <div>
-          <label className="text-[10px] text-blue-400 font-bold uppercase block mb-1">Big Stroll</label>
-          <input type="number" value={big} onChange={e => setBig(parseInt(e.target.value) || 0)}
-            className="w-full bg-gray-800 rounded-lg px-3 py-2 text-white text-center font-bold border border-blue-900 focus:border-blue-500 outline-none" />
         </div>
         <div>
           <label className="text-[10px] text-green-400 font-bold uppercase block mb-1">Wee Wander</label>

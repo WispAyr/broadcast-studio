@@ -9,3 +9,14 @@ client/dist/
 .env
 .DS_Store
 *.log
+
+# stray DB files outside server/data/
+*.db
+*.db-wal
+*.db-shm
+# macOS AppleDouble + editor/backup cruft
+._*
+*.bak
+*.bak-*
+dist.bak.*
+_*_bak_*

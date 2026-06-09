@@ -2,9 +2,8 @@ import React from 'react';
 
 export default function KiltwalkRouteModule({ config = {} }) {
   const routes = config.routes || [
-    { name: 'Mighty Stride', distance: '23 miles', registered: 2500, finished: 0, color: '#e63b2b', start: 'Glasgow Green' },
-    { name: 'Big Stroll', distance: '14.5 miles', registered: 4000, finished: 0, color: '#008bc7', start: 'Clydebank' },
-    { name: 'Wee Wander', distance: '3 miles', registered: 3500, finished: 0, color: '#006a47', start: 'Loch Lomond Shores' },
+    { name: 'Mighty Stride', distance: '18 miles', registered: 2500, finished: 0, color: '#e63b2b', start: 'Bellfield Park, Banchory' },
+    { name: 'Wee Wander', distance: '4 miles', registered: 2000, finished: 0, color: '#006a47', start: 'Cults Academy' },
   ];
   const logo = config.logo || '/assets/kiltwalk/logo.svg';
   const totalReg = routes.reduce((s, r) => s + (r.registered || 0), 0);

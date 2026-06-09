@@ -1,15 +1,18 @@
 /**
- * Van CSU Overview — live telemetry layout for the CSU van display.
+ * Van CSU Overview — composite live layout for the in-van display.
  *
- * Replaces the previous all-static "30 FPS / CPU 24% / SESSION CSU-------" mock
- * with real sources:
- *   - prism-lens van-link-watch (Starlink/WG link health)
- *   - iframe of broadcast.studio.wispayr.online/player/van-spectrum/
- *     (already aggregates 11 prism lenses — RF, cameras, weather, AQI, radiation)
- *   - Clock + brand + title
+ * Replaces the previous "spectrum-iframe-eats-everything" layout with a
+ * CSU-tailored grid that surfaces what crew actually need at a glance:
+ *   - link health (prism van-link-watch)
+ *   - lightning risk + strike map (kiosk /api/lightning-risk + strike-map tab)
+ *   - on-site cameras + PTZ (kiosk cameras tab)
+ *   - incident log (kiosk incidents tab)
  *
- * Idempotent: reuses the existing "Van CSU Overview" layout + "Van — CSU Overview"
- * screen under the "CSU Deployment" studio; only replaces the modules array.
+ * The kiosk lives at http://10.42.42.162:8800 inside the van LAN; this
+ * layout iframes the relevant tab routes (deep-linked via #hash) so all
+ * the cache + offline behaviour comes for free.
+ *
+ * Idempotent: reuses "Van CSU Overview" layout + screen under "csu-deployment".
  *
  * Run: node server/src/seed-van-csu.js
  */
@@ -26,6 +29,10 @@ const STUDIO_SLUG = 'csu-deployment';
 const LAYOUT_NAME = 'Van CSU Overview';
 const SCREEN_NAME = 'Van — CSU Overview';
 
+// Halio kiosk URL — inside van LAN. Override via env when seeding from
+// somewhere that can't reach 10.42.42.162.
+const HALIO_KIOSK = process.env.HALIO_KIOSK || 'http://10.42.42.162:8800';
+
 const studio = db.prepare('SELECT id FROM studios WHERE slug = ?').get(STUDIO_SLUG);
 if (!studio) {
   console.error(`[abort] studio '${STUDIO_SLUG}' not found — run the CSU studio seed first.`);
@@ -34,13 +41,12 @@ if (!studio) {
 const studioId = studio.id;
 
 const modules = [
+  // Top strip: brand · clock · live link health
   {
-    id: 'mod_csu_brand',
-    type: 'text',
+    id: 'mod_csu_brand', type: 'text',
     x: 0, y: 0, w: 4, h: 1,
     config: {
-      text: 'CSU / VAN-01',
-      subtitle: 'CONTROL · SUPPORT · UNIT',
+      text: 'CSU / VAN-01', subtitle: 'CONTROL · SUPPORT · UNIT',
       align: 'left', vertAlign: 'center',
       color: '#FFB020', fontSize: '1.4rem', fontWeight: '700',
       letterSpacing: '3px', textTransform: 'uppercase',
@@ -49,21 +55,23 @@ const modules = [
     },
   },
   {
-    id: 'mod_csu_title',
-    type: 'text',
-    x: 4, y: 0, w: 4, h: 1,
+    id: 'mod_csu_link', type: 'prism-lens',
+    x: 4, y: 0, w: 5, h: 1,
     config: {
-      text: 'VAN OPERATIONS · LIVE',
-      align: 'center', vertAlign: 'center',
-      color: '#7A8196', fontSize: '0.85rem',
-      letterSpacing: '6px', textTransform: 'uppercase',
-      fontWeight: '600', background: '#0A0E1A',
+      title: 'LINK',
+      endpoint: 'van-link-watch',
+      display: 'inline',
+      fields: ['health_label', 'signal_dbm', 'capacity_mbps', 'flaps_1h', 'van_wan_status'],
+      fieldLabels: {
+        health_label: 'HEALTH', signal_dbm: 'SIG', capacity_mbps: 'CAP',
+        flaps_1h: 'FLAPS', van_wan_status: 'WAN',
+      },
+      color: '#FFB020', refreshSecs: 30,
     },
   },
   {
-    id: 'mod_csu_clock',
-    type: 'clock',
-    x: 8, y: 0, w: 4, h: 1,
+    id: 'mod_csu_clock', type: 'clock',
+    x: 9, y: 0, w: 3, h: 1,
     config: {
       timezone: 'Europe/London',
       format24h: true, showSeconds: true, showDate: true,
@@ -71,55 +79,29 @@ const modules = [
     },
   },
 
-  // Left column: live link status from prism van-link-watch lens
+  // Main grid: weather/risk + strike map + cameras + incidents
+  // Top half: weather (left big) + strike map (right)
   {
-    id: 'mod_csu_link',
-    type: 'prism-lens',
-    x: 0, y: 1, w: 4, h: 4,
-    config: {
-      title: 'LINK STATUS',
-      endpoint: 'van-link-watch',
-      display: 'list',
-      fields: ['health_label', 'link_up', 'signal_dbm', 'ccq_pct', 'capacity_mbps', 'flaps_1h', 'van_wan_status', 'van_upstream_via'],
-      fieldLabels: {
-        health_label: 'HEALTH',
-        link_up: 'LINK UP',
-        signal_dbm: 'SIGNAL (dBm)',
-        ccq_pct: 'CCQ %',
-        capacity_mbps: 'CAPACITY (Mbps)',
-        flaps_1h: 'FLAPS/1h',
-        van_wan_status: 'WAN',
-        van_upstream_via: 'UPSTREAM',
-      },
-      color: '#FFB020',
-      refreshSecs: 30,
-    },
+    id: 'mod_csu_weather', type: 'iframe',
+    x: 0, y: 1, w: 7, h: 4,
+    config: { url: `${HALIO_KIOSK}/#weather`, refreshInterval: 0 },
+  },
+  {
+    id: 'mod_csu_strike_map', type: 'iframe',
+    x: 7, y: 1, w: 5, h: 4,
+    config: { url: `${HALIO_KIOSK}/#strike-map`, refreshInterval: 0 },
   },
 
-  // Left bottom: static ref info that rarely changes
+  // Bottom half: cameras (left wide) + incidents (right)
   {
-    id: 'mod_csu_refs',
-    type: 'text',
-    x: 0, y: 5, w: 4, h: 3,
-    config: {
-      text: 'NODE',
-      subtitle: 'WireGuard       10.200.0.20\nVan LAN         192.168.1.0/24\nNVR RTSP        192.168.1.56:554\nHub             small-server\nReticulum       TCP :4965',
-      align: 'left', vertAlign: 'top',
-      color: '#FFB020', fontSize: '0.85rem', fontWeight: '700',
-      letterSpacing: '3px', textTransform: 'uppercase',
-      background: '#12172B', padding: '1rem 1.2rem', whiteSpace: 'pre-line',
-    },
+    id: 'mod_csu_cameras', type: 'iframe',
+    x: 0, y: 5, w: 7, h: 3,
+    config: { url: `${HALIO_KIOSK}/#cameras`, refreshInterval: 0 },
   },
-
-  // Right side: Spectrum Dominance dashboard (aggregates RF, cameras, weather lenses)
   {
-    id: 'mod_csu_spectrum',
-    type: 'iframe',
-    x: 4, y: 1, w: 8, h: 7,
-    config: {
-      url: 'https://broadcast.studio.wispayr.online/player/van-spectrum/',
-      refreshInterval: 0,
-    },
+    id: 'mod_csu_incidents', type: 'iframe',
+    x: 7, y: 5, w: 5, h: 3,
+    config: { url: `${HALIO_KIOSK}/#incidents`, refreshInterval: 0 },
   },
 ];
 
@@ -155,7 +137,8 @@ if (screen) {
 
 console.log('');
 console.log('─'.repeat(60));
-console.log('Van CSU Overview wired to live sources.');
+console.log('Van CSU Overview wired to halio kiosk composite.');
+console.log(`Kiosk base:           ${HALIO_KIOSK}`);
 console.log(`Open on van display:  /screen/${screenId}`);
 console.log('─'.repeat(60));
 

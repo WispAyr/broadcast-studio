@@ -54,7 +54,7 @@ function setCache(key, data) {
 }
 
 // RSS proxy: /api/proxy/rss?url=
-router.get('/rss', authenticate, async (req, res) => {
+router.get('/rss', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url parameter required' });
   if (isPrivateUrl(url)) return res.status(403).json({ error: 'Blocked: private/internal URL' });
@@ -85,7 +85,7 @@ router.get('/rss', authenticate, async (req, res) => {
 });
 
 // Generic fetch proxy: /api/proxy/fetch?url=
-router.get('/fetch', authenticate, async (req, res) => {
+router.get('/fetch', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url parameter required' });
   if (isPrivateUrl(url)) return res.status(403).json({ error: 'Blocked: private/internal URL' });
@@ -119,7 +119,7 @@ router.get('/fetch', authenticate, async (req, res) => {
 });
 
 // Weather proxy using Open-Meteo: /api/proxy/weather?lat=&lon=
-router.get('/weather', authenticate, async (req, res) => {
+router.get('/weather', async (req, res) => {
   const { lat, lon } = req.query;
   if (!lat || !lon) return res.status(400).json({ error: 'lat and lon parameters required' });
 

@@ -19,7 +19,8 @@ const navItems = [
   { path: 'variables', label: 'Variables', icon: 'variables' },
   { path: 'settings', label: 'Settings', icon: 'settings' },
   { path: 'egpk', label: 'EGPK Live', icon: 'plane' },
-  { path: 'autocue', label: 'Autocue', icon: 'autocue' }
+  { path: 'autocue', label: 'Autocue', icon: 'autocue' },
+  { path: 'kiltwalk', label: 'Kiltwalk Ops', icon: 'plane' }
 ];
 
 const iconMap = {

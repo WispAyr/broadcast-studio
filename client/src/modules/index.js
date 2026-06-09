@@ -1,4 +1,10 @@
 import ClockModule from './ClockModule';
+import PavilionNowNextModule from './PavilionNowNextModule';
+import PavilionTimelineModule from './PavilionTimelineModule';
+import PavilionNext90Module from './PavilionNext90Module';
+import PavilionWelcomeModule from './PavilionWelcomeModule';
+import PavilionSafetyModule from './PavilionSafetyModule';
+import PavilionSponsorModule from './PavilionSponsorModule';
 import CountdownModule from './CountdownModule';
 import ImageModule from './ImageModule';
 import VideoModule from './VideoModule';
@@ -50,6 +56,12 @@ import KiltwalkLogoAnimModule from './KiltwalkLogoAnimModule';
 import SiphonDataModule from './SiphonDataModule';
 import PrismLensModule from './PrismLensModule';
 import EMGlobeModule from './EMGlobeModule';
+import Go2rtcFeedModule from './Go2rtcFeedModule';
+import IngestFeedModule from './IngestFeedModule';
+import IngestGridModule from './IngestGridModule';
+import CallGuestModule from './CallGuestModule';
+import CallGridModule from './CallGridModule';
+import TrafficAyrshireModule from './TrafficAyrshireModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -128,6 +140,28 @@ const moduleRegistry = {
   'em-globe-seismic': EMGlobeModule,
   'em-globe-flare-ops': EMGlobeModule,
   'em-globe-cycle': EMGlobeModule,
+  // go2rtc feed (WebRTC / MSE / MP4) — defaults to localhost:1984 for on-host displays (e.g. bravo)
+  go2rtc: Go2rtcFeedModule,
+  'go2rtc-feed': Go2rtcFeedModule,
+  'go2rtc-bravo': Go2rtcFeedModule,
+  // Ingest Centre — phone, YouTube, HLS, RTMP, iframe
+  'ingest-feed': IngestFeedModule,
+  ingest: IngestFeedModule,
+  // Live mosaic of all active ingest slots
+  'ingest-grid': IngestGridModule,
+  'fanzone-grid': IngestGridModule,
+  // studio-call — two-way remote video callers (LiveKit SFU)
+  'call-guest': CallGuestModule,
+  'call-grid': CallGridModule,
+  // Pavilion Festival 2026
+  pavilion_now_next: PavilionNowNextModule,
+  pavilion_timeline: PavilionTimelineModule,
+  pavilion_next_90: PavilionNext90Module,
+  pavilion_welcome: PavilionWelcomeModule,
+  pavilion_safety: PavilionSafetyModule,
+  pavilion_sponsor: PavilionSponsorModule,
+  // NAR Travel — embedded studio view
+  traffic_ayrshire: TrafficAyrshireModule,
 };
 
 export default moduleRegistry;

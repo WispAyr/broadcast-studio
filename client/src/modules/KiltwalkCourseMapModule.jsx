@@ -8,42 +8,31 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 const ROUTES = {
   mighty: {
-    name: 'Mighty Stride', distance: '23 miles', color: '#e63b2b',
-    start: 'Glasgow Green', startTime: '08:00', avgPaceMinPerMile: 20,
+    name: 'Mighty Stride', distance: '18 miles', color: '#e63b2b',
+    start: 'Bellfield Park, Banchory', startTime: '09:00', avgPaceMinPerMile: 20,
     points: [
-      [55.8492, -4.2368],[55.8558, -4.2720],[55.8603, -4.2985],[55.8649, -4.3195],
-      [55.8694, -4.3552],[55.8755, -4.3890],[55.8801, -4.4120],[55.8950, -4.4350],
-      [55.9110, -4.4720],[55.9230, -4.4950],[55.9350, -4.4980],[55.9430, -4.5250],
-      [55.9480, -4.5560],[55.9510, -4.5780],[55.9590, -4.5920],[55.9650, -4.5830],
-      [55.9870, -4.5830],[55.9920, -4.5780],
-    ],
-  },
-  big: {
-    name: 'Big Stroll', distance: '14.5 miles', color: '#008bc7',
-    start: 'Clydebank', startTime: '09:00', avgPaceMinPerMile: 22,
-    points: [
-      [55.8950, -4.4350],[55.9110, -4.4720],[55.9230, -4.4950],[55.9350, -4.4980],
-      [55.9430, -4.5250],[55.9480, -4.5560],[55.9510, -4.5780],[55.9590, -4.5920],
-      [55.9650, -4.5830],[55.9870, -4.5830],[55.9920, -4.5780],
+      [57.0530, -2.4880],[57.0590, -2.4550],[57.0640, -2.4350],[57.0750, -2.3850],
+      [57.0860, -2.3400],[57.0900, -2.3160],[57.0940, -2.2880],[57.0985, -2.2640],
+      [57.1050, -2.2350],[57.1150, -2.2050],[57.1240, -2.1810],[57.1280, -2.1500],
+      [57.1300, -2.1230],[57.1290, -2.1000],
     ],
   },
   wee: {
-    name: 'Wee Wander', distance: '3 miles', color: '#006a47',
-    start: 'Loch Lomond Shores', startTime: '10:00', avgPaceMinPerMile: 25,
+    name: 'Wee Wander', distance: '4 miles', color: '#006a47',
+    start: 'Cults Academy', startTime: '10:30', avgPaceMinPerMile: 25,
     points: [
-      [55.9870, -4.5830],[55.9890, -4.5810],[55.9900, -4.5790],[55.9910, -4.5780],[55.9920, -4.5780],
+      [57.1240, -2.1810],[57.1270, -2.1600],[57.1290, -2.1380],[57.1300, -2.1180],[57.1290, -2.1000],
     ],
   },
 };
 
 const CHECKPOINTS = [
-  { name: 'Glasgow Green', sub: 'Mighty Stride Start', lat: 55.8492, lng: -4.2368, icon: '🏁', zoomDwell: 3 },
-  { name: 'The Hydro', sub: 'Water Station', lat: 55.8649, lng: -4.3195, icon: '💧', zoomDwell: 2 },
-  { name: 'Clydebank', sub: 'Big Stroll Start', lat: 55.8950, lng: -4.4350, icon: '🏁', zoomDwell: 3 },
-  { name: 'Bowling Basin', sub: 'Forth & Clyde Canal', lat: 55.9350, lng: -4.4980, icon: '💧', zoomDwell: 2 },
-  { name: 'Dumbarton', sub: 'Castle View', lat: 55.9510, lng: -4.5780, icon: '🏰', zoomDwell: 2 },
-  { name: 'Loch Lomond Shores', sub: 'Wee Wander Start', lat: 55.9870, lng: -4.5830, icon: '🏁', zoomDwell: 3 },
-  { name: 'Moss O\'Balloch', sub: 'FINISH LINE', lat: 55.9920, lng: -4.5780, icon: '🏆', zoomDwell: 4 },
+  { name: 'Bellfield Park', sub: 'Mighty Stride Start', lat: 57.0530, lng: -2.4880, icon: '🏁', zoomDwell: 3 },
+  { name: 'Crathes Castle', sub: 'Deeside Way', lat: 57.0640, lng: -2.4350, icon: '🏰', zoomDwell: 2 },
+  { name: 'Drumoak', sub: 'Water Station', lat: 57.0900, lng: -2.3160, icon: '💧', zoomDwell: 2 },
+  { name: 'Peterculter', sub: 'Water Station', lat: 57.0985, lng: -2.2640, icon: '💧', zoomDwell: 2 },
+  { name: 'Cults Academy', sub: 'Wee Wander Start', lat: 57.1240, lng: -2.1810, icon: '🏁', zoomDwell: 3 },
+  { name: 'Duthie Park', sub: 'FINISH LINE', lat: 57.1290, lng: -2.1000, icon: '🏆', zoomDwell: 4 },
 ];
 
 // Build a single continuous path for the flyover camera to follow (mighty route)
@@ -254,10 +243,10 @@ function FlyoverView({ config }) {
           }} />
         </div>
         <div className="flex justify-between mt-1.5 text-[10px] font-bold text-white/30">
-          <span>Glasgow Green</span>
-          <span>Clydebank</span>
-          <span>Dumbarton</span>
-          <span>Balloch</span>
+          <span>Banchory</span>
+          <span>Drumoak</span>
+          <span>Cults</span>
+          <span>Aberdeen</span>
         </div>
       </div>
 
@@ -285,7 +274,7 @@ function FlyoverView({ config }) {
 
 function OverviewView({ config }) {
   const [now, setNow] = useState(new Date());
-  const eventDate = config.eventDate || '2026-04-25';
+  const eventDate = config.eventDate || '2026-06-07';
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 10000);

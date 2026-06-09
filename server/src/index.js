@@ -60,6 +60,7 @@ app.use("/api/egpk", require("./routes/egpk"));
 app.use('/api/nuro', require('./routes/nuro'));
 app.use('/api/display-nodes', require('./routes/display-nodes'));
 app.use('/api/scenes', require('./routes/scenes'));
+app.use('/api/pavilion-festival', require('./routes/pavilion-festival'));
 // Banner/emergency push + scheduled layout changes (Kiltwalk live-event ops).
 const broadcastRoutes = require('./routes/broadcast');
 app.use('/api/broadcast', broadcastRoutes.router);
@@ -159,14 +160,17 @@ app.post('/api/timeline/resume', authenticate, (req, res) => {
 
 // Siphon data proxy — avoids CORS issues for screen modules
 
+const SIPHON_BASE = 'https://siphon.wispayr.online';
 const SIPHON_ENDPOINTS = {
-  weather: 'http://142.202.191.208:3882/api/weather/ayr',
-  aqi: 'http://142.202.191.208:3882/api/weather/ayr',
-  marine: 'http://142.202.191.208:3882/api/marine',
-  radiation: 'http://142.202.191.208:3882/api/radiation/monitors',
-  grid: 'http://142.202.191.208:3882/api/grid/frequency',
-  proton: 'http://142.202.191.208:3882/api/proton-flux',
-  earthquakes: 'http://142.202.191.208:3882/api/earthquakes',
+  weather: SIPHON_BASE + '/api/weather/ayr',
+  aqi: SIPHON_BASE + '/api/weather/ayr',
+  marine: SIPHON_BASE + '/api/marine',
+  radiation: SIPHON_BASE + '/api/radiation/monitors',
+  grid: SIPHON_BASE + '/api/grid/frequency',
+  proton: SIPHON_BASE + '/api/proton-flux',
+  earthquakes: SIPHON_BASE + '/api/earthquakes',
+  'aviation-adsb': SIPHON_BASE + '/api/aviation/adsb',
+  'van-pager-pocsag': SIPHON_BASE + '/api/pager',
 };
 app.get('/api/siphon-proxy/:preset', async (req, res) => {
   const preset = req.params.preset;

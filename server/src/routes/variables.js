@@ -13,7 +13,15 @@ const {
   getApiKeysByStudio,
   createApiKey,
   revokeApiKey,
+  setCounter,
 } = require('../db');
+
+// Variables that should mirror to legacy module-counter store so on-screen
+// modules listening on `update_module_config` stay in sync with control-panel
+// variable bumps. Map: variable id → module id.
+const COUNTER_MIRROR = {
+  'kiltwalk:finishers': 'kiltwalk-finisher-counter',
+};
 const { optionalAuthenticate } = require('../middleware/auth');
 const { requireStudioAuth, generateKey } = require('../middleware/apiKey');
 
@@ -25,13 +33,19 @@ router.use(optionalAuthenticate, requireStudioAuth);
 function emitVariableUpdate(studioId, variable) {
   try {
     const { getIO } = require('../ws');
-    getIO().to(`studio:${studioId}`).emit('variable_update', {
+    const io = getIO();
+    io.to(`studio:${studioId}`).emit('variable_update', {
       id: variable.id,
       name: variable.name,
       kind: variable.kind,
       value: variable.value,
       timestamp: Date.now(),
     });
+    const moduleId = COUNTER_MIRROR[variable.id];
+    if (moduleId && typeof variable.value === 'number') {
+      setCounter(moduleId, variable.value);
+      io.emit('update_module_config', { moduleId, config: { count: variable.value } });
+    }
   } catch {}
 }
 
