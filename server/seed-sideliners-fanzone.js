@@ -150,9 +150,30 @@ try {
       { label: 'Clear GFX', icon: '🧹', color: SLATE, action: 'clear_overlays', payload: {} },
       { label: 'Blackout', icon: '⬛', color: '#111827', action: 'blackout', confirm: 1, payload: {} },
     ];
+
+    // ── Per-player GOAL buttons (likely scorers) → fire the goalscorer lower-third ──
+    const ph = (slug, has) => (has ? `/uploads/${studioId}/players/${slug}.jpg` : null);
+    const SCORERS = [
+      { team: 'SCO', name: 'John McGinn', number: 7, pos: 'MF', club: 'Aston Villa', caps: 86, intlGoals: 20, role: 'Top scorer', photo: ph('john-mcginn', 1) },
+      { team: 'SCO', name: 'Scott McTominay', number: 4, pos: 'MF', club: 'Napoli', caps: 70, intlGoals: 15, role: 'Key man', photo: ph('scott-mctominay', 1) },
+      { team: 'SCO', name: 'Che Adams', number: 10, pos: 'FW', club: 'Torino', caps: 47, intlGoals: 13, role: '', photo: ph('che-adams', 1) },
+      { team: 'SCO', name: 'Lawrence Shankland', number: 20, pos: 'FW', club: 'Hearts', caps: 20, intlGoals: 7, role: '', photo: ph('lawrence-shankland', 1) },
+      { team: 'SCO', name: 'Lyndon Dykes', number: 9, pos: 'FW', club: 'Charlton Athletic', caps: 51, intlGoals: 10, role: '', photo: ph('lyndon-dykes', 1) },
+      { team: 'SCO', name: 'Ben Doak', number: 17, pos: 'MF', club: 'Bournemouth', caps: 14, intlGoals: 1, role: 'Key man', photo: ph('ben-doak', 1) },
+      { team: 'HAI', name: 'Duckens Nazon', number: 9, pos: 'FW', club: 'Esteghlal', caps: 78, intlGoals: 44, role: 'Top scorer', photo: null },
+      { team: 'HAI', name: 'Frantzdy Pierrot', number: 20, pos: 'FW', club: 'Çaykur Rizespor', caps: 51, intlGoals: 34, role: 'Key man', photo: null },
+      { team: 'HAI', name: 'Wilson Isidor', number: 18, pos: 'FW', club: 'Sunderland', caps: 4, intlGoals: 2, role: 'Key man', photo: ph('wilson-isidor', 1) },
+      { team: 'HAI', name: 'Jean-Ricner Bellegarde', number: 10, pos: 'MF', club: 'Wolves', caps: 10, intlGoals: 0, role: 'Key man', photo: ph('jean-ricner-bellegarde', 1) },
+    ];
+    for (const p of SCORERS) {
+      const surname = p.name.split(' ').slice(1).join(' ') || p.name;
+      btns.push({ label: surname, sublabel: 'GOAL', icon: '⚽', color: p.team === 'SCO' ? '#0a2a66' : '#d2384f',
+        action: 'push_overlay', payload: { overlay: { type: 'goal', player: p, layout: 'lower', duration: 12 } } });
+    }
+
     const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');
-    btns.forEach((b, i) => ins.run(uuid(), studioId, b.label, null, b.icon, b.color, b.action, JSON.stringify(b.payload || {}), b.confirm || 0, i));
-    console.log(`[console] seeded ${btns.length} producer buttons`);
+    btns.forEach((b, i) => ins.run(uuid(), studioId, b.label, b.sublabel || null, b.icon, b.color, b.action, JSON.stringify(b.payload || {}), b.confirm || 0, i));
+    console.log(`[console] seeded ${btns.length} producer buttons (incl ${SCORERS.length} goal)`);
   }
 } catch (e) { console.warn('[console] button seed skipped:', e.message); }
 

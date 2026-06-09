@@ -101,6 +101,15 @@ export const PANELS = [
     color: 'cyan',
     description: 'Fire fact + stat lower-thirds',
   },
+  {
+    id: 'rundown',
+    label: 'Rundown',
+    icon: '📅',
+    defaultZone: 'left',
+    defaultVisible: false,
+    color: 'yellow',
+    description: 'Scheduled run of show — fire now / skip',
+  },
 ];
 
 // Built-in workspace presets

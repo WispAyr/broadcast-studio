@@ -13,6 +13,7 @@ import PreviewProgram from './components/PreviewProgram';
 import OverlayPanel from './components/OverlayPanel';
 import MacroGrid from './components/MacroGrid';
 import CueList from './components/CueList';
+import RundownPanel from './components/RundownPanel';
 import TransitionControls from './components/TransitionControls';
 import ClockTally from './components/ClockTally';
 import ModuleConfigPanel from './components/ModuleConfigPanel';
@@ -86,7 +87,7 @@ export default function LiveMode() {
 
   // Panel visibility helpers
   const isVisible = (id) => panels[id]?.visible;
-  const hasLeft = isVisible('cueList');
+  const hasLeft = isVisible('cueList') || isVisible('rundown');
   const visibleModuleConfigs = moduleConfigs.filter(mc => !hiddenModuleConfigs[mc.moduleId]);
   const hasRight = isVisible('overlays') || isVisible('macros') || isVisible('soundboard') || isVisible('squads') || isVisible('gfx') || visibleModuleConfigs.length > 0;
   const hasTop = isVisible('pvwPgm') || isVisible('transitions') || isVisible('clockTally');
@@ -181,6 +182,11 @@ export default function LiveMode() {
                   transitionType={transitionType}
                   transitionDuration={transitionDuration}
                 />
+              </PanelShell>
+            )}
+            {isVisible('rundown') && (
+              <PanelShell title="Rundown" icon="📅" color="yellow" onClose={() => setPanelVisible('rundown', false)}>
+                <RundownPanel inShell studioId={studioId} layouts={layouts} screens={screens} onPushLayout={handleHotbarPush} />
               </PanelShell>
             )}
           </div>
