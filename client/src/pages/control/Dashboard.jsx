@@ -310,9 +310,13 @@ export default function Dashboard() {
             ? 'border-emerald-800/40 bg-emerald-950/20'
             : 'border-gray-800/50 bg-gray-900/40'
         }`}>
-          <button
+          {/* div+role, not <button> — it contains the Send Alert button and
+              nested <button>s are invalid HTML (React validateDOMNesting). */}
+          <div
+            role="button" tabIndex={0}
             onClick={() => setNuroExpanded(v => !v)}
-            className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium transition-colors hover:bg-white/5"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNuroExpanded(v => !v); } }}
+            className="w-full flex items-center justify-between px-5 py-3 text-sm font-medium transition-colors hover:bg-white/5 cursor-pointer select-none"
           >
             <div className="flex items-center gap-2.5">
               <span className="text-base">⬡</span>
@@ -336,7 +340,7 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
-          </button>
+          </div>
           {nuroExpanded && (
             <div className="border-t border-gray-800/50">
               {!nuroAvailable ? (

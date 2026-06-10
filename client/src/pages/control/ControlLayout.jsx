@@ -163,14 +163,6 @@ function ControlLayoutInner() {
   // ── STUDIO MODE (existing layout) ──
   return (
     <div className="flex h-screen bg-gray-950">
-      {/* Mobile hamburger */}
-      <button onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-300">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
-        </svg>
-      </button>
-
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-30" onClick={() => setSidebarOpen(false)} />}
 
@@ -315,10 +307,22 @@ function ControlLayoutInner() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 bg-gray-950 overflow-y-auto hide-scrollbar">
-        <Outlet />
-      </main>
+      {/* Main content — on mobile a slim top bar hosts the menu button so it
+          never floats over page headings; on lg+ the sidebar is always shown. */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="lg:hidden flex items-center gap-3 px-4 h-12 bg-gray-900/95 border-b border-gray-800 shrink-0 sticky top-0 z-30">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 rounded-lg text-gray-300 hover:bg-gray-800" aria-label="Toggle menu">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
+            </svg>
+          </button>
+          <span className="text-sm font-bold text-white">Broadcast Studio</span>
+          <span className="text-xs text-gray-500 truncate">{studioName}</span>
+        </div>
+        <main className="flex-1 bg-gray-950 overflow-y-auto hide-scrollbar">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

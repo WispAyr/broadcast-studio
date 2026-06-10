@@ -6,6 +6,7 @@ import MediaPicker from '../../components/MediaPicker';
 import { getLayers, layersToStorage, createLayer, BLEND_MODES, CHROMA_PRESETS } from '../../lib/layers';
 import { RemotionModuleConfig } from '../../modules/RemotionModule';
 import { useToast } from '../../components/Toast';
+import LayoutThumb from '../../components/LayoutThumb';
 import { confirmAsync } from '../../lib/dialog';
 
 // ─── Module type icons ──────────────────────────────────────────────────────
@@ -590,22 +591,6 @@ function ContextMenu({ x, y, onRename, onDuplicate, onDelete, onClose }) {
   );
 }
 
-// ─── Layout thumbnail mini-preview ─────────────────────────────────────────
-function LayoutThumbnail({ gridCols, gridRows }) {
-  const cols = Math.min(gridCols || 3, 6);
-  const rows = Math.min(gridRows || 2, 4);
-  return (
-    <div
-      className="w-10 h-7 rounded border border-gray-700 overflow-hidden bg-gray-950 shrink-0"
-      style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)`, gap: '1px' }}
-    >
-      {Array.from({ length: cols * rows }).map((_, i) => (
-        <div key={i} className="bg-gray-800/70 rounded-sm" />
-      ))}
-    </div>
-  );
-}
-
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function Layouts() {
   const toast = useToast();
@@ -1011,7 +996,7 @@ export default function Layouts() {
                               onClick={() => !isRenaming && setSelectedId(layout.id)}
                               onDoubleClick={() => startRename(layout.id, layout.name)}
                             >
-                              <LayoutThumbnail gridCols={layout.grid_cols} gridRows={layout.grid_rows} />
+                              <LayoutThumb layout={layout} className="w-12 h-7" />
 
                               <div className="flex-1 min-w-0">
                                 {isRenaming ? (

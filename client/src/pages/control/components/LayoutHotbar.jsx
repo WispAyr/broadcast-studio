@@ -1,7 +1,10 @@
 import React from 'react';
+import LayoutThumb from '../../../components/LayoutThumb';
 
 export default function LayoutHotbar({ layouts, liveLayoutId, onPush, onBlackout, onQuickText, blackoutActive }) {
   const filtered = layouts.filter(l => !l.name?.includes('Blackout'));
+  // The thumbnail now carries identity — drop the noisy "Card — " name prefix.
+  const shortName = (n = '') => n.replace(/^Card — /, '');
 
   return (
     <div className="px-4 py-3">
@@ -12,13 +15,8 @@ export default function LayoutHotbar({ layouts, liveLayoutId, onPush, onBlackout
             <button key={layout.id} onClick={() => onPush(layout.id)}
               className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all border ${isLive ? 'bg-green-900/30 border-green-500/50 shadow-lg shadow-green-500/20' : 'bg-gray-800/60 border-gray-700/50 hover:bg-gray-700/60 hover:border-gray-600'}`}
               style={{ minWidth: 90 }}>
-              <div className="w-16 h-10 rounded border border-gray-700 overflow-hidden bg-gray-950"
-                style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(layout.grid_cols || 3, 6)}, 1fr)`, gridTemplateRows: `repeat(${Math.min(layout.grid_rows || 2, 4)}, 1fr)`, gap: '1px' }}>
-                {Array.from({ length: Math.min((layout.grid_cols || 3) * (layout.grid_rows || 2), 24) }).map((_, j) => (
-                  <div key={j} className="bg-gray-800/70 rounded-sm" />
-                ))}
-              </div>
-              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: isLive ? '#4ade80' : '#9ca3af' }}>{layout.name}</span>
+              <LayoutThumb layout={layout} className="w-16 h-10" />
+              <span className="text-[10px] font-medium truncate max-w-[80px]" style={{ color: isLive ? '#4ade80' : '#9ca3af' }} title={layout.name}>{shortName(layout.name)}</span>
               {isLive && <span className="text-[9px] font-bold text-green-400 uppercase tracking-wider px-1.5 py-0.5 bg-green-500/20 rounded-full" style={{ textShadow: '0 0 8px rgba(74,222,128,0.5)' }}>LIVE</span>}
               {i < 9 && <span className="text-[9px] text-gray-600 font-mono">{i + 1}</span>}
             </button>

@@ -3,8 +3,8 @@ import ModuleRenderer from './ModuleRenderer';
 import ErrorBoundary from './ErrorBoundary';
 import { getLayers } from '../lib/layers';
 
-// ─── Module type metadata (used only by the schematic fallback) ─────────────
-const MODULE_COLORS = {
+// ─── Module type metadata (shared with LayoutThumb's footprint blocks) ──────
+export const MODULE_COLORS = {
   clock: '#3b82f6', time: '#3b82f6', time_local: '#3b82f6',
   weather: '#06b6d4', weather_radar: '#06b6d4',
   text: '#8b5cf6', live_text: '#a855f7', autocue: '#a855f7',

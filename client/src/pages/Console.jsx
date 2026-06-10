@@ -151,11 +151,15 @@ export default function Console() {
               const live = state?.on_air_layout_id && btn.action_type === 'take_layout' && btn.action_payload?.layout_id === state.on_air_layout_id;
               const f = flash[btn.id];
               const base = btn.color || '#334155';
+              // An icon that is a URL renders as card art filling the button —
+              // used by the TV-card buttons so the presenter scans artwork, not
+              // a wall of identical emoji tiles.
+              const artIcon = typeof btn.icon === 'string' && (btn.icon.startsWith('/') || btn.icon.startsWith('http'));
               return (
                 <button
                   key={btn.id}
                   onClick={() => onPress(btn)}
-                  className="relative rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 transition-all active:scale-[0.97] focus:outline-none"
+                  className="relative overflow-hidden rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2 transition-all active:scale-[0.97] focus:outline-none"
                   style={{
                     minHeight: 130,
                     background: `linear-gradient(160deg, ${base}, ${darken(base, 0.7)})`,
@@ -163,11 +167,18 @@ export default function Console() {
                     border: '1px solid rgba(255,255,255,0.08)',
                   }}
                 >
-                  {live && <span className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-widest bg-white text-black px-1.5 py-0.5 rounded">LIVE</span>}
-                  {btn.confirm && <span className="absolute top-2 left-2 text-[10px]" title="Confirms before firing">🔒</span>}
-                  <div className="text-4xl leading-none drop-shadow">{btn.icon || '⬜'}</div>
-                  <div className="text-base font-black leading-tight" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{btn.label}</div>
-                  {btn.sublabel && <div className="text-[11px] text-white/70 leading-tight">{btn.sublabel}</div>}
+                  {artIcon && (
+                    <>
+                      <img src={btn.icon} alt="" loading="lazy" draggable={false}
+                        className="absolute inset-0 w-full h-full object-cover" />
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 35%, rgba(8,6,18,0.92) 100%)' }} />
+                    </>
+                  )}
+                  {live && <span className="absolute top-2 right-2 z-10 text-[9px] font-black uppercase tracking-widest bg-white text-black px-1.5 py-0.5 rounded">LIVE</span>}
+                  {btn.confirm && <span className="absolute top-2 left-2 z-10 text-[10px]" title="Confirms before firing">🔒</span>}
+                  {artIcon ? <div className="flex-1" /> : <div className="text-4xl leading-none drop-shadow">{btn.icon || '⬜'}</div>}
+                  <div className="relative z-10 text-base font-black leading-tight" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{btn.label}</div>
+                  {btn.sublabel && <div className="relative z-10 text-[11px] text-white/70 leading-tight">{btn.sublabel}</div>}
                   {f && (
                     <div className="absolute inset-0 rounded-2xl flex items-center justify-center text-3xl"
                       style={{ background: f === 'err' ? 'rgba(190,18,60,0.85)' : f === 'ok' ? 'rgba(22,163,74,0.85)' : 'rgba(0,0,0,0.5)' }}>
@@ -185,7 +196,9 @@ export default function Console() {
       {confirmBtn && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={() => setConfirmBtn(null)}>
           <div className="rounded-3xl p-8 max-w-md w-full text-center" style={{ background: '#16202b', border: '1px solid rgba(255,255,255,0.12)' }} onClick={e => e.stopPropagation()}>
-            <div className="text-6xl mb-3">{confirmBtn.icon || '⚠️'}</div>
+            {typeof confirmBtn.icon === 'string' && (confirmBtn.icon.startsWith('/') || confirmBtn.icon.startsWith('http'))
+              ? <img src={confirmBtn.icon} alt="" className="w-40 mx-auto mb-3 rounded-xl border border-white/10" />
+              : <div className="text-6xl mb-3">{confirmBtn.icon || '⚠️'}</div>}
             <h2 className="text-2xl font-black mb-1">{confirmBtn.label}?</h2>
             <p className="text-white/50 mb-6">{confirmBtn.sublabel || 'Confirm this action'}</p>
             <div className="grid grid-cols-2 gap-3">

@@ -164,8 +164,11 @@ for (const c of CARDS) {
     : c.kind === 'contact' ? 'Contact card'
     : c.kind === 'overnight' ? 'Overnight ident'
     : 'Promo card';
-  insBtn.run(uuidv4(), studioId, c.name.length > 26 ? c.name.slice(0, 25) + '…' : c.name,
-    sub, '📺', c.kind === 'show' ? NAVY : SLATE, 'card_wall_take',
+  // Short label (show name without the presenter suffix) + the card art as the
+  // button icon — the console renders URL icons as full-tile artwork.
+  const label = c.name.split(' — ')[0];
+  insBtn.run(uuidv4(), studioId, label, sub, urlFor(c),
+    c.kind === 'show' ? NAVY : SLATE, 'card_wall_take',
     JSON.stringify({ layout_id: layoutIdByKey[c.key] }), ++order);
 }
 console.log(`Seeded ${CARDS.length + 1} console override buttons`);
