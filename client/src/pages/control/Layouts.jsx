@@ -23,6 +23,7 @@ const MODULE_ICONS = {
   visualizer: '🎵',
   remotion: '🎬',
   canva: '🎨',
+  live_tv: '📺',
 };
 
 // Config field definitions per module type for friendly editing
@@ -161,6 +162,18 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'lon', label: 'Longitude', type: 'number', default: -4.63 },
     { key: 'zoom', label: 'Zoom', type: 'number', default: 9 },
     { key: 'src', label: 'Custom URL (optional)', type: 'text', default: '' },
+  ],
+  live_tv: [
+    { key: 'channel', label: 'Channel (key from /api/livetv)', type: 'select', options: ['bbc-one', 'stv', 'bbc-two', 'channel4'], default: 'bbc-one' },
+    { key: 'audio', label: 'Audio', type: 'select', options: [
+      { value: 'auto', label: 'Auto — sound on PA/audio-output screens only' },
+      { value: 'on', label: 'Always on' },
+      { value: 'off', label: 'Always muted' },
+    ], default: 'auto' },
+    { key: 'fit', label: 'Fit', type: 'select', options: ['cover', 'contain'], default: 'cover' },
+    { key: 'mode', label: 'Transport (blank = registry default)', type: 'select', options: ['', 'mse', 'webrtc', 'mp4'], default: '' },
+    { key: 'host', label: 'go2rtc host override (optional)', type: 'text', default: '' },
+    { key: 'showLabel', label: 'Channel chip', type: 'checkbox', default: true },
   ],
   camera_feed: [
     { key: 'src', label: 'Stream URL (HLS/MP4)', type: 'text', default: '' },

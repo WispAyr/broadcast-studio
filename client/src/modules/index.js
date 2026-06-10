@@ -69,6 +69,7 @@ import NARTrainsModule from './NARTrainsModule';
 import NARWarningsModule from './NARWarningsModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
+import LiveTVModule from './LiveTVModule';
 import MatchStatsModule from './MatchStatsModule';
 import ScotlandHero from './ScotlandHero';
 
@@ -188,6 +189,11 @@ const moduleRegistry = {
   audio: AudioModule,
   audio_bed: AudioModule,
   music_bed: AudioModule,
+  // Live TV — off-air channel via venue HDHomeRun → go2rtc relay (docs/TUNER.md).
+  // Channel registry lives at /api/livetv; module config just names a channel key.
+  live_tv: LiveTVModule,
+  livetv: LiveTVModule,
+  tv_channel: LiveTVModule,
   // Match stats / info screens (view: header|form|players|group|road|facts)
   match_stats: MatchStatsModule,
   // Scotland branding hero — animated saltire + tartan (high impact)

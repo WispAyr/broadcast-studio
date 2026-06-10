@@ -1,70 +1,82 @@
-# Off-air TV ingest (STV / BBC One) — Freeview/Freesat tuner
+# Off-air TV ingest — HDHomeRun → go2rtc → `live_tv` module
 
-STV Player and BBC iPlayer live are **Widevine-DRM'd and UK/Scotland geo-locked**,
-so they can't be pulled and restreamed. The clean, DRM-free, ToS-clean route is an
-**off-air tuner at the venue** (you're in Scotland — STV regionalises correctly and
-there's no geo issue). One aerial + tuner box covers both broadcasters:
+STV Player and BBC iPlayer live are **Widevine-DRM'd and geo/ToS-restricted**, so
+they can't be pulled and restreamed. The clean route is **off-air reception at
+the venue** (Scotland — STV regionalises correctly, no geo issue). The kit is a
+**SiliconDust HDHomeRun** (network DVB-T2 tuner, 4 concurrent channels) + aerial.
 
-| Channel | Freeview | Freesat |
-|---|---|---|
-| **STV** (ITV1 Scotland) | **103** | 103 |
-| **BBC One Scotland** | 1 / 101 | 101 |
+> Licensing for public showing at the venue: **TV Licence + MPLC + PPL PRS**
+> (TheMusicLicence). The tuner route itself is clean (no service ToS, no DRM
+> defeat). Never push off-air content to the YouTube tee or any public restream.
 
-> Licensing for public showing at the venue: **TV Licence + MPLC + PPL PRS** (TheMusicLicence). The tuner route itself is clean (no service ToS, no DRM defeat).
-
-## Topology (recommended: local at the venue)
+## Topology
 
 ```
-Aerial ─▶ USB DVB-T2 tuner ─▶ Tvheadend ─▶ ffmpeg ─▶ mediamtx ─▶ HLS ─▶ CameraFeedModule
-         (venue box / playout laptop, on the venue LAN)
+Aerial ─▶ HDHomeRun (LAN, :5004 HTTP MPEG-TS)
+            └▶ go2rtc on the venue relay Mac (ffmpeg deinterlace + videotoolbox)
+                 └▶ MSE/WebRTC ─▶ broadcast-studio `live_tv` module on every screen
 ```
 
-Run it on a box **at the venue** (the playout laptop or a mini-PC). The venue screens
-pull the HLS over the LAN — lowest latency, no internet round-trip. (You *can* push to
-big-server's mediamtx instead for remote screens, but for a fan-zone the local box is best.)
+Everything stays on the venue LAN — lowest latency, no internet round-trip, no
+cloud servers touching broadcast content.
 
-## Setup
+## Bring-up (one-time, ~10 min once the aerial works)
 
-**1. Tuner + Tvheadend** (handles DVB tuning + exposes an HTTP MPEG-TS per channel):
-```bash
-sudo apt install tvheadend       # web UI on :9981, run the channel scan, map STV + BBC One
-```
-Tvheadend then serves each channel as TS at e.g. `http://<box>:9981/stream/channelid/<id>`.
+1. Plug the HDHomeRun into the venue LAN + aerial, then from the relay Mac run:
+   ```bash
+   bash docs/hdhomerun-bringup-mac.sh
+   ```
+   It discovers the tuner, runs/uses the channel scan, finds BBC One / STV /
+   BBC Two / Channel 4 in the line-up, writes `~/livetv/go2rtc.yaml` and starts
+   go2rtc. Each channel is an ffmpeg pipeline: `yadif` deinterlace (off-air HD
+   is 1080i — without this, football pans comb badly) → `h264_videotoolbox`
+   (hardware, cheap on Apple Silicon) + AAC. Transcode, don't `-c copy`: DVB
+   timestamps/codecs vary and MP2/HE-AAC audio won't play in browsers.
+2. Point the broadcast-studio channel registry at the relay Mac (JWT required):
+   ```bash
+   curl -X PUT https://broadcast.studio.wispayr.online/api/livetv \
+     -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+     -d '{"host":"http://<relay-mac-LAN-ip>:1984"}'
+   ```
+3. Seed scenes + console buttons (idempotent):
+   ```bash
+   node server/src/seed-livetv.js <studio-slug>
+   ```
 
-**2. ffmpeg → mediamtx** (one per channel). mediamtx auth note: if pushing to *our*
-big-server mediamtx, the path must be in `authHTTPExclude` for `publish` (see
-`/etc/mediamtx/mediamtx.yml` — same pattern as `bbc-testcard`). For a local mediamtx
-(no auth) just publish:
-```bash
-# STV
-ffmpeg -nostdin -i "http://127.0.0.1:9981/stream/channelnumber/103" \
-  -c:v libx264 -preset veryfast -profile:v high -g 50 -keyint_min 50 -sc_threshold 0 \
-  -b:v 4500k -maxrate 5000k -bufsize 9000k -c:a aac -ar 48000 -b:a 128k \
-  -rtsp_transport tcp -f rtsp rtsp://127.0.0.1:8554/stv-live
-# BBC One — same, channelnumber/1 → rtsp://127.0.0.1:8554/bbc-one
-```
-Or add it to `mediamtx.yml` as a `runOnDemand` path (only ingests when a screen connects):
-```yaml
-paths:
-  stv-live:
-    runOnInit: ffmpeg -nostdin -i "http://127.0.0.1:9981/stream/channelnumber/103" -c:v libx264 -preset veryfast -profile:v high -g 50 -keyint_min 50 -sc_threshold 0 -b:v 4500k -maxrate 5000k -bufsize 9000k -c:a aac -ar 48000 -b:a 128k -rtsp_transport tcp -f rtsp rtsp://127.0.0.1:$RTSP_PORT/stv-live
-    runOnInitRestart: yes
-  bbc-one:
-    runOnInit: ffmpeg -nostdin -i "http://127.0.0.1:9981/stream/channelnumber/1" ...same... rtsp://127.0.0.1:$RTSP_PORT/bbc-one
-    runOnInitRestart: yes
-```
+## Broadcast-studio integration
 
-**3. Point the screen at it.** The FanZone studio already has **📺 STV Live** and
-**📺 BBC One** scenes (a `camera_feed` module). Set the module's `src` to your HLS URL:
-- Local venue mediamtx: `http://<box-ip>:8888/stv-live/index.m3u8`
-- Via big-server (already exposed): `https://live.wispayr.online/playout/stv-live/index.m3u8`
+- **`live_tv` module** — config is just `{ channel: 'bbc-one' }`; stream name +
+  go2rtc host resolve from **`/api/livetv`** (file-backed registry,
+  `server/data/livetv.json`). Retune = one PUT, zero layout edits.
+- **Audio** — `audio: 'auto'` (default) plays sound **only on PA/audio-output
+  screens** (`?audio=1` or screen config `audioOutput: true`, same gate as
+  stings/beds — see AUDIO.md, including the kiosk
+  `--autoplay-policy=no-user-gesture-required` flag). Match sound joins the
+  duck bus, so stings/voiceovers duck it automatically.
+- **Seeded scenes** — `📺 BBC One Scotland`, `📺 STV`, `📺 BBC Two`,
+  `📺 Channel 4` (full-screen, audio auto) + `📺 TV Multiview` (2×2, muted).
+  Overlay graphics (sideliners score/lower-thirds, breaking) ride on top of a
+  full-screen TV scene as normal overlays.
+- **Console / Stream Deck** — seeded buttons `TV BBC ONE` / `TV STV` /
+  `TV BBC TWO` / `TV C4` / `TV Multiview` / `TV Off — Resume` on `/console`,
+  each with a fire URL for a Stream Deck "Website" button (see /control/console).
+- **Transport** — default **MSE** (H.264+AAC as encoded, ~1 s latency). WebRTC
+  is available per-module (`mode: 'webrtc'`) but needs an Opus track — add
+  `#audio=opus` / a second audio stream to the go2rtc config if you want it.
 
-`CameraFeedModule` auto-loads hls.js, so any Chromium screen plays it. Push the scene
-from the Live Mode hotbar at kick-off.
+## Match-day checklist
 
-## Notes
-- Transcode (don't `-c copy`) — off-air TS timestamps + codecs vary; libx264/aac gives
-  mediamtx clean, monotonic frames (same lesson as the BBC R&D test card).
-- The existing `bbc-testcard` path proves the whole mediamtx→screen chain works today.
-- If the venue can only get **Freesat** (dish), use a Freesat box's HDMI into a USB
-  capture dongle instead of a DVB-T2 tuner — same ffmpeg→mediamtx step after.
+1. go2rtc running on the relay Mac (`curl http://<mac>:1984/api/streams`).
+2. Screens on, PA screen flagged `audioOutput` (and kiosk autoplay flag set).
+3. Fire `TV STV` (Sat 20:00 kick-off) / `TV BBC ONE` from /console or Stream Deck.
+4. Graphics over the top via the usual overlay buttons; `TV Off — Resume` after.
+
+## Fallbacks
+
+- **Poor terrestrial signal** → Freesat: BBC One Scotland HD is FTA on Astra
+  28.2°E; use a Freesat box's HDMI into a USB capture dongle, then the same
+  ffmpeg → go2rtc step (or a SAT>IP server).
+- **No Mac at the venue** → any Linux box: same script logic, swap
+  `h264_videotoolbox` for `libx264 -preset veryfast` (or a Pi's `h264_v4l2m2m`).
+- The old USB-tuner/Tvheadend path (`tuner-bringup.sh`) still works but is
+  superseded by the HDHomeRun — no Tvheadend needed.

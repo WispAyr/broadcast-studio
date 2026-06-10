@@ -314,6 +314,9 @@ export default function ScreenDisplay() {
   // Whether this screen is a PA / audio-output feed. `?audio=1` forces it on
   // (handy for a laptop playout); otherwise read from the screen's config.
   const [audioOutput, setAudioOutput] = useState(searchParams.get('audio') === '1');
+  // Mirror onto window so layout modules with their own sound (live_tv) can
+  // gate audio the same way sting/bed overlays do, without prop plumbing.
+  useEffect(() => { window.__bsAudioOutput = audioOutput; }, [audioOutput]);
   // Fit-to-screen: render the layout at its design resolution and scale it to
   // fill the display, so fixed-px module fonts/content scale up proportionally
   // on larger/higher-res screens instead of looking small. Opt-in per screen
