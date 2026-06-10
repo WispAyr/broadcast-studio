@@ -235,16 +235,23 @@ export default function TemplateModule({ config = {} }) {
       .catch(() => setError('Template not found'));
   }, [templateId]);
 
-  // Compute scale to fit container
+  // Compute scale to fit container. Re-attach once the template loads — on
+  // first mount the component renders the "Loading template…" branch, so
+  // containerRef is null and a []-dep effect would never observe anything.
   useEffect(() => {
     if (!containerRef.current) return;
-    const obs = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setScale(Math.min(width / CANVAS_W, height / CANVAS_H));
-    });
+    const fit = () => {
+      const elc = containerRef.current;
+      if (elc && elc.clientWidth && elc.clientHeight) {
+        setScale(Math.min(elc.clientWidth / CANVAS_W, elc.clientHeight / CANVAS_H));
+      }
+    };
+    fit();
+    const obs = new ResizeObserver(fit);
     obs.observe(containerRef.current);
     return () => obs.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template]);
 
   // Animation loop
   const totalFrames = useMemo(

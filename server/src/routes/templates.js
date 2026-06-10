@@ -1,7 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { db } = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -77,12 +77,15 @@ router.post('/', authenticate, (req, res) => {
   }
 });
 
-// GET /:id
-router.get('/:id', authenticate, (req, res) => {
+// GET /:id — optionally authenticated: kiosk screens (/screen/:id) run with no
+// login but must still play templates via the `template` module. Anonymous
+// read by UUID is acceptable (ids are unguessable and the content is display
+// graphics); when a non-admin user IS present, studio scoping still applies.
+router.get('/:id', optionalAuthenticate, (req, res) => {
   try {
     const template = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
     if (!template) return res.status(404).json({ error: 'Template not found' });
-    if (req.user.role !== 'super_admin' && req.user.studio_id && template.studio_id !== req.user.studio_id) {
+    if (req.user && req.user.role !== 'super_admin' && req.user.studio_id && template.studio_id !== req.user.studio_id) {
       return res.status(403).json({ error: 'Access denied' });
     }
     res.json(parseElements(template));
