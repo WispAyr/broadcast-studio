@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../lib/api';
+import { connectSocket } from '../lib/socket';
 import { useSocketStatus } from '../lib/useSocketStatus';
 
 // AppStatusBar — persistent broadcast chrome across the control app.
@@ -19,21 +20,42 @@ function useClock() {
 const TIME_FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 const DATE_FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short', day: 'numeric', month: 'short' });
 
-export default function AppStatusBar({ studioName, onOpenPalette }) {
+export default function AppStatusBar({ studioName, user, onOpenPalette }) {
   const now = useClock();
   const { connected, reconnecting } = useSocketStatus();
   const [onAir, setOnAir] = useState(null);
+  const debounceRef = useRef(null);
 
-  // Poll the console state for the "most screens are showing X" summary.
+  // ON AIR summary: event-driven via the studio socket room — any take
+  // (console, palette, card wall, timeline, sync) emits screen_preview /
+  // set_layout / sync_all, which triggers a debounced refresh. A slow 60s
+  // poll remains as a safety net for missed events / reconnects.
   useEffect(() => {
     let alive = true;
     const load = () => api.get('/console/state')
       .then(d => { if (alive) setOnAir(d?.on_air_layout_name || null); })
       .catch(() => {});
+    const refresh = () => {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(load, 350);
+    };
     load();
-    const t = setInterval(load, 15000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
+    const t = setInterval(load, 60000);
+
+    let socket = null;
+    if (user?.studio_id) {
+      socket = connectSocket();
+      socket.emit('join_studio', { studioId: user.studio_id });
+      socket.on('screen_preview', refresh);
+      socket.on('set_layout', refresh);
+      socket.on('sync_all', refresh);
+      socket.on('connect', () => { socket.emit('join_studio', { studioId: user.studio_id }); refresh(); });
+    }
+    return () => {
+      alive = false; clearInterval(t); clearTimeout(debounceRef.current);
+      if (socket) { socket.off('screen_preview', refresh); socket.off('set_layout', refresh); socket.off('sync_all', refresh); }
+    };
+  }, [user?.studio_id]);
 
   const [hh, mm, ss] = TIME_FMT.format(now).split(':');
   const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);

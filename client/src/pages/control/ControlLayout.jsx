@@ -328,7 +328,7 @@ function ControlLayoutInner() {
           <span className="text-sm font-bold text-white">Broadcast Studio</span>
           <span className="text-xs text-gray-500 truncate">{studioName}</span>
         </div>
-        <AppStatusBar studioName={studioName} onOpenPalette={() => setPaletteOpen(true)} />
+        <AppStatusBar studioName={studioName} user={user} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="flex-1 bg-gray-950 overflow-y-auto hide-scrollbar">
           {/* keyed by route so page changes animate in like app views */}
           <div key={location.pathname} className="route-enter min-h-full">
