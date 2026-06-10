@@ -22,3 +22,24 @@ body {
   overflow: hidden;
   cursor: none;
 }
+
+/* ── Control-app dynamics ───────────────────────────────────────────────────
+   Route views animate in, buttons respond to press, cards lift on hover.
+   Scoped to .control-app so kiosk screen output is never affected. */
+@keyframes routeEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.route-enter { animation: routeEnter 0.18s ease-out; }
+
+.control-app button {
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background-color 0.15s ease,
+              border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.control-app button:active:not(:disabled) { transform: scale(0.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .route-enter { animation: none; }
+  .control-app button { transition: none; }
+  .control-app button:active:not(:disabled) { transform: none; }
+}

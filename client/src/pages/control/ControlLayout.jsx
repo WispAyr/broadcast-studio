@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { getMe } from '../../lib/api';
 import { useSocketStatus } from '../../lib/useSocketStatus';
 import { WorkspaceProvider, useWorkspaceContext } from '../../hooks/WorkspaceContext';
 import IconRail from './components/IconRail';
 import LiveMode from './LiveMode';
 import NuroStatusBadge from '../../components/NuroStatusBadge';
+import AppStatusBar from '../../components/AppStatusBar';
+import CommandPalette from '../../components/CommandPalette';
 
 const navItems = [
   { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
@@ -105,9 +107,11 @@ export default function ControlLayout() {
 
 function ControlLayoutInner() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [studioName, setStudioName] = useState('');
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const socketStatus = useSocketStatus();
   const { mode, toggleMode } = useWorkspaceContext();
 
@@ -124,12 +128,15 @@ function ControlLayoutInner() {
       });
   }, [navigate]);
 
-  // Ctrl+L / Cmd+L keyboard shortcut to toggle mode
+  // Ctrl+L / Cmd+L toggles mode · Ctrl+K / Cmd+K opens the command palette
   useEffect(() => {
     function handleKey(e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
         e.preventDefault();
         toggleMode();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
       }
     }
     window.addEventListener('keydown', handleKey);
@@ -162,7 +169,8 @@ function ControlLayoutInner() {
 
   // ── STUDIO MODE (existing layout) ──
   return (
-    <div className="flex h-screen bg-gray-950">
+    <div className="control-app flex h-screen bg-gray-950">
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && <div className="lg:hidden fixed inset-0 bg-black/50 z-30" onClick={() => setSidebarOpen(false)} />}
 
@@ -308,7 +316,8 @@ function ControlLayoutInner() {
       </aside>
 
       {/* Main content — on mobile a slim top bar hosts the menu button so it
-          never floats over page headings; on lg+ the sidebar is always shown. */}
+          never floats over page headings; on lg+ the app status bar (clock /
+          on-air / connection / ⌘K) gives the suite persistent app chrome. */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="lg:hidden flex items-center gap-3 px-4 h-12 bg-gray-900/95 border-b border-gray-800 shrink-0 sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 rounded-lg text-gray-300 hover:bg-gray-800" aria-label="Toggle menu">
@@ -319,8 +328,12 @@ function ControlLayoutInner() {
           <span className="text-sm font-bold text-white">Broadcast Studio</span>
           <span className="text-xs text-gray-500 truncate">{studioName}</span>
         </div>
+        <AppStatusBar studioName={studioName} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="flex-1 bg-gray-950 overflow-y-auto hide-scrollbar">
-          <Outlet />
+          {/* keyed by route so page changes animate in like app views */}
+          <div key={location.pathname} className="route-enter min-h-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
