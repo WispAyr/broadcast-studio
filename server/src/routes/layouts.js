@@ -32,7 +32,7 @@ router.get('/', authenticate, (req, res) => {
 // POST / - create layout
 router.post('/', authenticate, (req, res) => {
   try {
-    const { name, grid_cols, grid_rows, modules, studio_id, orientation, resolution_w, resolution_h, background, public_safe } = req.body;
+    const { name, grid_cols, grid_rows, modules, studio_id, orientation, resolution_w, resolution_h, background, public_safe, project } = req.body;
     let studioId = studio_id || req.user.studio_id;
     if (!studioId) {
       const first = db.prepare('SELECT id FROM studios LIMIT 1').get();
@@ -47,7 +47,7 @@ router.post('/', authenticate, (req, res) => {
     // public_safe default is 0 — authors must tick explicitly.
     const ps = public_safe ? 1 : 0;
 
-    db.prepare('INSERT INTO layouts (id, studio_id, name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, studioId, name, grid_cols || 3, grid_rows || 3, modulesJson, orientation || 'landscape', resolution_w || 1920, resolution_h || 1080, background || '#000000', ps);
+    db.prepare('INSERT INTO layouts (id, studio_id, name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe, project) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, studioId, name, grid_cols || 3, grid_rows || 3, modulesJson, orientation || 'landscape', resolution_w || 1920, resolution_h || 1080, background || '#000000', ps, project || null);
 
     const layout = getLayoutById(id);
     res.status(201).json(layout);

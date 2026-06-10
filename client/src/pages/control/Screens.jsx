@@ -528,7 +528,17 @@ export default function Screens() {
                     onClick={e => e.stopPropagation()}
                     className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300 text-xs focus:outline-none focus:border-blue-500">
                     <option value="">No Layout</option>
-                    {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    {(() => {
+                      // Group by project so the 150+ layout list stays navigable.
+                      const byProj = {};
+                      for (const l of layouts) { const k = l.project || 'Ungrouped'; (byProj[k] = byProj[k] || []).push(l); }
+                      const order = Object.keys(byProj).sort((a, b) => (a === 'Ungrouped') - (b === 'Ungrouped') || a.localeCompare(b));
+                      return order.map(proj => (
+                        <optgroup key={proj} label={proj}>
+                          {byProj[proj].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </optgroup>
+                      ));
+                    })()}
                   </select>
                   <button onClick={e => { e.stopPropagation(); toggleAcceptsBroadcasts(screen); }}
                     className={`px-2.5 py-1.5 text-xs rounded-md transition-colors ${screen.accepts_broadcasts === 0 ? 'bg-amber-600/20 hover:bg-amber-600/30 text-amber-400' : 'bg-gray-800 hover:bg-gray-700 text-gray-500 hover:text-gray-300'}`}

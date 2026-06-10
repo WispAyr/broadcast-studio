@@ -330,8 +330,11 @@ function ControlLayoutInner() {
         </div>
         <AppStatusBar studioName={studioName} user={user} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="flex-1 bg-gray-950 overflow-y-auto hide-scrollbar">
-          {/* keyed by route so page changes animate in like app views */}
-          <div key={location.pathname} className="route-enter min-h-full">
+          {/* keyed by route so page changes animate in like app views.
+              h-full keeps a definite height so pages with `h-full` roots
+              (Layouts, Autocue) scroll internally; taller pages still
+              overflow into <main>'s scroll. */}
+          <div key={location.pathname} className="route-enter h-full min-h-full">
             <Outlet />
           </div>
         </main>
