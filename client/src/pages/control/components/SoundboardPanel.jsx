@@ -13,9 +13,119 @@ import { connectSocket } from '../../../lib/socket';
 // Audio is only audible on screens flagged as audio outputs (config.audioOutput
 // or ?audio=1); on muted video walls a video sting still shows its visual.
 
+const TV_TYPES = ['live_tv', 'livetv', 'tv_channel'];
+const BED_TYPES = ['audio', 'audio_bed', 'music_bed'];
+
 const isAudio = (f) => f.type === 'audio' || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(f.url || f.filename || '');
 const isVideo = (f) => f.type === 'video' || /\.(mp4|webm|mov|avi)$/i.test(f.url || f.filename || '');
 const nameOf = (f) => (f.originalName || f.filename || f.url || '').replace(/^[0-9a-f-]{36}/i, '').replace(/^[-_.]/, '') || f.filename;
+
+// ─── Mixer — live faders for in-layout audio sources ─────────────────────────
+// Reads the target screens' current layouts and shows a fader per audio-capable
+// module (live TV channels, audio beds). Changes go out as SOFT
+// update_module_config (merge without remount, so the TV stream never drops).
+// SOLO routes one TV channel's audio when several are on screen (multiview).
+function MixerSection({ studioId, screens, target }) {
+  const [rows, setRows] = useState([]);
+  const [levels, setLevels] = useState({}); // moduleId → { volume, muted }
+
+  const refresh = useCallback(() => {
+    const tgtScreens = target === 'studio' ? screens : screens.filter((s) => s.id === target);
+    const layoutIds = [...new Set(tgtScreens.map((s) => s.current_layout_id).filter(Boolean))];
+    Promise.all(layoutIds.map((id) => api.get(`/layouts/${id}`).catch(() => null)))
+      .then((layouts) => {
+        const out = [];
+        const seen = new Set();
+        layouts.filter(Boolean).forEach((lay) => {
+          const showing = tgtScreens.filter((s) => s.current_layout_id === lay.id).map((s) => s.name);
+          (Array.isArray(lay.modules) ? lay.modules : []).forEach((m) => {
+            const type = m.type || m.module || m.module_type;
+            const tv = TV_TYPES.includes(type);
+            if ((!tv && !BED_TYPES.includes(type)) || !m.id || seen.has(m.id)) return;
+            seen.add(m.id);
+            out.push({ moduleId: m.id, tv, config: m.config || {}, screens: showing });
+          });
+        });
+        setRows(out);
+        setLevels((prev) => {
+          const next = { ...prev };
+          out.forEach((r) => {
+            if (!next[r.moduleId]) {
+              next[r.moduleId] = {
+                volume: typeof r.config.volume === 'number' ? r.config.volume : (r.tv ? 1 : 0.8),
+                muted: r.tv ? r.config.audio === 'off' : false,
+              };
+            }
+          });
+          return next;
+        });
+      });
+  }, [screens, target, studioId]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const send = (moduleId, cfg) => {
+    const s = connectSocket();
+    s.emit('update_module_config', { studioId, moduleId, config: { ...cfg, _soft: true } });
+  };
+
+  const setVol = (r, v) => {
+    setLevels((l) => ({ ...l, [r.moduleId]: { ...l[r.moduleId], volume: v } }));
+    send(r.moduleId, { volume: v });
+  };
+  const toggleMute = (r) => {
+    const muted = !levels[r.moduleId]?.muted;
+    setLevels((l) => ({ ...l, [r.moduleId]: { ...l[r.moduleId], muted } }));
+    if (r.tv) send(r.moduleId, { audio: muted ? 'off' : 'auto' });
+    else send(r.moduleId, { volume: muted ? 0 : (levels[r.moduleId]?.volume ?? 0.8) });
+  };
+  const solo = (r) => {
+    setLevels((l) => {
+      const next = { ...l };
+      rows.filter((x) => x.tv).forEach((x) => {
+        const on = x.moduleId === r.moduleId;
+        next[x.moduleId] = { ...next[x.moduleId], muted: !on };
+        send(x.moduleId, { audio: on ? 'auto' : 'off' });
+      });
+      return next;
+    });
+  };
+
+  if (!rows.length) return null;
+  const tvCount = rows.filter((r) => r.tv).length;
+
+  return (
+    <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-wider text-amber-400">Mixer · on-screen sources</span>
+        <button onClick={refresh} title="Re-read current layouts"
+          className="px-1.5 py-0.5 rounded text-[10px] bg-gray-800 text-gray-400 hover:text-white">↻</button>
+      </div>
+      <div className="space-y-1.5">
+        {rows.map((r) => {
+          const lv = levels[r.moduleId] || { volume: 1, muted: false };
+          const label = r.tv ? `📺 ${(r.config.channel || 'TV').toUpperCase()}` : `🎵 ${r.config.title || 'Bed'}`;
+          return (
+            <div key={r.moduleId} className="flex items-center gap-1.5">
+              <span className="w-24 truncate text-[10px] font-semibold text-gray-300" title={r.screens.join(', ')}>{label}</span>
+              <input type="range" min="0" max="1" step="0.05" value={lv.muted ? 0 : lv.volume}
+                disabled={lv.muted}
+                onChange={(e) => setVol(r, parseFloat(e.target.value))}
+                className={`flex-1 ${r.tv ? 'accent-amber-500' : 'accent-green-500'} disabled:opacity-40`} />
+              <button onClick={() => toggleMute(r)} title={lv.muted ? 'Unmute' : 'Mute'}
+                className={`w-6 py-0.5 rounded text-[10px] font-bold ${lv.muted ? 'bg-red-600/60 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>M</button>
+              {r.tv && tvCount > 1 && (
+                <button onClick={() => solo(r)} title="Solo — this channel's audio only"
+                  className={`w-6 py-0.5 rounded text-[10px] font-bold ${!lv.muted && rows.filter((x) => x.tv && x.moduleId !== r.moduleId).every((x) => levels[x.moduleId]?.muted) ? 'bg-amber-500/70 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>S</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[9px] text-gray-600 mt-1">Sound plays on audio-output screens only. Faders survive stream — no retune.</p>
+    </div>
+  );
+}
 
 export default function SoundboardPanel({ studioId, screens = [], inShell }) {
   const [files, setFiles] = useState([]);
@@ -96,6 +206,9 @@ export default function SoundboardPanel({ studioId, screens = [], inShell }) {
         <button onClick={stopAll} title="Stop stings + bed"
           className="px-2 py-1 rounded text-[10px] font-bold bg-red-600/30 text-red-400 hover:bg-red-600/50">STOP</button>
       </div>
+
+      {/* Mixer — faders for live TV / audio modules in the current layouts */}
+      <MixerSection studioId={studioId} screens={screens} target={target} />
 
       {/* Bed */}
       <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-2">

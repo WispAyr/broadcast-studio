@@ -36,7 +36,9 @@ export function rampVolume(el, target, ms = 300) {
   if (!el) return;
   const from = el.volume;
   const to = Math.max(0, Math.min(1, target));
-  if (ms <= 0 || from === to) { el.volume = to; return; }
+  // Hidden/minimised page: rAF is throttled to a standstill, so a ramp would
+  // never land — jump straight to the target (nobody hears the fade anyway).
+  if (ms <= 0 || from === to || document.hidden) { el.volume = to; return; }
   const start = performance.now();
   function step(now) {
     const t = Math.min(1, (now - start) / ms);

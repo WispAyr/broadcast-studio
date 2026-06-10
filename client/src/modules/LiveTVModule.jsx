@@ -51,14 +51,17 @@ export default function LiveTVModule({ config = {} }) {
   const mode = (config.mode || registry?.mode || 'mse').toLowerCase();
   const stream = channel?.stream || '';
 
-  // Duck-bus: ramp the element's volume down under stings, back up after.
+  // Fader volume (mixer-settable via soft update_module_config) × duck gain,
+  // same base×duck model as AudioModule beds.
+  const baseVol = Math.max(0, Math.min(1, typeof config.volume === 'number' ? config.volume : 1));
+  const duckRef = useRef(1);
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !wantsAudio) return undefined;
     video.muted = false;
-    video.volume = 1;
-    return onDuck((gain, ms) => rampVolume(video, gain, ms));
-  }, [wantsAudio, status]);
+    rampVolume(video, baseVol * duckRef.current, 150);
+    return onDuck((gain, ms) => { duckRef.current = gain; rampVolume(video, baseVol * gain, ms); });
+  }, [wantsAudio, status, baseVol]);
 
   useEffect(() => {
     if (!stream || !host) return undefined;

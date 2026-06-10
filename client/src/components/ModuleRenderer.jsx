@@ -42,9 +42,11 @@ export default function ModuleRenderer({ type, config = {}, moduleId }) {
     function onConfigUpdate(payload) {
       const { moduleId: mid, config: newConfig } = payload;
       if (mid === moduleId || mid === type || mid === '*') {
-        setLiveConfig(prev => ({ ...prev, ...newConfig }));
-        // Force re-render by bumping key
-        setRenderKey(k => k + 1);
+        // `_soft: true` = merge without remount — for live tweaks (mixer volume,
+        // mute) on modules with a connection that must survive (live_tv stream).
+        const { _soft, ...rest } = newConfig || {};
+        setLiveConfig(prev => ({ ...prev, ...rest }));
+        if (_soft !== true) setRenderKey(k => k + 1);
       }
     }
 
