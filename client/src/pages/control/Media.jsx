@@ -32,13 +32,38 @@ export default function Media() {
   const token = localStorage.getItem('broadcast_token');
   const headers = { Authorization: `Bearer ${token}` };
 
+  // The library is studio-scoped. A super admin has no studio of their own
+  // (they'd only ever see the near-empty "shared" folder), so give them a
+  // studio picker and pass ?studio_id= through to the API.
+  const user = (() => { try { return JSON.parse(localStorage.getItem('broadcast_user') || 'null'); } catch { return null; } })();
+  const isSuperAdmin = user?.role === 'super_admin' && !user?.studio_id;
+  const [studios, setStudios] = useState([]);
+  const [studioId, setStudioId] = useState('');
+  const qs = isSuperAdmin && studioId ? `?studio_id=${encodeURIComponent(studioId)}` : '';
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/studios', { headers });
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) {
+          setStudios(data);
+          setStudioId(prev => prev || data[0].id);
+        }
+      } catch (e) { console.error(e); }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperAdmin]);
+
   const fetchFiles = useCallback(async () => {
     try {
-      const res = await fetch('/api/uploads', { headers });
+      const res = await fetch(`/api/uploads${qs}`, { headers });
       const data = await res.json();
       setFiles(data.map(f => ({ ...f, type: getFileType(f.filename) })));
     } catch (e) { console.error(e); }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qs]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
@@ -62,7 +87,7 @@ export default function Media() {
           };
           xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(); };
           xhr.onerror = reject;
-          xhr.open('POST', '/api/uploads');
+          xhr.open('POST', `/api/uploads${qs}`);
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
           xhr.send(form);
         });
@@ -73,7 +98,7 @@ export default function Media() {
   };
 
   const handleDelete = async (filename) => {
-    await fetch(`/api/uploads/${filename}`, { method: 'DELETE', headers });
+    await fetch(`/api/uploads/${filename}${qs}`, { method: 'DELETE', headers });
     setDeleteConfirm(null);
     fetchFiles();
   };
@@ -92,7 +117,18 @@ export default function Media() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-6">Media Library</h2>
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <h2 className="text-2xl font-bold text-white">Media Library</h2>
+        {isSuperAdmin && studios.length > 0 && (
+          <label className="flex items-center gap-2 text-sm text-gray-400">
+            Studio
+            <select value={studioId} onChange={(e) => setStudioId(e.target.value)}
+              className="px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-white text-sm focus:border-blue-500 focus:outline-none">
+              {studios.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
 
       {/* Upload Zone */}
       <div

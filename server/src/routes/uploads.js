@@ -13,10 +13,20 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Resolve which studio folder a request operates on. Everyone is pinned to
+// their own studio; a super admin (no studio of their own — they'd otherwise
+// only ever see the near-empty 'shared' folder) may browse any studio's
+// library by passing ?studio_id=. The id is sanitised to a path basename.
+function resolveFolder(user, requestedStudioId) {
+  if (requestedStudioId && user?.role === 'super_admin') {
+    return path.basename(String(requestedStudioId));
+  }
+  return user?.studio_id || 'shared';
+}
+
 // Get studio-scoped upload directory
-function getStudioDir(user) {
-  // Super admins without a studio use 'shared', everyone else uses their studio_id
-  const folder = user.studio_id || 'shared';
+function getStudioDir(user, requestedStudioId) {
+  const folder = resolveFolder(user, requestedStudioId);
   const dir = path.join(uploadsDir, folder);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -26,7 +36,7 @@ function getStudioDir(user) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = getStudioDir(req.user);
+    const dir = getStudioDir(req.user, req.query.studio_id);
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -54,7 +64,7 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  const folder = req.user.studio_id || 'shared';
+  const folder = resolveFolder(req.user, req.query.studio_id);
   res.json({
     filename: req.file.filename,
     originalName: req.file.originalname,
@@ -63,10 +73,11 @@ router.post('/', authenticate, upload.single('file'), (req, res) => {
   });
 });
 
-// GET /api/uploads - list uploaded files (scoped to user's studio)
+// GET /api/uploads - list uploaded files (scoped to user's studio;
+// super admins may pass ?studio_id= to browse a specific studio's library)
 router.get('/', authenticate, (req, res) => {
   try {
-    const folder = req.user.studio_id || 'shared';
+    const folder = resolveFolder(req.user, req.query.studio_id);
     const studioDir = path.join(uploadsDir, folder);
     
     if (!fs.existsSync(studioDir)) {
@@ -75,6 +86,9 @@ router.get('/', authenticate, (req, res) => {
     
     const files = fs.readdirSync(studioDir)
       .filter(f => !f.startsWith('.'))
+      // skip subdirectories (e.g. the players/ photo set) — they'd render as
+      // broken zero-byte "files" in the Media library
+      .filter(f => { try { return fs.statSync(path.join(studioDir, f)).isFile(); } catch { return false; } })
       .map(filename => {
         const stat = fs.statSync(path.join(studioDir, filename));
         const ext = path.extname(filename).toLowerCase();
@@ -99,7 +113,7 @@ router.get('/', authenticate, (req, res) => {
 
 // DELETE /api/uploads/:filename - delete an uploaded file (scoped to user's studio)
 router.delete('/:filename', authenticate, (req, res) => {
-  const folder = req.user.studio_id || 'shared';
+  const folder = resolveFolder(req.user, req.query.studio_id);
   const filePath = path.join(uploadsDir, folder, path.basename(req.params.filename));
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found' });
