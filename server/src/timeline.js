@@ -18,15 +18,29 @@ function startTimeline(studioId, show) {
 
   let currentLayoutId = null;
 
+  // Entry times are UK wall-clock. The broadcast day is anchored at the first
+  // entry, so a rundown can cross midnight (e.g. 22:00 → 04:00). Entries must
+  // be listed in running order.
+  const toMins = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+  const anchor = toMins(timeline[0].time);
+  const rel = (t) => (toMins(t) - anchor + 1440) % 1440;
+  const lastRel = rel(timeline[timeline.length - 1].time);
+
   const intervalId = setInterval(() => {
     const now = new Date();
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    const currentTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(now); // HH:MM, UK wall-clock
 
-    // Find the matching timeline entry (latest entry whose time <= current time)
+    // Latest entry at or before now in broadcast-day terms. Outside the show
+    // window (past the last entry, or before the first) nothing matches.
+    const nowRel = rel(currentTime);
     let matchedEntry = null;
-    for (const entry of timeline) {
-      if (entry.time <= currentTime) {
-        matchedEntry = entry;
+    if (nowRel <= lastRel) {
+      for (const entry of timeline) {
+        if (rel(entry.time) <= nowRel) {
+          matchedEntry = entry;
+        }
       }
     }
 
