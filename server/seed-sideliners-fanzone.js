@@ -173,9 +173,22 @@ try {
         action: 'push_overlay', payload: { overlay: { type: 'goal', player: p, layout: 'full', sound: `/uploads/${studioId}/goal.mp3`, duration: 10 } } });
     }
 
+    // ── Panel WALK ON buttons — full-frame "please welcome" graphic per panellist ──
+    const PANEL = [
+      { name: 'Jonny Baillie', title: "SideLiner's Panel" },
+      { name: 'Evan Warrander', title: "SideLiner's Panel" },
+      { name: 'Gary Holt', title: 'Former Scotland International' },
+      { name: 'Dean Keenan', title: "SideLiner's Panel" },
+    ];
+    for (const p of PANEL) {
+      const surname = p.name.split(' ').slice(1).join(' ') || p.name;
+      btns.push({ label: surname, sublabel: 'WALK ON', icon: '🎤', color: PUR,
+        action: 'push_overlay', payload: { overlay: { type: 'sl_walkon', name: p.name, title: p.title, duration: 8 } } });
+    }
+
     const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');
     btns.forEach((b, i) => ins.run(uuid(), studioId, b.label, b.sublabel || null, b.icon, b.color, b.action, JSON.stringify(b.payload || {}), b.confirm || 0, i));
-    console.log(`[console] seeded ${btns.length} producer buttons (incl ${SCORERS.length} goal)`);
+    console.log(`[console] seeded ${btns.length} producer buttons (incl ${SCORERS.length} goal, ${PANEL.length} walk-on)`);
   }
 } catch (e) { console.warn('[console] button seed skipped:', e.message); }
 

@@ -103,6 +103,36 @@ function SidelinersOverlay({ overlay }) {
     );
   }
 
+  // Panel walk-on — full-frame "please welcome" moment for the FanZone stage.
+  // Fire with { name, title, kicker?, duration } from a console button.
+  if (t === 'sl_walkon') {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${SL_NAVY} 0%, #171026 55%, #2b1052 100%)`, overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: SL_HEAD, animation: 'overlayIn 0.3s ease-out' }}>
+        <style>{`
+          @keyframes slWalkKick{0%{opacity:0;transform:translateY(-4vh) skewX(-12deg);}100%{opacity:1;transform:translateY(0) skewX(-12deg);}}
+          @keyframes slWalkName{0%{opacity:0;transform:translateX(-60vw) skewX(-12deg);}70%{transform:translateX(1.5vw) skewX(-12deg);}100%{opacity:1;transform:translateX(0) skewX(-12deg);}}
+          @keyframes slWalkRole{0%{opacity:0;transform:translateY(3vh);}100%{opacity:1;transform:translateY(0);}}
+          @keyframes slWalkShine{0%{transform:translateX(-150%) skewX(-20deg);}100%{transform:translateX(450%) skewX(-20deg);}}
+          @keyframes slWalkRays{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+        `}</style>
+        <div style={{ position: 'absolute', inset: '-60%', background: `repeating-conic-gradient(rgba(164,74,208,0.12) 0deg 9deg, transparent 9deg 18deg)`, animation: 'slWalkRays 36s linear infinite' }} />
+        <div style={{ ...skew, background: SL_GOLD, padding: '0.7vh 2.6vw', animation: 'slWalkKick 0.45s cubic-bezier(.2,.8,.2,1) 0.1s both' }}>
+          <span style={{ ...unskew, color: SL_NAVY, fontWeight: 800, fontSize: '3.2vh', letterSpacing: '0.3em', textTransform: 'uppercase' }}>{overlay.kicker || 'Please welcome'}</span>
+        </div>
+        <div style={{ position: 'relative', background: `linear-gradient(120deg, ${SL_PURPLE}, ${SL_NAVY})`, padding: '2.4vh 5vw', marginTop: '2.4vh', boxShadow: '0 2vh 6vh rgba(0,0,0,0.55)', transform: 'skewX(-12deg)', animation: 'slWalkName 0.6s cubic-bezier(.2,.85,.25,1) 0.35s both', overflow: 'hidden' }}>
+          <div style={{ display: 'inline-block', transform: 'skewX(12deg)', color: '#fff', fontWeight: 700, fontStyle: 'italic', fontSize: '11vh', lineHeight: 1, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{overlay.name || ''}</div>
+          <span style={{ position: 'absolute', top: 0, left: 0, width: '10vw', height: '100%', background: 'rgba(255,255,255,0.35)', animation: 'slWalkShine 1s ease-in 1s both' }} />
+        </div>
+        {overlay.title && (
+          <div style={{ marginTop: '2.2vh', color: SL_GOLD, fontWeight: 600, fontSize: '3.6vh', letterSpacing: '0.14em', textTransform: 'uppercase', animation: 'slWalkRole 0.5s ease-out 0.85s both' }}>{overlay.title}</div>
+        )}
+        <div style={{ position: 'absolute', bottom: '4vh', fontStyle: 'italic', fontWeight: 700, fontSize: '3.4vh', color: 'rgba(255,255,255,0.55)', transform: 'skewX(-12deg)' }}>
+          <span style={{ display: 'inline-block', transform: 'skewX(12deg)' }}>Side<span style={{ color: SL_GOLD }}>Liner's</span> FanZone</span>
+        </div>
+      </div>
+    );
+  }
+
   // Lower third — presenter / guest / caller.
   if (t === 'sl_lower_third') {
     return (
