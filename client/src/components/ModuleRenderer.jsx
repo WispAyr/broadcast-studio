@@ -19,7 +19,7 @@ function shallowHash(obj) {
   }
 }
 
-export default function ModuleRenderer({ type, config = {}, moduleId }) {
+export default function ModuleRenderer({ type, config = {}, moduleId, socket }) {
   const [liveConfig, setLiveConfig] = useState(config);
   const [renderKey, setRenderKey] = useState(0);
   const Component = moduleRegistry[type];
@@ -62,5 +62,5 @@ export default function ModuleRenderer({ type, config = {}, moduleId }) {
     );
   }
 
-  return <Component key={renderKey} config={liveConfig} moduleId={moduleId} />;
+  return <Component key={renderKey} config={liveConfig} moduleId={moduleId} socket={socket} />;
 }

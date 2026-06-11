@@ -94,6 +94,27 @@ function setupWebSocket(server) {
       db.prepare("UPDATE screens SET last_seen = datetime('now') WHERE id = ?").run(screenId);
     });
 
+    // A VT (video module with returnLayoutId) finished playing on a screen —
+    // put the screen back on the configured layout. Only the screen's own
+    // registered socket carries screenId, so other sockets are ignored.
+    socket.on('vt_ended', ({ returnLayoutId }) => {
+      const screenId = socket.screenId;
+      if (!screenId || !returnLayoutId) return;
+      const layout = db.prepare('SELECT * FROM layouts WHERE id = ?').get(returnLayoutId);
+      if (!layout) return;
+      db.prepare("UPDATE screens SET current_layout_id = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(returnLayoutId, screenId);
+      try { layout.modules = typeof layout.modules === 'string' ? JSON.parse(layout.modules) : layout.modules; }
+      catch { layout.modules = []; }
+      io.to(`screen:${screenId}`).emit('set_layout', { layoutId: returnLayoutId, layout, source: 'vt_ended' });
+      if (socket.studioId) {
+        io.to(`studio:${socket.studioId}`).emit('screen_preview', {
+          screenId, layoutId: returnLayoutId, layout, timestamp: new Date().toISOString(),
+        });
+      }
+      console.log(`VT ended on screen ${screenId} — returned to layout "${layout.name}"`);
+    });
+
     // Control actions from producers (auth required)
     socket.on('control_action', ({ action, screenId, studioId, layoutId, data }) => {
       if (!requireAuth(socket, 'control_action')) return;

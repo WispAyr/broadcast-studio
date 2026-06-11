@@ -92,6 +92,7 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'autoplay', label: 'Autoplay', type: 'checkbox', default: true },
     { key: 'loop', label: 'Loop', type: 'checkbox', default: true },
     { key: 'muted', label: 'Muted', type: 'checkbox', default: true },
+    { key: 'returnLayoutId', label: 'On-end return layout ID (VT auto-return)', type: 'text', default: '' },
   ],
   ticker: [
     { key: 'text', label: 'Ticker Text', type: 'textarea', default: '' },
