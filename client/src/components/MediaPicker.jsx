@@ -134,7 +134,7 @@ export default function MediaPicker({ open, onClose, onSelect, multiple = false 
                     <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
                   )}
                   <div className="absolute bottom-0 inset-x-0 bg-black/70 px-2 py-1">
-                    <p className="text-xs text-gray-300 truncate">{file.filename}</p>
+                    <p className="text-xs text-gray-300 truncate" title={file.originalName || file.filename}>{file.originalName || file.filename}</p>
                   </div>
                 </div>
               ))}

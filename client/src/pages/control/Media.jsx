@@ -111,7 +111,7 @@ export default function Media() {
   const filtered = files.filter(f => {
     if (filter === 'images' && f.type !== 'image') return false;
     if (filter === 'videos' && f.type !== 'video') return false;
-    if (search && !f.filename.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !`${f.originalName || ''} ${f.filename}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
@@ -212,7 +212,7 @@ export default function Media() {
               </div>
             </div>
             <div className="p-2">
-              <p className="text-xs text-gray-300 truncate" title={file.filename}>{file.filename}</p>
+              <p className="text-xs text-gray-300 truncate" title={file.originalName || file.filename}>{file.originalName || file.filename}</p>
               <p className="text-xs text-gray-500">{formatSize(file.size)} · {formatDate(file.modified)}</p>
             </div>
           </div>
@@ -236,7 +236,7 @@ export default function Media() {
             ) : preview.type === 'video' ? (
               <video src={preview.url} controls autoPlay className="max-w-full max-h-[80vh] rounded-lg" />
             ) : null}
-            <p className="text-center text-gray-400 text-sm mt-3">{preview.filename} · {formatSize(preview.size)}</p>
+            <p className="text-center text-gray-400 text-sm mt-3">{preview.originalName || preview.filename} · {formatSize(preview.size)}</p>
           </div>
         </div>
       )}
