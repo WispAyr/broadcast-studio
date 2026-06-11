@@ -23,6 +23,10 @@ const router = express.Router();
 // overlay plumbing. CRUD is JWT-only (producers configure from the main UI).
 // ──────────────────────────────────────────────────────────────────────────
 
+// Pages — lighting-desk-style button banks ("SHOW", "QUIZ", "VT", …). A page
+// is just a label on the button row; NULL renders under "MAIN".
+try { db.exec('ALTER TABLE console_buttons ADD COLUMN page TEXT'); } catch { /* exists */ }
+
 function safeParse(raw, fallback = {}) {
   try { return JSON.parse(raw || JSON.stringify(fallback)); } catch { return fallback; }
 }
@@ -43,11 +47,13 @@ function studioOf(req) {
 
 // ── Action dispatcher ──────────────────────────────────────────────────────
 
-function takeLayout(studioId, layoutId, io, { stopAuto = true } = {}) {
+function takeLayout(studioId, layoutId, io, { stopAuto = true, screenIds = null } = {}) {
   const layout = getLayoutById(layoutId);
   if (!layout) throw new Error('layout not found');
   if (stopAuto) stopTimeline(studioId);
-  const screens = db.prepare('SELECT id, accepts_broadcasts FROM screens WHERE studio_id = ?').all(studioId);
+  let screens = db.prepare('SELECT id, accepts_broadcasts FROM screens WHERE studio_id = ?').all(studioId);
+  // Target group: fire at specific screen(s) instead of the whole studio.
+  if (Array.isArray(screenIds) && screenIds.length) screens = screens.filter(s => screenIds.includes(s.id));
   let applied = 0, locked = 0;
   for (const screen of screens) {
     if (!screen.accepts_broadcasts) { locked++; continue; }
@@ -91,19 +97,19 @@ async function pushNowPlaying(studioId, payload, io) {
   }
 }
 
-async function dispatchAction(studioId, button, io, userId) {
+async function dispatchAction(studioId, button, io, userId, { targetScreenIds = null } = {}) {
   const type = button.action_type;
   const p = safeParse(button.action_payload, {});
   switch (type) {
     case 'take_layout': {
       if (!p.layout_id) throw new Error('layout_id required');
-      return { type, ...takeLayout(studioId, p.layout_id, io) };
+      return { type, ...takeLayout(studioId, p.layout_id, io, { screenIds: targetScreenIds }) };
     }
     case 'blackout': {
       const bl = db.prepare("SELECT id FROM layouts WHERE studio_id = ? AND name LIKE '%Blackout%' LIMIT 1").get(studioId)
         || db.prepare("SELECT id FROM layouts WHERE name LIKE '%Blackout%' LIMIT 1").get();
       if (!bl) throw new Error('no Blackout layout found');
-      return { type, ...takeLayout(studioId, bl.id, io) };
+      return { type, ...takeLayout(studioId, bl.id, io, { screenIds: targetScreenIds }) };
     }
     case 'apply_scene': {
       if (!p.scene_id) throw new Error('scene_id required');
@@ -237,15 +243,15 @@ router.get('/buttons', authenticate, (req, res) => {
 router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
-        sort_order ?? (maxOrder + 1));
+        sort_order ?? (maxOrder + 1), page || null);
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -254,7 +260,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -265,6 +271,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         confirm = COALESCE(?, confirm),
         enabled = COALESCE(?, enabled),
         sort_order = COALESCE(?, sort_order),
+        page = ?,
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -277,6 +284,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         confirm === undefined ? null : (confirm ? 1 : 0),
         enabled === undefined ? null : (enabled ? 1 : 0),
         sort_order === undefined ? null : sort_order,
+        page === undefined ? existing.page : (page || null),
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));
@@ -382,7 +390,13 @@ async function handleFire(req, res) {
     const button = db.prepare('SELECT * FROM console_buttons WHERE id = ? AND studio_id = ?').get(buttonId, studioId);
     if (!button) return res.status(404).json({ error: 'button not found' });
     if (!button.enabled) return res.status(409).json({ error: 'button disabled' });
-    const result = await dispatchAction(studioId, button, getIO(), req.user?.id);
+    // Optional target group: ?target=<screenId> (or comma list, or body.target).
+    // Omitted / 'all' = whole studio. Only layout-taking actions use it.
+    const rawTarget = req.body?.target ?? req.query?.target;
+    const targetScreenIds = rawTarget && rawTarget !== 'all'
+      ? String(rawTarget).split(',').map(s => s.trim()).filter(Boolean)
+      : null;
+    const result = await dispatchAction(studioId, button, getIO(), req.user?.id, { targetScreenIds });
     res.json({ ok: true, button: button.label, result });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
