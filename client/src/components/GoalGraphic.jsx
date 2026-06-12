@@ -20,7 +20,7 @@ const HEAD = "'Oswald','Rajdhani',sans-serif";
 const IMPACT = "'Anton','Oswald',sans-serif";
 const ini = (n = '') => n.split(' ').map((w) => w[0]).slice(-2).join('').toUpperCase();
 
-export function GoalAudio({ sound, audioOutput }) {
+export function GoalAudio({ sound, audioOutput, loop = false }) {
   const ref = useRef(null);
   useEffect(() => {
     if (!audioOutput || !sound) return;
@@ -31,7 +31,7 @@ export function GoalAudio({ sound, audioOutput }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!audioOutput || !sound) return null;
-  return <audio ref={ref} src={sound} preload="auto" playsInline />;
+  return <audio ref={ref} src={sound} preload="auto" playsInline loop={loop} />;
 }
 
 export default function GoalGraphic({ player, minute }) {

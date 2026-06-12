@@ -62,9 +62,7 @@ const SCENES = [
   { name: '🎬 FanZone — Show Intro', bg: '#000000', modules: [ video(U('sideliners-intro.mp4')) ] },
   { name: '🏴 Scotland — Tartan Army', bg: '#0a2a66', modules: [ hero({ title: 'SCOTLAND', subtitle: 'THE TARTAN ARMY', kicker: 'WORLD CUP 26 · GROUP C' }) ] },
   { name: '🏟 FanZone — Holding', bg: BG, modules: [
-      img(LOGO_FZ, 1, 1, 10, 5),
-      text('Welcome to the SideLiner’s FanZone', 1, 6, 10, 1, '2.6vw'),
-      ticker('NOW Ayrshire Radio  ·  SideLiner’s FanZone  ·  FIFA World Cup 26  ·  Live from venue38'),
+      img(LOGO_FZ, 1, 1, 10, 6),
   ] },
   { name: '📊 Match Centre — Scotland v Haiti', bg: BG, modules: [ stats('header') ] },
   { name: '📊 Form Guide', bg: BG, modules: [ stats('form') ] },
@@ -186,7 +184,7 @@ try {
       // its natural length under the camera. duration = tune length so the
       // overlay (and its audio) auto-dismisses when the music ends.
       btns.push({ label: surname, sublabel: 'WALK ON', icon: '🎤', color: PUR,
-        action: 'push_overlay', payload: { overlay: { type: 'sl_walkon', name: p.name, title: p.title, sound: U(`walkin-${p.slug}.wav`), graphicMs: 8000, duration: p.tune } } });
+        action: 'push_overlay', payload: { overlay: { type: 'sl_walkon', name: p.name, title: p.title, sound: U(`walkin-${p.slug}.wav`), graphicMs: 30000, duration: 30 } } });
     }
 
     const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');

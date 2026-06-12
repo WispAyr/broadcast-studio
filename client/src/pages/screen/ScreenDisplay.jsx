@@ -203,14 +203,14 @@ function SidelinersOverlay({ overlay }) {
 function WalkonOverlay({ overlay, audioOutput }) {
   const [showGraphic, setShowGraphic] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => setShowGraphic(false), overlay.graphicMs ?? 8000);
+    const t = setTimeout(() => setShowGraphic(false), overlay.graphicMs ?? 30000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <>
       {showGraphic && <SidelinersOverlay overlay={overlay} />}
-      {overlay.sound && <GoalAudio sound={overlay.sound} audioOutput={audioOutput} />}
+      {overlay.sound && <GoalAudio sound={overlay.sound} audioOutput={audioOutput} loop />}
     </>
   );
 }
@@ -893,6 +893,10 @@ export default function ScreenDisplay() {
 
   const gridRows = layout?.grid_rows || 3;
   const gridColumns = layout?.grid_cols || layout?.grid_columns || 4;
+  const composedLayers = React.useMemo(
+    () => getLayers(layout?.modules ?? modules).sort((a, b) => a.order - b.order),
+    [layout, modules]
+  );
   const background = layout?.background || '#000000';
   const fitResW = layout?.resolution_w || 1920;
   const fitResH = layout?.resolution_h || 1080;
@@ -989,7 +993,7 @@ export default function ScreenDisplay() {
           transition: transitioning && transitionType === 'crossfade' ? 'opacity 0.6s ease-in-out' : undefined,
         }}
       >
-        {getLayers(layout?.modules ?? modules).sort((a, b) => a.order - b.order).map((layer) => {
+        {composedLayers.map((layer) => {
           if (!layer.visible) return null;
           const fullscreenMods = (layer.modules || []).filter(m => m.fullscreen);
           const gridMods = (layer.modules || []).filter(m => !m.fullscreen);
