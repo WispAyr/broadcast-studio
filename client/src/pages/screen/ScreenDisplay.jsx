@@ -389,6 +389,7 @@ export default function ScreenDisplay() {
 
   const heartbeatRef = useRef(null);
   const socketRef = useRef(null);
+  const hasConnectedOnce = useRef(false);
   const gridRef = useRef(null);
   const canvasRef = useRef(null);
   const sourceCanvasRef = useRef(null);
@@ -564,8 +565,13 @@ export default function ScreenDisplay() {
       setConnected(true);
       setReconnectCount(0);
       socket.emit('register_screen', { screenId: id });
-      // Re-fetch layout + display profile on reconnect
-      fetchScreenDataRef.current();
+      // Re-fetch layout + display profile on RECONNECT only. The mount effect
+      // already fetched on first load, so re-fetching here would re-apply the
+      // layout a second time and visibly reload all media (loads twice).
+      if (hasConnectedOnce.current) {
+        fetchScreenDataRef.current();
+      }
+      hasConnectedOnce.current = true;
       // Re-fetch any counter modules so their values are fresh after a server
       // restart (counters are now persisted in DB, so this is authoritative)
       fetch(`/api/counter/all`)
