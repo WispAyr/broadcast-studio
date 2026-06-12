@@ -26,7 +26,7 @@ export default function CameraFeedModule({ config = {} }) {
         if (autoplay) video.play().catch(() => {});
       } else {
         // Dynamically load hls.js
-        import('https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js')
+        import('hls.js')
           .then((mod) => {
             const Hls = mod.default;
             if (Hls.isSupported()) {

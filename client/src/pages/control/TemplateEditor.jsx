@@ -839,12 +839,8 @@ export default function TemplateEditor() {
                         value={selectedEl.textConfig?.fontFamily || 'Inter'}
                         onChange={e => {
                           const font = FONT_LIST.find(f => f.name === e.target.value);
-                          if (font && font.google) {
-                            const link = document.createElement('link');
-                            link.href = 'https://fonts.googleapis.com/css2?family=' + font.google + ':wght@100;200;300;400;500;600;700;800;900&display=swap';
-                            link.rel = 'stylesheet';
-                            if (!document.querySelector('link[href*="' + font.google + '"]')) document.head.appendChild(link);
-                          }
+                          // Fonts are self-hosted (/fonts/fonts.css) — no runtime CDN load.
+                          void font;
                           updateSelectedElement(el => ({ ...el, textConfig: { ...el.textConfig, fontFamily: e.target.value } }));
                         }}
                         className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
