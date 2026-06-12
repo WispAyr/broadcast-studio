@@ -196,10 +196,32 @@ function SidelinersOverlay({ overlay }) {
   return null;
 }
 
+// Panel walk-on with a walk-in tune. The full-frame graphic holds for
+// `graphicMs` (~8s, the "please welcome" beat) then clears, while the tune
+// keeps playing under the camera until the overlay's `duration` removes it.
+// Audio is PA-feed gated (GoalAudio ducks the bed), same as goal stings.
+function WalkonOverlay({ overlay, audioOutput }) {
+  const [showGraphic, setShowGraphic] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setShowGraphic(false), overlay.graphicMs ?? 8000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <>
+      {showGraphic && <SidelinersOverlay overlay={overlay} />}
+      {overlay.sound && <GoalAudio sound={overlay.sound} audioOutput={audioOutput} />}
+    </>
+  );
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
 
   if (typeof overlay.type === 'string' && overlay.type.startsWith('sl_')) {
+    if (overlay.type === 'sl_walkon' && (overlay.sound || overlay.graphicMs)) {
+      return <WalkonOverlay overlay={overlay} audioOutput={audioOutput} />;
+    }
     return <SidelinersOverlay overlay={overlay} />;
   }
 

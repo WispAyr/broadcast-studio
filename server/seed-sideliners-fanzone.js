@@ -175,15 +175,18 @@ try {
 
     // ── Panel WALK ON buttons — full-frame "please welcome" graphic per panellist ──
     const PANEL = [
-      { name: 'Jonny Baillie', title: "SideLiner's Panel" },
-      { name: 'Evan Warrander', title: "SideLiner's Panel" },
-      { name: 'Gary Holt', title: 'Former Scotland International' },
-      { name: 'Dean Keenan', title: "SideLiner's Panel" },
+      { name: 'Jonny Baillie', title: "SideLiner's Panel", slug: 'jonny-baillie', tune: 13 },
+      { name: 'Evan Warrander', title: "SideLiner's Panel", slug: 'evan-warrander', tune: 22 },
+      { name: 'Gary Holt', title: 'Former Scotland International', slug: 'gary-holt', tune: 15 },
+      { name: 'Dean Keenan', title: "SideLiner's Panel", slug: 'dean-keenan', tune: 27 },
     ];
     for (const p of PANEL) {
       const surname = p.name.split(' ').slice(1).join(' ') || p.name;
+      // Graphic holds ~8s ("please welcome"); the walk-in tune then plays out to
+      // its natural length under the camera. duration = tune length so the
+      // overlay (and its audio) auto-dismisses when the music ends.
       btns.push({ label: surname, sublabel: 'WALK ON', icon: '🎤', color: PUR,
-        action: 'push_overlay', payload: { overlay: { type: 'sl_walkon', name: p.name, title: p.title, duration: 8 } } });
+        action: 'push_overlay', payload: { overlay: { type: 'sl_walkon', name: p.name, title: p.title, sound: U(`walkin-${p.slug}.wav`), graphicMs: 8000, duration: p.tune } } });
     }
 
     const ins = db.prepare('INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, sort_order) VALUES (?,?,?,?,?,?,?,?,?,?)');
