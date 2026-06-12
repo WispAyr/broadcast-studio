@@ -34,6 +34,24 @@ const DATA = {
   ],
 };
 
+// Predicted XIs (editable) — confirmed team news ~1hr before kick-off. Rows are
+// listed back-to-front by shirt number; the pitch renders GK at the bottom.
+const LINEUPS = {
+  SCO: { formation: '3-4-2-1', rows: [[1], [13, 5, 6], [22, 4, 7, 3], [11, 17], [10]] },
+  HAI: { formation: '4-4-2', rows: [[1], [2, 4, 22, 13], [7, 10, 17, 11], [9, 20]] },
+};
+const VENUE = {
+  name: 'Gillette Stadium', wcName: '“Boston Stadium” · World Cup 26',
+  capacity: '65,878', location: 'Foxborough, Massachusetts', opened: '2002',
+  surface: 'Natural grass (for WC26)', home: 'NE Patriots · Revolution',
+  distance: '≈ 22 miles SW',
+  note: "Hosts 7 World Cup matches — including both of Scotland's first two group games (v Haiti & v Morocco).",
+};
+const BATTLES = [[4, 10], [7, 9], [3, 20]];               // [SCO number, HAI number]
+const WATCH = [['SCO', 4], ['HAI', 9], ['SCO', 17], ['HAI', 10]];
+const byNum = (squad, n) => squad.find((p) => p.number === n) || { number: n, name: '', pos: '', club: '' };
+const surname = (n = '') => { const w = n.split(' '); return w.length > 1 ? w.slice(1).join(' ') : n; };
+
 const PURPLE = '#7a2f9e', PURPLE_HI = '#a44ad0', NAVY = '#241a40', NAVY_DEEP = '#15102b', GOLD = '#ffd24a';
 const HEAD = "'MuseoModerno','Oswald',sans-serif";
 const wrap = { width: '100%', height: '100%', color: '#fff', fontFamily: HEAD, padding: '3vh 3vw', boxSizing: 'border-box',
@@ -212,6 +230,125 @@ export default function MatchStatsModule({ config = {} }) {
           <div style={{ fontSize: '3.2vh', lineHeight: 1.45 }}>{t.qualified}</div>
         </div>
       )} /></div>);
+  }
+
+  if (view === 'formation') {
+    const L = config.lineups || LINEUPS;
+    const tok = (squad, tint) => (n) => {
+      const p = byNum(squad, n);
+      return (
+        <div key={n} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5vh', flex: 1 }}>
+          <div style={{ width: '6.4vh', height: '6.4vh', borderRadius: '50%', border: `0.35vh solid ${GOLD}`, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.9vh', boxShadow: '0 0.6vh 2vh rgba(0,0,0,.55)' }}>{p.number}</div>
+          <div style={{ fontSize: '1.95vh', fontWeight: 600, textAlign: 'center', lineHeight: 1, textShadow: '0 1px 3px #000', maxWidth: '11vw' }}>{surname(p.name)}</div>
+        </div>
+      );
+    };
+    const panel = (squad, lu, name, flag, tint, mgr, idx) => (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, animation: `msCard .55s ease-out ${idx * 0.12}s both` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1vw', marginBottom: '1.2vh' }}>
+          <Crest kind={flag} s="5vh" delay={idx * 0.12 + 0.1} />
+          <div style={{ fontWeight: 700, fontSize: '4.2vh' }}>{name}</div>
+          <div style={{ marginLeft: 'auto', background: PURPLE, padding: '0.5vh 1.3vw', borderRadius: '4vh', fontSize: '2.5vh', fontWeight: 700, letterSpacing: '0.12em' }}>{lu.formation}</div>
+        </div>
+        <div style={{ flex: 1, position: 'relative', borderRadius: '1vh', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.18)', background: 'repeating-linear-gradient(0deg, #1f7a3a 0 8%, #246b39 8% 16%)', display: 'flex', flexDirection: 'column-reverse', justifyContent: 'space-around', padding: '2.5vh 0.5vw' }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '2px', background: 'rgba(255,255,255,0.22)' }} />
+          <div style={{ position: 'absolute', top: '50%', left: '50%', width: '13vh', height: '13vh', transform: 'translate(-50%,-50%)', border: '2px solid rgba(255,255,255,0.22)', borderRadius: '50%' }} />
+          {lu.rows.map((row, ri) => (
+            <div key={ri} style={{ display: 'flex', justifyContent: 'space-evenly', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+              {row.map(tok(squad, tint))}
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '2.1vh', color: PURPLE_HI, marginTop: '1vh' }}>Mgr: {mgr}</div>
+      </div>
+    );
+    return (
+      <div style={wrap}><Title>Predicted Line-ups</Title>
+        <div style={{ flex: 1, display: 'flex', gap: '2vw', minHeight: 0 }}>
+          {panel(SCOTLAND, L.SCO, 'SCOTLAND', 'saltire', '#0a2a66', d.home.mgr, 0)}
+          {panel(HAITI, L.HAI, 'HAITI', 'haiti', '#101a5c', d.away.mgr, 1)}
+        </div>
+        <div style={{ textAlign: 'center', fontSize: '2vh', opacity: 0.55, marginTop: '1vh', flexShrink: 0 }}>Predicted XIs · confirmed team news to follow</div>
+      </div>
+    );
+  }
+
+  if (view === 'stadium') {
+    const v = config.venue || VENUE;
+    const fact = (label, val, i) => (
+      <div key={label} style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '1vh', padding: '2.2vh 1.6vw', animation: `msCard .5s ease-out ${0.1 + i * 0.06}s both` }}>
+        <div style={{ color: PURPLE_HI, fontSize: '2.2vh', letterSpacing: '0.12em', marginBottom: '0.7vh' }}>{label}</div>
+        <div style={{ fontWeight: 700, fontSize: '3.4vh', lineHeight: 1.08 }}>{val}</div>
+      </div>
+    );
+    return (
+      <div style={wrap}><Title>The Venue</Title>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '1.5vw', marginBottom: '2vh', flexShrink: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '7vh', lineHeight: 1 }}>{v.name}</div>
+          <div style={{ color: GOLD, fontSize: '3vh', fontWeight: 600 }}>{v.wcName}</div>
+        </div>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridAutoRows: '1fr', gap: '1.5vw', minHeight: 0 }}>
+          {fact('CAPACITY', v.capacity, 0)}{fact('LOCATION', v.location, 1)}{fact('OPENED', v.opened, 2)}
+          {fact('SURFACE', v.surface, 3)}{fact('HOME OF', v.home, 4)}{fact('FROM BOSTON', v.distance, 5)}
+        </div>
+        <div style={{ marginTop: '2vh', fontSize: '2.7vh', lineHeight: 1.3, flexShrink: 0 }}>{v.note}</div>
+      </div>
+    );
+  }
+
+  if (view === 'head_to_head' || view === 'battle') {
+    const pairs = config.battles || BATTLES;
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(-2).join('');
+    const battler = (p, tint, align) => (
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1.2vw', flexDirection: align === 'left' ? 'row-reverse' : 'row', textAlign: align }}>
+        <div style={{ width: '11vh', height: '11vh', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: `0.4vh solid ${GOLD}`, background: tint, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '4vh' }}>
+          {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '3.6vh', lineHeight: 1.05 }}>{p.name}</div>
+          <div style={{ fontSize: '2.3vh', opacity: 0.8 }}>{p.club}</div>
+          <div style={{ fontSize: '2.3vh', color: GOLD }}>{p.caps} caps · {p.intlGoals} gls</div>
+        </div>
+      </div>
+    );
+    return (
+      <div style={wrap}><Title>Key Battles</Title>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-around', minHeight: 0 }}>
+          {pairs.map((b, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.5vw', animation: `msCard .5s ease-out ${0.1 + i * 0.1}s both` }}>
+              {battler(byNum(SCOTLAND, b[0]), '#0a2a66', 'right')}
+              <div style={{ flexShrink: 0, width: '7vh', height: '7vh', borderRadius: '50%', background: `linear-gradient(135deg, ${PURPLE_HI}, ${PURPLE})`, border: '0.3vh solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '2.8vh' }}>VS</div>
+              {battler(byNum(HAITI, b[1]), '#101a5c', 'left')}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'ones_to_watch' || view === 'watch') {
+    const ini = (n) => n.split(' ').map((w) => w[0]).slice(-2).join('');
+    const picks = (config.watch || WATCH).map(([tm, num]) => byNum(tm === 'SCO' ? SCOTLAND : HAITI, num)).filter((p) => p && p.name);
+    const tint = (p) => (p.team === 'SCO' ? '#0a2a66' : '#101a5c');
+    return (
+      <div style={wrap}><Title>Ones to Watch</Title>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoRows: '1fr', gap: '1.5vw', minHeight: 0 }}>
+          {picks.map((p, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.4vw', background: 'rgba(255,255,255,0.05)', borderRadius: '1vh', padding: '2vh 1.6vw', animation: `msCard .5s ease-out ${0.1 + i * 0.08}s both` }}>
+              <div style={{ width: '14vh', height: '14vh', borderRadius: '1vh', overflow: 'hidden', flexShrink: 0, border: `0.4vh solid ${GOLD}`, background: `linear-gradient(150deg, ${tint(p)}, ${tint(p)}99)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '5vh' }}>
+                {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: GOLD, fontSize: '2.2vh', letterSpacing: '0.1em' }}>{p.role || (p.team === 'SCO' ? 'SCOTLAND' : 'HAITI')}</div>
+                <div style={{ fontWeight: 700, fontSize: '4.2vh', lineHeight: 1.02 }}>{p.name}</div>
+                <div style={{ fontSize: '2.4vh', opacity: 0.8 }}>{p.pos} · {p.club}</div>
+                <div style={{ fontSize: '2.4vh', color: PURPLE_HI, marginTop: '0.4vh' }}>{p.caps} caps · {p.intlGoals} intl goals</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   // facts — interactive auto-cycling "Did You Know"
