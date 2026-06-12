@@ -54,6 +54,7 @@ export default function Console() {
   const [studio, setStudio] = useState({ id: params.get('studio') || null, name: 'Studio' });
   const [buttons, setButtons] = useState([]);
   const [state, setState] = useState(null);
+  const [score, setScore] = useState(null);
   const [layouts, setLayouts] = useState([]);
   const [scenes, setScenes] = useState([]);
   const [activePage, setActivePage] = useState(null); // null until pages known
@@ -90,7 +91,11 @@ export default function Console() {
 
   const loadState = useCallback(async (sid) => {
     if (!sid) return;
-    try { setState(await api.get(`/console/state?studio_id=${sid}`)); } catch {}
+    try {
+      const st = await api.get(`/console/state?studio_id=${sid}`);
+      setState(st);
+      if (st && st.scoreboard) setScore(st.scoreboard);
+    } catch {}
   }, []);
 
   const loadPickers = useCallback(async (sid) => {
@@ -136,6 +141,12 @@ export default function Console() {
     }
     setTimeout(() => setFlash(f => { const n = { ...f }; delete n[btn.id]; return n; }), 1200);
   }, [loadState, target]);
+
+  const scoreOp = useCallback(async (body) => {
+    const sid = studioIdRef.current;
+    if (!sid) return;
+    try { setScore(await api.post(`/console/${sid}/score`, body)); } catch (e) { setErr(e.message); }
+  }, []);
 
   const onPress = (btn) => {
     if (editMode) { setEditBtn(btn); return; }
@@ -285,6 +296,9 @@ export default function Console() {
         </div>
       )}
 
+      {/* Live scoreboard control */}
+      <ScoreboardBar score={score} op={scoreOp} />
+
       {/* Button grid */}
       <div className="flex-1 overflow-y-auto p-5">
         {err && <div className="mb-4 text-center text-rose-300 text-sm bg-rose-500/10 rounded-lg py-2">{err}</div>}
@@ -394,6 +408,58 @@ export default function Console() {
           studioId={studio.id}
         />
       )}
+    </div>
+  );
+}
+
+// ── Live scoreboard bar — nudge the sl_score corner bug straight from /console ──
+function ScoreboardBar({ score, op }) {
+  const [home, setHome] = useState('');
+  const [away, setAway] = useState('');
+  useEffect(() => { if (score) { setHome(score.home_name); setAway(score.away_name); } }, [score?.home_name, score?.away_name]);
+  if (!score) return null;
+  const live = !!score.visible;
+  const Stepper = ({ side, accent }) => (
+    <div className="flex items-center gap-2">
+      <button onClick={() => op({ op: 'adjust', side, delta: -1 })}
+        className="w-11 h-11 rounded-xl bg-white/10 hover:bg-white/20 text-2xl font-black leading-none active:scale-95 transition">−</button>
+      <div className="w-12 text-center text-4xl font-black tabular-nums" style={{ color: accent }}>
+        {side === 'home' ? score.home_goals : score.away_goals}</div>
+      <button onClick={() => op({ op: 'adjust', side, delta: 1 })}
+        className="w-11 h-11 rounded-xl text-2xl font-black leading-none active:scale-95 transition text-white"
+        style={{ background: accent }}>+</button>
+    </div>
+  );
+  const nameCls = 'w-16 bg-transparent text-center text-sm font-black uppercase tracking-wider text-white/80 border-b border-white/15 focus:outline-none focus:border-orange-400';
+  const commitTeams = () => op({ op: 'teams', home_name: home, away_name: away });
+  return (
+    <div className="mx-5 mt-3 shrink-0 rounded-2xl px-4 py-3 flex items-center gap-3 flex-wrap"
+      style={{ background: live ? 'rgba(22,163,74,0.12)' : 'rgba(255,255,255,0.05)', border: `1px solid ${live ? 'rgba(22,163,74,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Score</span>
+      <div className="flex items-center gap-2">
+        <input className={nameCls} value={home} onChange={e => setHome(e.target.value)} onBlur={commitTeams} maxLength={5} />
+        <Stepper side="home" accent="#3b82f6" />
+      </div>
+      <span className="text-2xl font-black text-white/30">:</span>
+      <div className="flex items-center gap-2">
+        <Stepper side="away" accent="#ef4444" />
+        <input className={nameCls} value={away} onChange={e => setAway(e.target.value)} onBlur={commitTeams} maxLength={5} />
+      </div>
+      <div className="flex items-center gap-1.5 ml-1">
+        <button onClick={() => op({ op: 'minute_adjust', delta: -1 })}
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-lg font-black active:scale-95 transition">−</button>
+        <div className="min-w-[3rem] text-center text-lg font-black tabular-nums text-white/80">{score.minute || "—'"}</div>
+        <button onClick={() => op({ op: 'minute_adjust', delta: 1 })}
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-lg font-black active:scale-95 transition">+</button>
+      </div>
+      <div className="ml-auto flex items-center gap-2">
+        <button onClick={() => op({ op: 'toggle' })}
+          className="px-4 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider transition active:scale-95"
+          style={{ background: live ? '#16a34a' : 'rgba(255,255,255,0.1)', color: '#fff' }}>
+          {live ? '● On air' : 'Show'}</button>
+        <button onClick={() => op({ op: 'reset' })}
+          className="px-3 py-2.5 rounded-xl text-sm font-bold text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition">Reset</button>
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ const { getIO } = require('../ws');
 const { enrichLayout } = require('../lib/enrich-layout');
 const { startTimeline, stopTimeline, getCurrentState } = require('../timeline');
 const cardWall = require('../card-wall');
+const scoreboard = require('../scoreboard');
 
 const router = express.Router();
 
@@ -210,6 +211,25 @@ async function dispatchAction(studioId, button, io, userId, { targetScreenIds = 
     case 'now_playing': {
       return { type, ...(await pushNowPlaying(studioId, p, io)) };
     }
+    case 'score_adjust': {
+      const s = scoreboard.adjust(studioId, p.side, p.delta ?? 1);
+      return { type, score: `${s.home_goals}-${s.away_goals}`, visible: !!s.visible };
+    }
+    case 'score_minute': {
+      const s = p.minute !== undefined ? scoreboard.apply(studioId, { minute: p.minute }) : scoreboard.adjustMinute(studioId, p.delta ?? 1);
+      return { type, minute: s.minute };
+    }
+    case 'score_show': { const s = scoreboard.apply(studioId, { visible: 1 }); return { type, visible: !!s.visible }; }
+    case 'score_hide': { scoreboard.apply(studioId, { visible: 0 }); return { type, visible: false }; }
+    case 'score_reset': { const s = scoreboard.apply(studioId, { home_goals: 0, away_goals: 0, minute: '' }); return { type, ...s }; }
+    case 'score_set': {
+      const s = scoreboard.apply(studioId, {
+        home_name: p.home_name, away_name: p.away_name,
+        home_goals: p.home_goals, away_goals: p.away_goals,
+        minute: p.minute, visible: p.visible,
+      });
+      return { type, ...s };
+    }
     case 'reload_screens': {
       const screens = db.prepare('SELECT id FROM screens WHERE studio_id = ?').all(studioId);
       for (const s of screens) io.to(`screen:${s.id}`).emit('reload_screen', {});
@@ -328,7 +348,35 @@ router.get('/state', authenticate, (req, res) => {
       on_air_layout_id: onAirId,
       on_air_layout_name: onAir ? onAir.name : null,
       timeline,
+      scoreboard: scoreboard.get(studioId),
     });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Scoreboard — live match score bug, driven from the /console score bar ──
+router.get('/:studioId/score', authenticate, (req, res) => {
+  try { res.json(scoreboard.get(req.params.studioId)); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post('/:studioId/score', authenticate, (req, res) => {
+  try {
+    const sid = req.params.studioId;
+    const b = req.body || {};
+    let s;
+    switch (b.op) {
+      case 'adjust': s = scoreboard.adjust(sid, b.side, b.delta ?? 1); break;
+      case 'show': s = scoreboard.apply(sid, { visible: 1 }); break;
+      case 'hide': s = scoreboard.apply(sid, { visible: 0 }); break;
+      case 'toggle': s = scoreboard.apply(sid, { visible: scoreboard.get(sid).visible ? 0 : 1 }); break;
+      case 'reset': s = scoreboard.apply(sid, { home_goals: 0, away_goals: 0, minute: '' }); break;
+      case 'minute': s = scoreboard.apply(sid, { minute: b.minute }); break;
+      case 'minute_adjust': s = scoreboard.adjustMinute(sid, b.delta ?? 1); break;
+      case 'teams': s = scoreboard.apply(sid, { home_name: b.home_name, away_name: b.away_name }); break;
+      case 'set': s = scoreboard.apply(sid, b); break;
+      default: return res.status(400).json({ error: 'unknown op' });
+    }
+    res.json(s);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
