@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { ShaderLayer } from '../components/ShaderLayer';
 
 export const NARShowBanner = ({
   showName = 'Ali & Michael in the Morning',
@@ -7,6 +8,9 @@ export const NARShowBanner = ({
   showTime = '6AM - 10AM',
   style = 'morning',
   background = '#1E2A35',
+  shaderBg = 'none',
+  shaderColors = '',
+  shaderOpacity = 0.5,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -62,6 +66,9 @@ export const NARShowBanner = ({
       width: '100%', height: '100%', background, position: 'relative', overflow: 'hidden',
       fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
     }}>
+      {shaderBg !== 'none' && (
+        <ShaderLayer absolute shader={shaderBg} colors={shaderColors || undefined} background={background} opacity={shaderOpacity} />
+      )}
       {/* Warm mesh */}
       <div style={{ position: 'absolute', inset: 0, opacity: 0.45 * exitOp,
         background: `radial-gradient(ellipse 100% 80% at ${45 + m1}% ${40 + m2}%, rgba(247,148,29,0.18) 0%, transparent 55%)`,

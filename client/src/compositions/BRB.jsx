@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate } from 'remotion';
+import { ShaderLayer } from '../components/ShaderLayer';
 
 export const BRB = ({
   text = 'BE RIGHT BACK',
@@ -7,6 +8,9 @@ export const BRB = ({
   accentColor = '#6366f1',
   background = '#0a0a0a',
   style = 'geometric',
+  shaderBg = 'none',
+  shaderColors = '',
+  shaderOpacity = 0.6,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -21,6 +25,9 @@ export const BRB = ({
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'system-ui, sans-serif', overflow: 'hidden', position: 'relative',
     }}>
+      {shaderBg !== 'none' && (
+        <ShaderLayer absolute shader={shaderBg} colors={shaderColors || undefined} background={background} opacity={shaderOpacity} />
+      )}
       {/* Animated background pattern */}
       {style === 'geometric' && (
         <svg width={width} height={height} style={{ position: 'absolute', inset: 0, opacity: 0.06 }}>
