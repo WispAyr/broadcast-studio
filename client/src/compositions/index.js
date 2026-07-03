@@ -1084,6 +1084,9 @@ const compositions = {
       softness: { type: 'number', label: 'Softness', default: 0.6, min: 0, max: 1 },
       distortion: { type: 'number', label: 'Distortion', default: 0.8, min: 0, max: 2 },
       rotation: { type: 'number', label: 'Rotation', default: 0, min: 0, max: 360 },
+      audioSrc: { type: 'text', label: 'Audio URL (reactive, optional)', default: '' },
+      audioBand: { type: 'select', label: 'Audio Band', default: 'bass', options: ['bass', 'mid', 'treble', 'full'] },
+      audioReactivity: { type: 'number', label: 'Audio Reactivity', default: 1, min: 0, max: 3 },
     },
   },
 

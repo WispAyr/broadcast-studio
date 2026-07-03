@@ -15,6 +15,9 @@ export const ShaderBackground = ({
   softness = 0.6,
   distortion = 0.8,
   rotation = 0,
+  audioSrc = '',
+  audioReactivity = 1,
+  audioBand = 'bass',
 }) => (
   <ShaderLayer
     shader={shader}
@@ -25,5 +28,8 @@ export const ShaderBackground = ({
     softness={softness}
     distortion={distortion}
     rotation={rotation}
+    audioSrc={audioSrc}
+    audioReactivity={audioReactivity}
+    audioBand={audioBand}
   />
 );
