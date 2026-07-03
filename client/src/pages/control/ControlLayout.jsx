@@ -20,6 +20,7 @@ const navItems = [
   { path: 'timeline', label: 'Timeline', icon: 'clock' },
   { path: 'schedule', label: 'Schedule', icon: 'clock' },
   { path: 'templates', label: 'Templates', icon: 'templates' },
+  { path: 'shaders', label: 'Shader Studio', icon: 'shader' },
   { path: 'variables', label: 'Variables', icon: 'variables' },
   { path: 'settings', label: 'Settings', icon: 'settings' },
   { path: 'egpk', label: 'EGPK Live', icon: 'plane' },
@@ -61,6 +62,11 @@ const iconMap = {
   templates: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+    </svg>
+  ),
+  shader: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-6.714 2.143L12 21l-2.286-6.857L3 12l6.714-2.143L12 3z" />
     </svg>
   ),
   plane: (
