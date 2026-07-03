@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@paper-design/shaders-react": "^0.0.77",
     "@remotion/core": "^1.0.0-y.46",
     "@remotion/light-leaks": "^4.0.436",
     "@remotion/player": "^4.0.436",

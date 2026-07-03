@@ -60,6 +60,9 @@ import { GlassmorphismClock } from './GlassmorphismClock';
 import { ElectricBorder } from './ElectricBorder';
 import { MinimalEndCard } from './MinimalEndCard';
 
+// GPU shader backgrounds (Paper Design shaders, frame-driven for deterministic render)
+import { ShaderBackground } from './ShaderBackground';
+
 const compositions = {
   title_reveal: {
     component: TitleReveal,
@@ -1043,6 +1046,29 @@ const compositions = {
       color: { type: 'color', label: 'Color', default: '#00a8ff' },
       intensity: { type: 'number', label: 'Intensity', default: 5, min: 1, max: 10 },
       background: { type: 'color', label: 'Background', default: 'transparent' },
+    },
+  },
+
+  shader_background: {
+    component: ShaderBackground,
+    meta: {
+      name: 'Shader Background',
+      description: 'GPU shader background (Paper Design) — simplex noise, mesh gradient, warp, waves, metaballs and more. Frame-driven for deterministic, seekable output.',
+      category: 'backgrounds',
+      defaultDuration: 15,
+      fps: 30,
+      width: 1920,
+      height: 1080,
+    },
+    schema: {
+      shader: { type: 'select', label: 'Shader', default: 'simplex-noise', options: ['simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      colors: { type: 'textarea', label: 'Colors (one hex per line)', default: '#ff006a\n#8b5cf6\n#06b6d4\n#f59e0b' },
+      background: { type: 'color', label: 'Background', default: '#000000' },
+      scale: { type: 'number', label: 'Scale', default: 1, min: 0.1, max: 4 },
+      speed: { type: 'number', label: 'Speed', default: 1, min: 0, max: 5 },
+      softness: { type: 'number', label: 'Softness', default: 0.6, min: 0, max: 1 },
+      distortion: { type: 'number', label: 'Distortion', default: 0.8, min: 0, max: 2 },
+      rotation: { type: 'number', label: 'Rotation', default: 0, min: 0, max: 360 },
     },
   },
 
