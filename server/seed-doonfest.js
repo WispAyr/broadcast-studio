@@ -66,10 +66,33 @@ const btn = (label, sublabel, icon, type, payload, sort) =>
   ins.run(randomUUID(), STUDIO_ID, label, sublabel, icon, '#faa61e', type, JSON.stringify(payload), sort);
 
 btn('Live Bug', 'persistent', '🔴', 'push_overlay', { overlay: { type: 'df_bug' } }, 1);
-btn('Ticker', 'persistent', '📜', 'push_overlay', { overlay: { type: 'df_ticker', text: 'Welcome to DoonFest — brought to you with Now Ayrshire Radio' } }, 2);
-btn('Sponsor', '8s', '🤝', 'push_overlay', { overlay: { type: 'df_sponsor', name: 'Now Ayrshire Radio', duration: 8 } }, 3);
+btn('Ticker', 'persistent', '📜', 'push_overlay', { overlay: { type: 'df_ticker', text: 'Doonfest 2026 · Dalrymple · Free family festival · Main supporter: Regency FM · With Now Ayrshire Radio · doonfest.org' } }, 2);
+btn('Regency FM', 'main supporter · 8s', '🤝', 'push_overlay', { overlay: { type: 'df_sponsor', name: 'Regency FM', label: 'DOONFEST MAIN SUPPORTER', duration: 8 } }, 3);
 btn('Clear All', 'overlays off', '🧹', 'clear_overlays', {}, 4);
-console.log('[buttons] DOONFEST page seeded (4)');
+
+// One-tap "NOW ON STAGE" lower-thirds — Saturday 4 Jul running order
+// (doonfest.org/lineup). Sublabel/title carry stage + set time.
+const SAT_ACTS = [
+  ['Elite Dance School',          'Main Stage · 12:15'],
+  ['Dalrymple Ukulele Orchestra', 'At the Bar · 12:30'],
+  ['Magic Malky',                 'Now Ayrshire Marquee · 13:00'],
+  ['Salsa Dancing',               'Main Stage · 13:00'],
+  ['Amanda Jean',                 'At the Bar · 13:30'],
+  ['Line Dancing',                'Main Stage · 14:00'],
+  ['The Banned',                  'Now Ayrshire Marquee · 14:15'],
+  ['Cafe Orchestra',              'At the Bar · 14:45'],
+  ['Ecko',                        'Now Ayrshire Marquee · 15:15'],
+  ['Possibility Screams',         'Main Stage · 15:30'],
+  ['Graham Cole',                 'At the Bar · 16:00'],
+  ['Escapade',                    'Now Ayrshire Marquee · 16:15'],
+  ['Roaring Seas',                'Now Ayrshire Marquee · 17:30'],
+  ['Memphis',                     'Main Stage · 18:40'],
+  ['Porkpie',                     'Main Stage · 20:15'],
+  ['Ben Walker',                  'Main Stage · 21:40'],
+];
+SAT_ACTS.forEach(([name, where], i) =>
+  btn(name, where, '🎤', 'push_overlay', { overlay: { type: 'df_lower_third', name, title: where } }, 10 + i));
+console.log(`[buttons] DOONFEST page seeded (${4 + SAT_ACTS.length})`);
 
 db.close();
 console.log('done');
