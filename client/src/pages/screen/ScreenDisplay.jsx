@@ -215,8 +215,106 @@ function WalkonOverlay({ overlay, audioOutput }) {
   );
 }
 
+// ── DoonFest branded overlays (NAR navy/amber, Darker Grotesque) ──────────
+// Event pack for the DoonFest OB feed (OBS browser-source over the stage cam).
+// Persistent: df_bug / df_lower_third / df_ticker. Duration-driven (auto-
+// dismiss): df_break / df_sponsor. Multicolour ticks echo the stage banner.
+const DF_NAVY = '#0c132f', DF_AMBER = '#faa61e', DF_RED = '#e11d48';
+const DF_TICKS = ['#e05a30', '#2f8ade', '#5db95d'];
+const DF_HEAD = "'Darker Grotesque','Inter',sans-serif";
+const DF_CAPS = "'Inter',sans-serif";
+function DoonfestOverlay({ overlay }) {
+  const t = overlay.type;
+  const ticks = (w) => (
+    <div style={{ display: 'flex', flexDirection: 'column', width: w }}>
+      {DF_TICKS.map(c => <span key={c} style={{ flex: 1, background: c }} />)}
+    </div>
+  );
+
+  // Persistent top-left lockup: LIVE pip + DOONFEST wordmark + colour ticks.
+  if (t === 'df_bug') {
+    return (
+      <div style={{ position: 'absolute', top: '3.5%', left: '3%', display: 'flex', alignItems: 'stretch', animation: 'overlayIn 0.4s ease-out' }}>
+        <style>{`@keyframes dfPulse{0%,100%{opacity:1}50%{opacity:0.45}}`}</style>
+        <div style={{ background: DF_RED, color: '#fff', fontFamily: DF_CAPS, fontWeight: 600, fontSize: '1.6vh', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: '0.4vw', padding: '0 0.9vw' }}>
+          <span style={{ width: '1vh', height: '1vh', borderRadius: '50%', background: '#fff', animation: 'dfPulse 1.6s ease-in-out infinite' }} />LIVE
+        </div>
+        <div style={{ background: DF_NAVY, color: DF_AMBER, fontFamily: DF_HEAD, fontWeight: 800, fontSize: '3.6vh', lineHeight: 1, display: 'flex', alignItems: 'center', padding: '0.3vh 1.1vw 0.9vh' }}>
+          {(overlay.text || 'DOONFEST').toUpperCase()}
+        </div>
+        {ticks('0.5vw')}
+      </div>
+    );
+  }
+
+  // "NOW ON STAGE" lower third — kicker + act name (+ optional second line).
+  if (t === 'df_lower_third') {
+    return (
+      <div style={{ position: 'absolute', left: '4%', bottom: '12%', maxWidth: '72%', animation: 'overlaySlideUp 0.5s cubic-bezier(.2,.8,.2,1)' }}>
+        <div style={{ display: 'inline-block', background: DF_AMBER, color: DF_NAVY, fontFamily: DF_HEAD, fontWeight: 800, fontSize: '2.8vh', lineHeight: 1, padding: '0.3vh 1.2vw 0.9vh', transform: 'skewX(-8deg)' }}>
+          {(overlay.kicker || 'NOW ON STAGE').toUpperCase()}
+        </div>
+        <div style={{ background: DF_NAVY, color: '#fff', fontFamily: DF_HEAD, fontWeight: 700, fontSize: '5.6vh', lineHeight: 1.02, padding: '0.5vh 1.6vw 1.5vh', marginTop: '0.4vh', borderLeft: `0.4vw solid ${DF_AMBER}`, transform: 'skewX(-8deg)', width: 'fit-content' }}>
+          {overlay.name || ''}
+        </div>
+        {overlay.title && (
+          <div style={{ display: 'inline-block', background: 'rgba(12,19,47,0.88)', color: DF_AMBER, fontFamily: DF_CAPS, fontWeight: 600, fontSize: '1.9vh', padding: '0.5vh 1.2vw 0.7vh', marginTop: '0.4vh', transform: 'skewX(-8deg)' }}>
+          {overlay.title}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Bottom announcements ticker with NOW AYRSHIRE cap.
+  if (t === 'df_ticker') {
+    return (
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'stretch', background: DF_NAVY, animation: 'overlayIn 0.4s ease-out' }}>
+        <style>{`@keyframes dfTicker{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}`}</style>
+        <div style={{ background: DF_AMBER, color: DF_NAVY, fontFamily: DF_CAPS, fontWeight: 600, fontSize: '1.7vh', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', padding: '1vh 1vw', whiteSpace: 'nowrap', zIndex: 1 }}>NOW AYRSHIRE</div>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+          <div style={{ color: '#e6e9f5', fontFamily: DF_CAPS, fontSize: '2vh', whiteSpace: 'nowrap', animation: 'dfTicker 25s linear infinite' }}>{overlay.text || ''}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Top announcement banner — push with `duration` to auto-dismiss.
+  if (t === 'df_break') {
+    return (
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, display: 'flex', alignItems: 'stretch', animation: 'overlayIn 0.35s ease-out' }}>
+        <div style={{ background: DF_RED, color: '#fff', fontFamily: DF_CAPS, fontWeight: 600, fontSize: '1.8vh', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', padding: '1.1vh 1.2vw', whiteSpace: 'nowrap' }}>
+          {(overlay.label || 'ANNOUNCEMENT').toUpperCase()}
+        </div>
+        <div style={{ flex: 1, background: DF_NAVY, color: '#fff', fontFamily: DF_CAPS, fontSize: '2.1vh', display: 'flex', alignItems: 'center', padding: '1.1vh 1.4vw', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          {overlay.text || ''}
+        </div>
+      </div>
+    );
+  }
+
+  // Full-frame sponsor card — push with `duration` (e.g. 8) to auto-dismiss.
+  if (t === 'df_sponsor') {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: DF_NAVY, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'overlayIn 0.35s ease-out' }}>
+        <div style={{ color: DF_AMBER, fontFamily: DF_CAPS, fontWeight: 600, fontSize: '2.2vh', letterSpacing: '0.14em' }}>{(overlay.label || 'DOONFEST IS SUPPORTED BY').toUpperCase()}</div>
+        <div style={{ color: '#fff', fontFamily: DF_HEAD, fontWeight: 800, fontSize: '9vh', lineHeight: 1, marginTop: '0.6vh' }}>{overlay.name || ''}</div>
+        <div style={{ display: 'flex', gap: '0.4vw', marginTop: '2.4vh' }}>
+          {[...DF_TICKS, DF_AMBER].map(c => <span key={c} style={{ width: '2.4vw', height: '0.8vh', background: c }} />)}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
+
+  if (typeof overlay.type === 'string' && overlay.type.startsWith('df_')) {
+    return <DoonfestOverlay overlay={overlay} />;
+  }
 
   if (typeof overlay.type === 'string' && overlay.type.startsWith('sl_')) {
     if (overlay.type === 'sl_walkon' && (overlay.sound || overlay.graphicMs)) {

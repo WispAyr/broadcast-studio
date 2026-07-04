@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { getSocket } from '../../../lib/socket';
 
 const OVERLAY_TYPES = [
+  { id: 'df_bug', label: 'DF · Live Bug', icon: '🔴', color: 'orange' },
+  { id: 'df_lower_third', label: 'DF · Now On Stage', icon: '🎤', color: 'orange' },
+  { id: 'df_ticker', label: 'DF · Ticker', icon: '📜', color: 'orange' },
+  { id: 'df_break', label: 'DF · Announcement', icon: '📢', color: 'red' },
+  { id: 'df_sponsor', label: 'DF · Sponsor', icon: '🤝', color: 'yellow' },
   { id: 'lower_third', label: 'Lower Third', icon: '📝', color: 'blue' },
   { id: 'logo_bug', label: 'Logo Bug', icon: '🎯', color: 'purple' },
   { id: 'countdown', label: 'Countdown', icon: '⏱', color: 'yellow' },
@@ -119,6 +124,47 @@ export default function OverlayPanel({ activeOverlays, setActiveOverlays, collap
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-gray-900 rounded-xl border border-gray-700 p-5 w-full max-w-sm">
         <h3 className="text-white font-semibold mb-3">{configOverlay.icon} {configOverlay.label}</h3>
+
+        {configOverlay.id === 'df_bug' && (
+          <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+            placeholder="Event name (default: DOONFEST)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
+        )}
+
+        {configOverlay.id === 'df_lower_third' && (
+          <>
+            <input value={overlayConfig.name || ''} onChange={e => setOverlayConfig(p => ({ ...p, name: e.target.value }))}
+              placeholder="Act / artist name" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input value={overlayConfig.kicker || ''} onChange={e => setOverlayConfig(p => ({ ...p, kicker: e.target.value }))}
+              placeholder="Kicker (default: NOW ON STAGE)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" />
+            <input value={overlayConfig.title || ''} onChange={e => setOverlayConfig(p => ({ ...p, title: e.target.value }))}
+              placeholder="Second line (optional)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" />
+          </>
+        )}
+
+        {configOverlay.id === 'df_ticker' && (
+          <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+            placeholder="Announcements — set times, food village, lost kids…" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" autoFocus />
+        )}
+
+        {configOverlay.id === 'df_break' && (
+          <>
+            <input value={overlayConfig.text || ''} onChange={e => setOverlayConfig(p => ({ ...p, text: e.target.value }))}
+              placeholder="Announcement text…" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input value={overlayConfig.label || ''} onChange={e => setOverlayConfig(p => ({ ...p, label: e.target.value }))}
+              placeholder="Tag (default: ANNOUNCEMENT)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" />
+            <input type="number" value={overlayConfig.duration ?? 8} onChange={e => setOverlayConfig(p => ({ ...p, duration: parseInt(e.target.value) || 8 }))}
+              placeholder="Duration (seconds)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" min="1" max="60" />
+          </>
+        )}
+
+        {configOverlay.id === 'df_sponsor' && (
+          <>
+            <input value={overlayConfig.name || ''} onChange={e => setOverlayConfig(p => ({ ...p, name: e.target.value }))}
+              placeholder="Sponsor name" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-2" autoFocus />
+            <input type="number" value={overlayConfig.duration ?? 8} onChange={e => setOverlayConfig(p => ({ ...p, duration: parseInt(e.target.value) || 8 }))}
+              placeholder="Duration (seconds)" className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-3" min="1" max="60" />
+          </>
+        )}
 
         {(configOverlay.id === 'lower_third') && (
           <>
