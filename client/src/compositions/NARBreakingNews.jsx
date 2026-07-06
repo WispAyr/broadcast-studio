@@ -1,13 +1,23 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { useNewsLive } from '../lib/useLiveData';
 
 export const NARBreakingNews = ({
   headline = 'Major community event announced for Ayr seafront this summer',
   category = 'LOCAL NEWS',
   background = '#1E2A35',
+  live = true,
+  newsUrl = 'https://feeds.bbci.co.uk/news/rss.xml',
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+
+  // Live: use the latest RSS headline when a feed is configured.
+  const news = useNewsLive({ url: newsUrl, live });
+  {
+    const items = Array.isArray(news) ? news : (news && news.items) || [];
+    if (items.length && items[0].title) headline = items[0].title;
+  }
 
   const exitStart = durationInFrames - 0.8 * fps;
   const exitP = interpolate(frame, [exitStart, durationInFrames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
 import { ShaderLayer } from '../components/ShaderLayer';
+import { useNowPlaying, fmtShowTime, NAR_STATION_ID } from '../lib/useLiveData';
 
 export const NARShowBanner = ({
   showName = 'Ali & Michael in the Morning',
@@ -11,9 +12,22 @@ export const NARShowBanner = ({
   shaderBg = 'none',
   shaderColors = '',
   shaderOpacity = 0.5,
+  live = true,
+  stationId = NAR_STATION_ID,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+
+  // Live on-air show (from the same now-playing feed) overrides the defaults.
+  // When a live show is on air we take its presenter as-is — including empty —
+  // so we never pair a real show title with a stale hard-coded presenter.
+  const np = useNowPlaying({ stationId, live });
+  if (np && np.onAir && np.onAir.title) {
+    showName = np.onAir.title;
+    presenterName = np.onAir.presenter || '';
+    const t = fmtShowTime(np.onAir.start, np.onAir.end);
+    if (t) showTime = t;
+  }
 
   const exitStart = durationInFrames - 0.8 * fps;
   const exitP = interpolate(frame, [exitStart, durationInFrames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });
@@ -163,12 +177,14 @@ export const NARShowBanner = ({
           ))}
         </div>
 
-        {/* Presenter */}
-        <div style={{
-          fontSize: 30, fontWeight: 400, color: '#ffffff', letterSpacing: 2,
-          opacity: presOp * exitOp,
-          textShadow: `0 0 20px rgba(247,148,29,${presGlow})`, marginBottom: 12,
-        }}>with {presenterName}</div>
+        {/* Presenter — hidden when there's no named presenter (e.g. automation) */}
+        {presenterName ? (
+          <div style={{
+            fontSize: 30, fontWeight: 400, color: '#ffffff', letterSpacing: 2,
+            opacity: presOp * exitOp,
+            textShadow: `0 0 20px rgba(247,148,29,${presGlow})`, marginBottom: 12,
+          }}>with {presenterName}</div>
+        ) : null}
 
         {/* Time */}
         <div style={{
