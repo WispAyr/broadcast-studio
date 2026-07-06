@@ -274,7 +274,7 @@ export default function NARStudioDashboard({
 
   return (
     <div style={{
-      width: '100%', height: '100%', minHeight: embed ? '100%' : '100vh',
+      width: '100%', height: '100%', minHeight: embed ? '100%' : '100vh', flex: '1 1 auto',
       background: `radial-gradient(ellipse 120% 90% at 50% 0%, #26343f 0%, ${NAVY} 60%)`,
       color: '#fff', fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
       display: 'flex', flexDirection: 'column', gap: 16, padding: embed ? 16 : 24, boxSizing: 'border-box',
