@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { useNowPlaying, NAR_STATION_ID } from '../lib/useLiveData';
 
 export const NARNowPlaying = ({
   artistName = 'Arctic Monkeys',
@@ -7,9 +8,19 @@ export const NARNowPlaying = ({
   albumColor = '#F7941D',
   progress = 65,
   background = '#1E2A35',
+  live = true,
+  stationId = NAR_STATION_ID,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+
+  // Live now-playing (broadcast.radio) overrides the frozen defaults when a
+  // real music track is on air; otherwise the schema props show through.
+  const np = useNowPlaying({ stationId, live });
+  if (np && np.isMusic) {
+    if (np.title) trackTitle = np.title;
+    if (np.artist) artistName = np.artist;
+  }
 
   const exitStart = durationInFrames - 0.8 * fps;
   const exitP = interpolate(frame, [exitStart, durationInFrames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });

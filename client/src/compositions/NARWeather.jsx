@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { useWeatherLive, forecastToString } from '../lib/useLiveData';
 
 // CSS-only weather icons
 const SunIcon = ({ frame, size = 100 }) => {
@@ -69,9 +70,19 @@ export const NARWeather = ({
   location = 'Ayr, Scotland',
   forecast = 'Mon 12°|Tue 14°|Wed 11°',
   background = '#1E2A35',
+  live = true,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+
+  // Live Ayr weather (open-meteo via /api/proxy/weather) overrides the defaults.
+  const wx = useWeatherLive({ live });
+  if (wx && wx.current) {
+    if (wx.current.temperature != null) temperature = String(Math.round(wx.current.temperature));
+    if (wx.current.condition) condition = wx.current.condition;
+    const f = forecastToString(wx.forecast);
+    if (f) forecast = f;
+  }
 
   const exitStart = durationInFrames - 0.8 * fps;
   const exitP = interpolate(frame, [exitStart, durationInFrames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });

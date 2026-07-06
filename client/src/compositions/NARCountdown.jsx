@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { useNowPlaying, secondsUntil, NAR_STATION_ID } from '../lib/useLiveData';
 
 export const NARCountdown = ({
   showName = 'The Evening Show',
@@ -7,9 +8,21 @@ export const NARCountdown = ({
   seconds = 0,
   promoText = 'With DJ Sarah — Music, Chat & Local News',
   background = '#1E2A35',
+  live = true,
+  stationId = NAR_STATION_ID,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+
+  // Live: seed the countdown from the real next-show start time, and derive the
+  // promo line from that show's presenter so it never shows a stale hard-coded one.
+  const np = useNowPlaying({ stationId, live });
+  if (np && np.next && np.next.title) {
+    showName = np.next.title;
+    promoText = np.next.presenter ? `With ${np.next.presenter}` : '';
+    const secs = secondsUntil(np.next.start);
+    if (secs != null) { minutes = Math.floor(secs / 60); seconds = secs % 60; }
+  }
 
   const exitStart = durationInFrames - 0.8 * fps;
   const exitP = interpolate(frame, [exitStart, durationInFrames], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.quad) });
