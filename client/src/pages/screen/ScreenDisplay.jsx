@@ -461,6 +461,10 @@ export default function ScreenDisplay() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const setupMode = searchParams.get('setup') === 'true';
+  // `?preview=1` — passive thumbnail (e.g. the intranet screen-control page):
+  // render the current layout read-only but do NOT register as a live display
+  // or send heartbeats, so a preview never marks an offline screen "online".
+  const previewMode = searchParams.get('preview') === '1';
   // Whether this screen is a PA / audio-output feed. `?audio=1` forces it on
   // (handy for a laptop playout); otherwise read from the screen's config.
   const [audioOutput, setAudioOutput] = useState(searchParams.get('audio') === '1');
@@ -684,7 +688,7 @@ export default function ScreenDisplay() {
     socket.on('connect', () => {
       setConnected(true);
       setReconnectCount(0);
-      socket.emit('register_screen', { screenId: id });
+      if (!previewMode) socket.emit('register_screen', { screenId: id });
       // Re-fetch layout + display profile on RECONNECT only. The mount effect
       // already fetched on first load, so re-fetching here would re-apply the
       // layout a second time and visibly reload all media (loads twice).
@@ -839,7 +843,7 @@ export default function ScreenDisplay() {
 
     // Heartbeat every 10 seconds (was 30s) — matches tighter server pingInterval
     heartbeatRef.current = setInterval(() => {
-      if (socket.connected) {
+      if (socket.connected && !previewMode) {
         socket.emit('screen_heartbeat', { screenId: id });
       }
     }, 10000);
