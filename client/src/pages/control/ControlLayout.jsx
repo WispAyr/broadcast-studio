@@ -21,6 +21,7 @@ const navItems = [
   { path: 'schedule', label: 'Schedule', icon: 'clock' },
   { path: 'templates', label: 'Templates', icon: 'templates' },
   { path: 'shaders', label: 'Shader Studio', icon: 'shader' },
+  { path: 'studio', label: 'NAR Studio', icon: 'clock' },
   { path: 'variables', label: 'Variables', icon: 'variables' },
   { path: 'settings', label: 'Settings', icon: 'settings' },
   { path: 'egpk', label: 'EGPK Live', icon: 'plane' },
