@@ -11,6 +11,15 @@ import {
   DotOrbit,
   GrainGradient,
   NeuroNoise,
+  SmokeRing,
+  PerlinNoise,
+  DotGrid,
+  GodRays,
+  Spiral,
+  Dithering,
+  PulsingBorder,
+  ColorPanels,
+  Water,
 } from '@paper-design/shaders-react';
 import { useAudioData, visualizeAudio } from '@remotion/media-utils';
 
@@ -31,6 +40,8 @@ import { useAudioData, visualizeAudio } from '@remotion/media-utils';
 export const SHADERS = [
   'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl',
   'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise',
+  'smoke-ring', 'perlin-noise', 'dot-grid', 'god-rays', 'spiral',
+  'dithering', 'pulsing-border', 'color-panels', 'water',
 ];
 
 export const DEFAULT_PALETTE = ['#ff006a', '#8b5cf6', '#06b6d4', '#f59e0b'];
@@ -106,6 +117,25 @@ export function ShaderView({
       return <GrainGradient {...motion} colors={colorList} softness={softness} scale={scale} rotation={rotation} />;
     case 'neuro-noise':
       return <NeuroNoise {...motion} colorFront={colorList[0]} colorMid={colorList[1] || colorList[0]} colorBack={background} scale={scale} />;
+    case 'smoke-ring':
+      return <SmokeRing {...motion} colors={colorList} colorBack={background} scale={scale} />;
+    case 'perlin-noise':
+      return <PerlinNoise {...motion} colorFront={colorList[0]} colorBack={background} softness={softness} scale={scale} />;
+    case 'dot-grid':
+      // Static shader (no motion clock) — renders a still dot lattice.
+      return <DotGrid colorFill={colorList[0]} colorStroke={colorList[1] || colorList[0]} colorBack={background} scale={scale} style={style || FILL} />;
+    case 'god-rays':
+      return <GodRays {...motion} colors={colorList} colorBack={background} scale={scale} rotation={rotation} />;
+    case 'spiral':
+      return <Spiral {...motion} colorFront={colorList[0]} colorBack={background} distortion={distortion} softness={softness} scale={scale} rotation={rotation} />;
+    case 'dithering':
+      return <Dithering {...motion} colorFront={colorList[0]} colorBack={background} scale={scale} />;
+    case 'pulsing-border':
+      return <PulsingBorder {...motion} colors={colorList} colorBack={background} softness={softness} scale={scale} />;
+    case 'color-panels':
+      return <ColorPanels {...motion} colors={colorList} colorBack={background} scale={scale} />;
+    case 'water':
+      return <Water {...motion} colorBack={background} colorHighlight={colorList[0]} scale={scale} />;
     case 'simplex-noise':
     default:
       return <SimplexNoise {...motion} colors={colorList} softness={softness} scale={scale} rotation={rotation} />;

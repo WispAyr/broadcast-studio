@@ -62,6 +62,7 @@ import { MinimalEndCard } from './MinimalEndCard';
 
 // GPU shader backgrounds (Paper Design shaders, frame-driven for deterministic render)
 import { ShaderBackground } from './ShaderBackground';
+import { SHADERS } from '../components/ShaderLayer';
 
 const compositions = {
   title_reveal: {
@@ -307,7 +308,7 @@ const compositions = {
       description: { type: 'text', label: 'Description', default: 'Award-winning artist bringing the beats' },
       accentColor: { type: 'color', label: 'Accent Color', default: '#ec4899' },
       background: { type: 'color', label: 'Background', default: '#000000' },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.6, min: 0, max: 1 },
     },
@@ -575,7 +576,7 @@ const compositions = {
       time: { type: 'text', label: 'Time', default: '10:30 PM' },
       accentColor: { type: 'color', label: 'Accent Color', default: '#ec4899' },
       background: { type: 'color', label: 'Background', default: '#000000' },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.6, min: 0, max: 1 },
     },
@@ -598,7 +599,7 @@ const compositions = {
       accentColor: { type: 'color', label: 'Accent Color', default: '#6366f1' },
       background: { type: 'color', label: 'Background', default: '#0a0a0a' },
       style: { type: 'select', label: 'Pattern Style', default: 'geometric', options: ['geometric', 'dots'] },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.6, min: 0, max: 1 },
     },
@@ -784,7 +785,7 @@ const compositions = {
     schema: {
       tagline: { type: 'text', label: 'Tagline', default: 'Made in Ayrshire… for Ayrshire' },
       background: { type: 'color', label: 'Background', default: '#1E2A35' },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.5, min: 0, max: 1 },
     },
@@ -807,7 +808,7 @@ const compositions = {
       showTime: { type: 'text', label: 'Show Time', default: '6AM - 10AM' },
       style: { type: 'select', label: 'Style', default: 'morning', options: ['morning', 'evening', 'weekend'] },
       background: { type: 'color', label: 'Background', default: '#1E2A35' },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.5, min: 0, max: 1 },
     },
@@ -1076,7 +1077,7 @@ const compositions = {
       height: 1080,
     },
     schema: {
-      shader: { type: 'select', label: 'Shader', default: 'simplex-noise', options: ['simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shader: { type: 'select', label: 'Shader', default: 'simplex-noise', options: SHADERS },
       colors: { type: 'textarea', label: 'Colors (one hex per line)', default: '#ff006a\n#8b5cf6\n#06b6d4\n#f59e0b' },
       background: { type: 'color', label: 'Background', default: '#000000' },
       scale: { type: 'number', label: 'Scale', default: 1, min: 0.1, max: 4 },
@@ -1109,7 +1110,7 @@ const compositions = {
       style: { type: 'select', label: 'Style', default: 'elegant', options: ['elegant', 'vibrant'] },
       accentColor: { type: 'color', label: 'Accent Color', default: '#00a8ff' },
       background: { type: 'color', label: 'Background', default: '#1E2A35' },
-      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', 'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl', 'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise'] },
+      shaderBg: { type: 'select', label: 'Shader Backdrop', default: 'none', options: ['none', ...SHADERS] },
       shaderColors: { type: 'textarea', label: 'Shader Colors (hex per line, blank = palette)', default: '' },
       shaderOpacity: { type: 'number', label: 'Shader Opacity', default: 0.5, min: 0, max: 1 },
     },
