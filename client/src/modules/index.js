@@ -66,6 +66,7 @@ import TrafficAyrshireModule from './TrafficAyrshireModule';
 import NARNowPlayingModule from './NARNowPlayingModule';
 import NARFuelModule from './NARFuelModule';
 import NARTrainsModule from './NARTrainsModule';
+import NARStudioModule from './NARStudioModule';
 import NARWarningsModule from './NARWarningsModule';
 import QuizModule from './QuizModule';
 import AudioModule from './AudioModule';
@@ -180,6 +181,8 @@ const moduleRegistry = {
   nar_fuel: NARFuelModule,
   // Live ScotRail Ayr departures (trains.wispayr.online)
   nar_trains: NARTrainsModule,
+  // Presenter studio dashboard — clock/timing, now-playing/next, travel·weather·news, socials
+  nar_studio: NARStudioModule,
   // Met Office weather warnings for Ayrshire (live.wispayr.online/api/wx/warnings)
   nar_warnings: NARWarningsModule,
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card

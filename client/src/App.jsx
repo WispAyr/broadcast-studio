@@ -21,6 +21,7 @@ const Settings = React.lazy(() => import('./pages/control/Settings'));
 const Templates = React.lazy(() => import('./pages/control/Templates'));
 const TemplateEditor = React.lazy(() => import('./pages/control/TemplateEditor'));
 const ShaderStudio = React.lazy(() => import('./pages/control/ShaderStudio'));
+const StudioDashboard = React.lazy(() => import('./pages/control/StudioDashboard'));
 const Admin = React.lazy(() => import('./pages/control/Admin'));
 const EgpkScenes = React.lazy(() => import("./pages/control/EgpkScenes"));
 const AutocueController = React.lazy(() => import('./pages/control/AutocueController'));
@@ -79,6 +80,7 @@ export default function App() {
         <Route path="templates" element={<Templates />} />
         <Route path="templates/:id/edit" element={<TemplateEditor />} />
         <Route path="shaders" element={<ShaderStudio />} />
+        <Route path="studio" element={<StudioDashboard />} />
         <Route path="settings" element={<Settings />} />
         <Route path="autocue" element={<AutocueController />} />
         <Route path="variables" element={<Variables />} />
