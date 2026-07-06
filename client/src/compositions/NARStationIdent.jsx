@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring, Easing } from 'remotion';
+import { ShaderLayer } from '../components/ShaderLayer';
 
 // Heart SVG for the "O" in "NOW" — core brand motif
 const HeartO = ({ size = 100, opacity = 1, style = {} }) => (
@@ -19,6 +20,9 @@ const HeartO = ({ size = 100, opacity = 1, style = {} }) => (
 export const NARStationIdent = ({
   tagline = 'Made in Ayrshire… for Ayrshire',
   background = '#1E2A35',
+  shaderBg = 'none',
+  shaderColors = '',
+  shaderOpacity = 0.5,
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -121,6 +125,9 @@ export const NARStationIdent = ({
       width: '100%', height: '100%', background, position: 'relative', overflow: 'hidden',
       fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
     }}>
+      {shaderBg !== 'none' && (
+        <ShaderLayer absolute shader={shaderBg} colors={shaderColors || undefined} background={background} opacity={shaderOpacity} />
+      )}
       {/* Warm aurora mesh layers */}
       <div style={{ position: 'absolute', inset: 0, opacity: aFade * exitOp * 0.5,
         background: `radial-gradient(ellipse 120% 80% at ${50 + a1}% ${40 + a2}%, rgba(247,148,29,0.2) 0%, transparent 60%)`,

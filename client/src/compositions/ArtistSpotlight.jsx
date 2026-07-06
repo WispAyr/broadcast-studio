@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion';
+import { ShaderLayer } from '../components/ShaderLayer';
 
 export const ArtistSpotlight = ({
   artistName = 'DJ SHADOW',
@@ -8,6 +9,9 @@ export const ArtistSpotlight = ({
   description = 'Award-winning artist bringing the beats',
   accentColor = '#ec4899',
   background = '#000000',
+  shaderBg = 'none',
+  shaderColors = '',
+  shaderOpacity = 0.6,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -24,6 +28,9 @@ export const ArtistSpotlight = ({
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'system-ui, sans-serif', overflow: 'hidden', position: 'relative',
     }}>
+      {shaderBg !== 'none' && (
+        <ShaderLayer absolute shader={shaderBg} colors={shaderColors || undefined} background={background} opacity={shaderOpacity} />
+      )}
       {/* Radial spotlight */}
       <div style={{
         position: 'absolute', inset: 0,
