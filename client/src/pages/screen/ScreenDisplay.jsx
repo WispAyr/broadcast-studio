@@ -471,6 +471,10 @@ export default function ScreenDisplay() {
   // Mirror onto window so layout modules with their own sound (live_tv) can
   // gate audio the same way sting/bed overlays do, without prop plumbing.
   useEffect(() => { window.__bsAudioOutput = audioOutput; }, [audioOutput]);
+  // Expose this screen's id so interactive modules (e.g. touch_menu) can act on
+  // the screen they're mounted in — e.g. self-switch layouts — without prop
+  // plumbing through the layer/grid render path.
+  useEffect(() => { window.__bsScreenId = id; }, [id]);
   // Fit-to-screen: render the layout at its design resolution and scale it to
   // fill the display, so fixed-px module fonts/content scale up proportionally
   // on larger/higher-res screens instead of looking small. Opt-in per screen

@@ -124,6 +124,32 @@ function DynamicElement({ element, frame }) {
     return <div style={{ ...baseStyle, background: grad }} />;
   }
 
+  if (element.type === 'button') {
+    // Static render for video export — buttons only navigate on live screens.
+    const bc = element.buttonConfig || {};
+    const isImg = bc.icon && /^(https?:|\/|data:)/.test(bc.icon);
+    const iconPx = (bc.fontSize || 40) * 1.4;
+    return (
+      <div style={{
+        ...baseStyle,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+        background: bc.bg || '#3b82f6',
+        color: bc.color || '#fff',
+        borderRadius: bc.radius ?? 16,
+        border: bc.borderColor ? `2px solid ${bc.borderColor}` : 'none',
+        fontSize: bc.fontSize || 40,
+        fontWeight: 700,
+        boxShadow: st.shadow || '0 4px 16px rgba(0,0,0,0.3)',
+        overflow: 'hidden', textAlign: 'center', padding: 8,
+      }}>
+        {bc.icon && (isImg
+          ? <img src={bc.icon} alt="" style={{ width: iconPx, height: iconPx, objectFit: 'contain' }} />
+          : <span style={{ fontSize: iconPx, lineHeight: 1 }}>{bc.icon}</span>)}
+        <span>{bc.label || 'Button'}</span>
+      </div>
+    );
+  }
+
   if (element.type === 'particles') {
     const pc = element.particleConfig || {};
     const count = Math.min(pc.count || 50, 200);
