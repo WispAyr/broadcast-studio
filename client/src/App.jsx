@@ -36,6 +36,7 @@ const DeckDesigner = React.lazy(() => import('./pages/control/DeckDesigner'));
 const DeckSurface = React.lazy(() => import('./pages/DeckSurface'));
 const SceneDesigner = React.lazy(() => import('./pages/control/SceneDesigner'));
 const Workgroups = React.lazy(() => import('./pages/control/Workgroups'));
+const ContentManager = React.lazy(() => import('./pages/control/ContentManager'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -96,6 +97,7 @@ export default function App() {
         <Route path="deck" element={<DeckDesigner />} />
         <Route path="scenes" element={<SceneDesigner />} />
         <Route path="workgroups" element={<Workgroups />} />
+        <Route path="content" element={<ContentManager />} />
       </Route>
       <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/screen/:id" element={<ScreenDisplay />} />

@@ -14,6 +14,7 @@ const navItems = [
   { path: 'console', label: 'Console', icon: 'console' },
   { path: 'deck', label: 'Deck', icon: 'grid' },
   { path: 'scenes', label: 'Scenes', icon: 'layout' },
+  { path: 'content', label: 'Content', icon: 'media' },
   { path: 'workgroups', label: 'Workgroups', icon: 'console' },
   { path: 'shows', label: 'Shows', icon: 'film' },
   { path: 'layouts', label: 'Layouts', icon: 'layout' },
