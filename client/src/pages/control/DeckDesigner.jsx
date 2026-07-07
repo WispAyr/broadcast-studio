@@ -55,6 +55,7 @@ export default function DeckDesigner() {
   const [mode, setMode] = useState('edit');       // 'edit' | 'live'
   const [liveState, setLiveState] = useState({});  // screenId -> current_layout_id
   const [fireBtn, setFireBtn] = useState(null);    // guarded button awaiting confirm
+  const [stateIdx, setStateIdx] = useState({});    // buttonId -> current state index (toggle/multi)
 
   const sel = useMemo(() => buttons.find(b => b.id === selId) || null, [buttons, selId]);
   const cols = deck?.grid_cols || 6;
@@ -76,6 +77,7 @@ export default function DeckDesigner() {
       const d = await api.get(`/decks/${id}`);
       setDeck(d);
       setButtons(d.buttons || []);
+      setStateIdx(Object.fromEntries((d.buttons || []).map(b => [b.id, b.state_index || 0])));
     } catch (e) { toast?.(e.message, 'error'); }
   }, [toast]);
 
@@ -104,8 +106,10 @@ export default function DeckDesigner() {
     const socket = connectSocket();
     socket.emit('join_studio', { studioId });
     const onPreview = (d) => { if (d?.screenId) setLiveState(prev => ({ ...prev, [d.screenId]: d.layoutId })); };
+    const onState = (d) => { if (d?.buttonId != null) setStateIdx(prev => ({ ...prev, [d.buttonId]: d.state_index })); };
     socket.on('screen_preview', onPreview);
-    return () => { alive = false; socket.off('screen_preview', onPreview); };
+    socket.on('deck_button_state', onState);
+    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); };
   }, [studioId]);
 
   // Resolve a button's target to concrete screen ids (broadcastable only).
@@ -125,9 +129,52 @@ export default function DeckDesigner() {
     return ids.every(id => liveState[id] === b.action_payload.layout_id);
   }, [liveState, targetScreens]);
 
+  // For toggle/multi the displayed look is the current state's.
+  const displayOf = useCallback((b) => {
+    if ((b.mode === 'toggle' || b.mode === 'multi') && Array.isArray(b.states) && b.states.length) {
+      const i = stateIdx[b.id] || 0;
+      const s = b.states[i] || b.states[0];
+      return { label: s.label || b.label, icon: s.icon ?? b.icon, color: s.color || b.color,
+        badge: b.mode === 'multi' ? `${i + 1}/${b.states.length}` : (i ? 'ON' : 'OFF') };
+    }
+    return { label: b.label, icon: b.icon, color: b.color, badge: null };
+  }, [stateIdx]);
+
+  // ── State editing (toggle/multi) ──
+  const baseState = (b, over = {}) => ({
+    label: b.label || 'State', icon: b.icon || '', color: b.color || '#374151',
+    action_type: b.action_type || 'take_layout', action_payload: b.action_payload || {}, target: b.target || 'all', ...over,
+  });
+  function setButtonMode(id, mode) {
+    const b = buttons.find(x => x.id === id); if (!b) return;
+    if (mode === 'momentary') { patchButton(id, { mode, states: [] }); return; }
+    let states = Array.isArray(b.states) && b.states.length ? b.states.slice() : null;
+    if (!states) {
+      states = mode === 'toggle'
+        ? [baseState(b, { label: b.label || 'On' }), baseState(b, { label: 'Off', action_type: 'blackout', action_payload: {}, color: '#4b5563' })]
+        : [baseState(b, { label: 'State 1' }), baseState(b, { label: 'State 2', color: '#7c3aed' })];
+    } else if (mode === 'toggle') {
+      states = states.slice(0, 2);
+      while (states.length < 2) states.push(baseState(b, { label: 'Off', color: '#4b5563' }));
+    }
+    patchButton(id, { mode, states });
+  }
+  function updateState(id, i, patch) {
+    const b = buttons.find(x => x.id === id); if (!b) return;
+    patchButton(id, { states: (b.states || []).map((s, idx) => idx === i ? { ...s, ...patch } : s) });
+  }
+  function addState(id) {
+    const b = buttons.find(x => x.id === id); if (!b) return;
+    patchButton(id, { states: [...(b.states || []), baseState(b, { label: 'State ' + ((b.states || []).length + 1), color: '#4b5563' })] });
+  }
+  function removeState(id, i) {
+    const b = buttons.find(x => x.id === id); if (!b || (b.states || []).length <= 2) return;
+    patchButton(id, { states: (b.states || []).filter((_, idx) => idx !== i) });
+  }
+
   async function fireButton(b) {
     const body = {};
-    if (ACTIONS[b.action_type]?.needsTarget && b.target && b.target !== 'all') {
+    if (b.mode !== 'toggle' && b.mode !== 'multi' && ACTIONS[b.action_type]?.needsTarget && b.target && b.target !== 'all') {
       body.target = targetScreens(b).join(',');
     }
     try {
@@ -410,7 +457,9 @@ export default function DeckDesigner() {
                 {buttons.map(b => {
                   const a = ACTIONS[b.action_type] || {};
                   const isSel = b.id === selId;
-                  const lit = mode === 'live' && isLive(b);
+                  const isMode = b.mode === 'toggle' || b.mode === 'multi';
+                  const lit = mode === 'live' && !isMode && isLive(b);
+                  const disp = displayOf(b);
                   return (
                     <div key={b.id} draggable={mode === 'edit'}
                       onDragStart={e => { if (mode !== 'edit') return; setDragId(b.id); e.dataTransfer.setData('text/plain', b.id); }}
@@ -419,21 +468,22 @@ export default function DeckDesigner() {
                       style={{
                         gridColumn: `${(b.x || 0) + 1} / span ${b.w || 1}`,
                         gridRow: `${(b.y || 0) + 1} / span ${b.h || 1}`,
-                        background: b.color || a.color || '#374151',
+                        background: disp.color || a.color || '#374151',
                         outline: isSel ? '2px solid #60a5fa' : lit ? '2px solid #34d399' : 'none', outlineOffset: 2,
                         boxShadow: lit ? '0 0 0 1px rgba(52,211,153,.6), 0 0 22px rgba(52,211,153,.45)' : undefined,
                       }}
                       className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none ${mode === 'live' ? 'cursor-pointer active:scale-95 transition-transform' : 'cursor-grab active:cursor-grabbing'}`}>
                       {lit && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
+                      {isMode && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-white/70 bg-black/25 rounded px-1">{disp.badge}</span>}
                       {b.shortcut && <span className="absolute top-1 left-1.5 text-[9px] font-mono font-bold text-white/70 bg-black/30 rounded px-1 leading-tight">{b.shortcut}</span>}
-                      {b.icon && <span className="text-2xl leading-none">{b.icon}</span>}
-                      <span className="text-white text-sm font-bold leading-tight">{b.label}</span>
-                      {b.action_type === 'take_layout' && b.action_payload?.layout_id && (
+                      {disp.icon && <span className="text-2xl leading-none">{disp.icon}</span>}
+                      <span className="text-white text-sm font-bold leading-tight">{disp.label}</span>
+                      {!isMode && b.action_type === 'take_layout' && b.action_payload?.layout_id && (
                         <span className="text-white/70 text-[10px] leading-tight truncate max-w-full">
                           {layouts.find(l => l.id === b.action_payload.layout_id)?.name || 'layout'}
                         </span>
                       )}
-                      {a.needsTarget && <span className="text-white/60 text-[9px] font-mono">{targetLabel(b.target)}</span>}
+                      {!isMode && a.needsTarget && <span className="text-white/60 text-[9px] font-mono">{targetLabel(b.target)}</span>}
                     </div>
                   );
                 })}
@@ -486,27 +536,86 @@ export default function DeckDesigner() {
 
                 {/* Behaviour */}
                 <Section title="Action">
-                  <Field label="Type">
-                    <select value={sel.action_type} onChange={e => setAction(sel.id, e.target.value)} className={inp}>
-                      {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  <Field label="Mode">
+                    <select value={sel.mode || 'momentary'} onChange={e => setButtonMode(sel.id, e.target.value)} className={inp}>
+                      <option value="momentary">Momentary</option>
+                      <option value="toggle">Toggle (2 states)</option>
+                      <option value="multi">Multi-state</option>
                     </select>
                   </Field>
-                  {ACTIONS[sel.action_type]?.needsLayout && (
-                    <Field label="Layout">
-                      <select value={sel.action_payload?.layout_id || ''} onChange={e => setPayload(sel.id, { layout_id: e.target.value })} className={inp}>
-                        <option value="">— pick layout —</option>
-                        {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                      </select>
-                    </Field>
+
+                  {(!sel.mode || sel.mode === 'momentary') ? (
+                    <>
+                      <Field label="Type">
+                        <select value={sel.action_type} onChange={e => setAction(sel.id, e.target.value)} className={inp}>
+                          {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                        </select>
+                      </Field>
+                      {ACTIONS[sel.action_type]?.needsLayout && (
+                        <Field label="Layout">
+                          <select value={sel.action_payload?.layout_id || ''} onChange={e => setPayload(sel.id, { layout_id: e.target.value })} className={inp}>
+                            <option value="">— pick layout —</option>
+                            {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                          </select>
+                        </Field>
+                      )}
+                      {ACTIONS[sel.action_type]?.needsScene && (
+                        <Field label="Scene">
+                          <select value={sel.action_payload?.scene_id || ''} onChange={e => setPayload(sel.id, { scene_id: e.target.value })} className={inp}>
+                            <option value="">— pick scene —</option>
+                            {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </Field>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-2 mt-1">
+                      {(sel.states || []).map((st, i) => (
+                        <div key={i} className="border border-gray-800 rounded-lg p-2 space-y-1.5 bg-gray-900/40">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-gray-500">
+                              {sel.mode === 'toggle' ? (i ? 'ON' : 'OFF') : `STATE ${i + 1}`}
+                              {(stateIdx[sel.id] || 0) === i && <span className="text-emerald-400"> ● current</span>}
+                            </span>
+                            {sel.mode === 'multi' && (sel.states || []).length > 2 && (
+                              <button onClick={() => removeState(sel.id, i)} className="text-[10px] text-red-400 hover:text-red-300" title="Remove state">✕</button>
+                            )}
+                          </div>
+                          <div className="flex gap-1.5">
+                            <input value={st.label || ''} onChange={e => updateState(sel.id, i, { label: e.target.value })} placeholder="label" className={inp + ' flex-1'} />
+                            <input type="color" value={st.color || '#374151'} onChange={e => updateState(sel.id, i, { color: e.target.value })} className="w-7 h-7 bg-transparent border border-gray-700 rounded cursor-pointer shrink-0" />
+                          </div>
+                          <select value={st.action_type} onChange={e => updateState(sel.id, i, { action_type: e.target.value, action_payload: {} })} className={inp}>
+                            {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                          </select>
+                          {ACTIONS[st.action_type]?.needsLayout && (
+                            <select value={st.action_payload?.layout_id || ''} onChange={e => updateState(sel.id, i, { action_payload: { layout_id: e.target.value } })} className={inp}>
+                              <option value="">— layout —</option>
+                              {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            </select>
+                          )}
+                          {ACTIONS[st.action_type]?.needsScene && (
+                            <select value={st.action_payload?.scene_id || ''} onChange={e => updateState(sel.id, i, { action_payload: { scene_id: e.target.value } })} className={inp}>
+                              <option value="">— scene —</option>
+                              {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                          )}
+                          {ACTIONS[st.action_type]?.needsTarget && (
+                            <select value={st.target || 'all'} onChange={e => updateState(sel.id, i, { target: e.target.value })} className={inp}>
+                              <option value="all">All screens</option>
+                              {screens.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              {groups.map(g => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
+                            </select>
+                          )}
+                        </div>
+                      ))}
+                      {sel.mode === 'multi' && (
+                        <button onClick={() => addState(sel.id)} className="w-full text-[11px] text-blue-400 hover:text-blue-300 py-1 border border-dashed border-gray-700 rounded-lg">+ Add state</button>
+                      )}
+                      <p className="text-[10px] text-gray-600 leading-snug">Each tap in Live advances to the next state and runs its action.</p>
+                    </div>
                   )}
-                  {ACTIONS[sel.action_type]?.needsScene && (
-                    <Field label="Scene">
-                      <select value={sel.action_payload?.scene_id || ''} onChange={e => setPayload(sel.id, { scene_id: e.target.value })} className={inp}>
-                        <option value="">— pick scene —</option>
-                        {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </Field>
-                  )}
+
                   <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer mt-1">
                     <input type="checkbox" checked={!!sel.confirm} onChange={e => patchButton(sel.id, { confirm: e.target.checked })} className="accent-blue-500" />
                     Confirm before firing
@@ -516,8 +625,8 @@ export default function DeckDesigner() {
                   </Field>
                 </Section>
 
-                {/* Target */}
-                {ACTIONS[sel.action_type]?.needsTarget && (
+                {/* Target (momentary only — mode states carry their own target) */}
+                {(!sel.mode || sel.mode === 'momentary') && ACTIONS[sel.action_type]?.needsTarget && (
                   <Section title="Target">
                     <select value={sel.target || 'all'} onChange={e => patchButton(sel.id, { target: e.target.value })} className={inp}>
                       <option value="all">All screens</option>
