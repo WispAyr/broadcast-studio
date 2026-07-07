@@ -339,6 +339,8 @@ export default function DeckDesigner() {
               className={`px-2 py-1 text-xs rounded font-medium ${deck.status === 'published' ? 'bg-emerald-700/40 text-emerald-300 hover:bg-emerald-700/60' : 'bg-amber-700/30 text-amber-300 hover:bg-amber-700/50'}`}>
               {deck.status === 'published' ? '● Published' : '○ Draft'}
             </button>
+            <a href={`/deck/${deck.id}`} target="_blank" rel="noopener noreferrer" title="Open touch surface (tablet / on-wall)"
+              className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded">Surface ↗</a>
             <div className="flex items-center gap-1 text-xs text-gray-500 ml-1">
               <span>Grid</span>
               <input type="number" min={1} max={12} value={cols} onChange={e => resizeDeck({ grid_cols: Math.max(1, +e.target.value || 1) })}

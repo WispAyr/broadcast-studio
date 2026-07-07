@@ -33,6 +33,7 @@ const ControlConsole = React.lazy(() => import('./pages/control/Console'));
 const Console = React.lazy(() => import('./pages/Console'));
 const Schedule = React.lazy(() => import('./pages/control/Schedule'));
 const DeckDesigner = React.lazy(() => import('./pages/control/DeckDesigner'));
+const DeckSurface = React.lazy(() => import('./pages/DeckSurface'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -94,6 +95,7 @@ export default function App() {
       </Route>
       <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/screen/:id" element={<ScreenDisplay />} />
+      <Route path="/deck/:id" element={<DeckSurface />} />
       <Route path="/deploy" element={<Deploy />} />
       <Route path="/god" element={<ProtectedRoute><GodView /></ProtectedRoute>} />
     </Routes>
