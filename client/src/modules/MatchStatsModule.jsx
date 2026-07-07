@@ -37,8 +37,11 @@ const DATA = {
 // Predicted XIs (editable) — confirmed team news ~1hr before kick-off. Rows are
 // listed back-to-front by shirt number; the pitch renders GK at the bottom.
 const LINEUPS = {
-  SCO: { formation: '3-4-2-1', rows: [[1], [13, 5, 6], [22, 4, 7, 3], [11, 17], [10]] },
-  HAI: { formation: '4-4-2', rows: [[1], [2, 4, 22, 13], [7, 10, 17, 11], [9, 20]] },
+  // Updated 13 Jun 2026 from match-day previews (ESPN / Sports Mole / RotoWire).
+  // SCO: Gunn; Hickey, Souttar, McKenna, Robertson; Doak, McTominay, Ferguson, Christie; Adams, Shankland.
+  SCO: { formation: '4-4-2', rows: [[1], [2, 15, 26, 3], [17, 4, 19, 11], [10, 20]] },
+  // HAI: Placide; Arcus, Ade, Delcroix, Experience; Casimir, Jean Jacques, Bellegarde, Providence; Nazon, Isidor.
+  HAI: { formation: '4-4-2', rows: [[1], [2, 4, 5, 8], [21, 17, 10, 15], [9, 18]] },
 };
 const VENUE = {
   name: 'Gillette Stadium', wcName: '“Boston Stadium” · World Cup 26',

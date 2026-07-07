@@ -73,6 +73,8 @@ import AudioModule from './AudioModule';
 import LiveTVModule from './LiveTVModule';
 import MatchStatsModule from './MatchStatsModule';
 import ScotlandHero from './ScotlandHero';
+import NARCrosshairModule from './NARCrosshairModule';
+import NARSidelinersModule from './NARSidelinersModule';
 
 const moduleRegistry = {
   clock: ClockModule,
@@ -185,6 +187,12 @@ const moduleRegistry = {
   nar_studio: NARStudioModule,
   // Met Office weather warnings for Ayrshire (live.wispayr.online/api/wx/warnings)
   nar_warnings: NARWarningsModule,
+  // NAR Crosshair — compact track intelligence (intranet /api/public/crosshair)
+  nar_crosshair: NARCrosshairModule,
+  crosshair: NARCrosshairModule,
+  // SideLiners — compact football match strip (intranet /api/public/sideliners)
+  nar_sideliners: NARSidelinersModule,
+  sideliners_score: NARSidelinersModule,
   // QuizCast — live audience quiz (quiz.wispayr.online). screen=game view, join=scan-to-join card
   quiz: QuizModule,
   quizcast: QuizModule,

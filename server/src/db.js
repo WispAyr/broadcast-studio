@@ -315,6 +315,10 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ count: 4, station: 'Ayr', layout: 'split' }) },
     { name: 'nar_warnings', description: 'Met Office weather warnings for Ayrshire — all-clear or coloured alert strip', category: 'situational', icon: '⚠️',
       default_config: JSON.stringify({ variant: 'strip' }) },
+    { name: 'nar_crosshair', description: 'NAR Crosshair — compact track intelligence (now-playing facts, LOCAL flag, chart/BPM, wire) as a row or column', category: 'broadcast', icon: '🎯',
+      default_config: JSON.stringify({ variant: 'row', showArt: true, showWire: true }) },
+    { name: 'nar_sideliners', description: 'SideLiners v2 — featured match score strip or live-scores grid (API-Football via intranet)', category: 'broadcast', icon: '⚽',
+      default_config: JSON.stringify({ variant: 'row', showWire: true }) },
   ];
 
   const insertOrIgnore = db.prepare(`

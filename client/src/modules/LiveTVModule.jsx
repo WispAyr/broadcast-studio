@@ -99,7 +99,9 @@ export default function LiveTVModule({ config = {} }) {
           try { sb.appendBuffer(queue.shift()); } catch (e) { retry(e); }
         };
         ms.addEventListener('sourceopen', () => {
-          ws.send(JSON.stringify({ type: 'mse', value: 'video/mp4; codecs="avc1.64001E,mp4a.40.2"' }));
+          const sendReq = () => ws.send(JSON.stringify({ type: 'mse', value: 'video/mp4; codecs="avc1.640033,mp4a.40.2"' }));
+          if (ws.readyState === WebSocket.OPEN) sendReq();
+          else ws.addEventListener('open', sendReq, { once: true });
         });
         ws.onmessage = (ev) => {
           if (typeof ev.data === 'string') {

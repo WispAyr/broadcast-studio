@@ -165,7 +165,7 @@ const MODULE_CONFIG_FIELDS = {
     { key: 'src', label: 'Custom URL (optional)', type: 'text', default: '' },
   ],
   live_tv: [
-    { key: 'channel', label: 'Channel (key from /api/livetv)', type: 'select', options: ['bbc-one', 'stv', 'bbc-two', 'channel4'], default: 'bbc-one' },
+    { key: 'channel', label: 'Channel (key from /api/livetv)', type: 'select', dynamic: 'livetv', options: ['bbc-one', 'stv', 'bbc-two', 'channel4'], default: 'bbc-one' },
     { key: 'audio', label: 'Audio', type: 'select', options: [
       { value: 'auto', label: 'Auto — sound on PA/audio-output screens only' },
       { value: 'on', label: 'Always on' },
@@ -422,7 +422,7 @@ function ConfigField({ field, value, onChange }) {
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-2 py-1.5 bg-gray-800/80 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
           >
-            {field.options.map((opt) => {
+            {(field.dynamic === 'livetv' && LIVETV_CHANNELS.length ? LIVETV_CHANNELS : field.options).map((opt) => {
               const optValue = typeof opt === 'object' ? opt.value : opt;
               const optLabel = typeof opt === 'object' ? opt.label : opt;
               return <option key={optValue} value={optValue}>{optLabel}</option>;
@@ -606,6 +606,9 @@ function ContextMenu({ x, y, onRename, onDuplicate, onDelete, onClose }) {
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
+let LIVETV_CHANNELS = [];
+try { fetch('/api/livetv').then((r) => r.json()).then((d) => { LIVETV_CHANNELS = (d.channels || []).map((c) => ({ value: c.key, label: c.label || c.key })); }).catch(() => {}); } catch (e) {}
+
 export default function Layouts() {
   const toast = useToast();
   const [layouts, setLayouts] = useState([]);
