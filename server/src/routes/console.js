@@ -51,6 +51,11 @@ for (const ddl of [
   // action_payload, target, delayMs}] run in order on a single press. Empty =
   // single action (the base action_type/payload).
   'ALTER TABLE console_buttons ADD COLUMN steps TEXT',
+  // Control kind: 'button' (default, fires an action) or a continuous control
+  // ('slider'|'stepper'|'switch') that drives a studio variable. Continuous
+  // controls carry their binding in action_payload {variable_id,min,max,step}
+  // and are driven client-side via the variables API — no server fire change.
+  "ALTER TABLE console_buttons ADD COLUMN control_kind TEXT DEFAULT 'button'",
 ]) { try { db.exec(ddl); } catch { /* column exists */ } }
 
 // Resolve a stored target ('all' | <screenId> | 'group:<id>') to screen ids
@@ -303,18 +308,18 @@ router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps, control_kind } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut, mode, states, state_index, steps)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut, mode, states, state_index, steps, control_kind)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
         sort_order ?? (maxOrder + 1), page || null,
         deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null, shortcut || null,
         mode || 'momentary', states === undefined ? null : JSON.stringify(states || []),
-        steps === undefined ? null : JSON.stringify(steps || []));
+        steps === undefined ? null : JSON.stringify(steps || []), control_kind || 'button');
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -324,7 +329,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps, control_kind } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -346,6 +351,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         mode = COALESCE(?, mode),
         states = ?,
         steps = ?,
+        control_kind = COALESCE(?, control_kind),
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -369,6 +375,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         mode ?? null,
         states === undefined ? existing.states : JSON.stringify(states || []),
         steps === undefined ? existing.steps : JSON.stringify(steps || []),
+        control_kind ?? null,
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));

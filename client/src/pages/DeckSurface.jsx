@@ -21,6 +21,8 @@ export default function DeckSurface() {
   const [error, setError] = useState(null);
   const [armed, setArmed] = useState(null);       // guarded button awaiting 2nd tap
   const [stateIdx, setStateIdx] = useState({});   // buttonId -> current state (toggle/multi)
+  const [variables, setVariables] = useState([]);
+  const [varVals, setVarVals] = useState({});     // variable_id -> value (for sliders/steppers)
   const armTimer = useRef(null);
 
   // Load the deck (needs an operator/staff token on this device).
@@ -48,12 +50,29 @@ export default function DeckSurface() {
     }).catch(() => {});
     const socket = connectSocket();
     socket.emit('join_studio', { studioId: deck.studio_id });
+    api.get(`/studios/${deck.studio_id}/variables`).then(vs => {
+      if (!alive) return;
+      const list = Array.isArray(vs) ? vs : (vs?.variables || []);
+      setVariables(list);
+      setVarVals(Object.fromEntries(list.map(v => [v.id, v.value])));
+    }).catch(() => {});
     const onPreview = (d) => { if (d?.screenId) setLiveState(p => ({ ...p, [d.screenId]: d.layoutId })); };
     const onState = (d) => { if (d?.buttonId != null) setStateIdx(p => ({ ...p, [d.buttonId]: d.state_index })); };
+    const onVar = (d) => { if (d?.id != null) setVarVals(p => ({ ...p, [d.id]: d.value })); };
     socket.on('screen_preview', onPreview);
     socket.on('deck_button_state', onState);
-    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); };
+    socket.on('variable_update', onVar);
+    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); socket.off('variable_update', onVar); };
   }, [deck?.studio_id]);
+
+  const setVar = useCallback((vid, value) => {
+    setVarVals(p => ({ ...p, [vid]: value }));
+    api.patch(`/studios/${deck.studio_id}/variables/${vid}`, { value }).catch(() => {});
+  }, [deck]);
+  const bumpVar = useCallback((vid, delta) => {
+    setVarVals(p => ({ ...p, [vid]: (Number(p[vid]) || 0) + delta }));
+    api.post(`/studios/${deck.studio_id}/variables/${vid}/bump`, { delta }).catch(() => {});
+  }, [deck]);
 
   // First tap → browser fullscreen (kiosk).
   useEffect(() => {
@@ -97,6 +116,38 @@ export default function DeckSurface() {
     <div style={{ position: 'fixed', inset: 0, background: '#0a0e14', padding: '2vmin', cursor: 'none' }}>
       <div style={{ width: '100%', height: '100%', display: 'grid', gap: '1.4vmin', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>
         {buttons.map(b => {
+          // ── Continuous controls (slider / stepper) ──
+          if (b.control_kind === 'slider' || b.control_kind === 'stepper') {
+            const cp = b.action_payload || {};
+            const bound = !!cp.variable_id;
+            const cellPos = { gridColumn: `${(b.x || 0) + 1} / span ${b.w || 1}`, gridRow: `${(b.y || 0) + 1} / span ${b.h || 1}` };
+            if (b.control_kind === 'slider') {
+              const min = Number(cp.min ?? 0), max = Number(cp.max ?? 100), step = Number(cp.step || 1);
+              const val = Number(varVals[cp.variable_id] ?? min);
+              return (
+                <div key={b.id} style={{ ...cellPos, background: b.color || '#334155', borderRadius: '1.6vmin', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1vmin', padding: '2vmin', boxShadow: '0 0.4vmin 1.6vmin rgba(0,0,0,.4)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '2.2vmin', fontWeight: 700 }}>
+                    <span>{b.icon} {b.label}</span><span style={{ fontFamily: 'monospace' }}>{bound ? val : '—'}</span>
+                  </div>
+                  <input type="range" min={min} max={max} step={step} value={val} disabled={!bound}
+                    onChange={e => setVar(cp.variable_id, Number(e.target.value))}
+                    style={{ width: '100%', height: '4vmin', accentColor: '#60a5fa', touchAction: 'none' }} />
+                </div>
+              );
+            }
+            const step = Number(cp.step || 1);
+            const val = varVals[cp.variable_id];
+            return (
+              <div key={b.id} style={{ ...cellPos, background: b.color || '#334155', borderRadius: '1.6vmin', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.8vmin', padding: '1.5vmin', boxShadow: '0 0.4vmin 1.6vmin rgba(0,0,0,.4)' }}>
+                <span style={{ fontSize: '2vmin', fontWeight: 700 }}>{b.icon} {b.label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2vmin' }}>
+                  <button disabled={!bound} onClick={() => bumpVar(cp.variable_id, -step)} style={{ width: '7vmin', height: '7vmin', borderRadius: '1.2vmin', border: 'none', background: 'rgba(0,0,0,.3)', color: '#fff', fontSize: '4vmin', touchAction: 'manipulation' }}>−</button>
+                  <span style={{ fontFamily: 'monospace', fontSize: '3.2vmin', minWidth: '3ch', textAlign: 'center' }}>{bound ? (val ?? 0) : '—'}</span>
+                  <button disabled={!bound} onClick={() => bumpVar(cp.variable_id, step)} style={{ width: '7vmin', height: '7vmin', borderRadius: '1.2vmin', border: 'none', background: 'rgba(0,0,0,.3)', color: '#fff', fontSize: '4vmin', touchAction: 'manipulation' }}>+</button>
+                </div>
+              </div>
+            );
+          }
           const isMode = (b.mode === 'toggle' || b.mode === 'multi') && Array.isArray(b.states) && b.states.length;
           const s = isMode ? (b.states[stateIdx[b.id] || 0] || b.states[0]) : null;
           const color = (isMode ? s.color : b.color) || ACTION_COLOR[b.action_type] || '#374151';

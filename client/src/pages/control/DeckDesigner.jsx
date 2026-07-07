@@ -28,6 +28,12 @@ const LIBRARY = [
   { action_type: 'clear_overlays', label: 'Clear GFX', icon: '🧹' },
 ];
 
+// Continuous controls — drive a studio variable via the live value bus.
+const CONTROLS = [
+  { control_kind: 'slider', label: 'Slider', icon: '🎚️' },
+  { control_kind: 'stepper', label: 'Stepper', icon: '±' },
+];
+
 function cellsOf(b) {
   const cells = [];
   for (let dy = 0; dy < (b.h || 1); dy++)
@@ -48,6 +54,8 @@ export default function DeckDesigner() {
   const [scenes, setScenes] = useState([]);
   const [groups, setGroups] = useState([]);
   const [screens, setScreens] = useState([]);
+  const [variables, setVariables] = useState([]);   // studio number/etc variables (for control binding)
+  const [varVals, setVarVals] = useState({});       // variable_id -> current value
   const [dragId, setDragId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -90,6 +98,21 @@ export default function DeckDesigner() {
     api.get(`/scenes?studio_id=${studioId}`).then(s => setScenes(s || [])).catch(() => setScenes([]));
     api.get(`/screen-groups?studio_id=${studioId}`).then(r => setGroups((r?.groups || []).filter(g => !g.studio_id || g.studio_id === studioId))).catch(() => setGroups([]));
     api.get('/screens').then(r => setScreens((r?.screens || r || []).filter(s => s.studio_id === studioId))).catch(() => setScreens([]));
+    api.get(`/studios/${studioId}/variables`).then(vs => {
+      const list = Array.isArray(vs) ? vs : (vs?.variables || []);
+      setVariables(list);
+      setVarVals(Object.fromEntries(list.map(v => [v.id, v.value])));
+    }).catch(() => setVariables([]));
+  }, [studioId]);
+
+  // Set / bump a studio variable (drives sliders & steppers; live via socket).
+  const setVar = useCallback((variableId, value) => {
+    setVarVals(p => ({ ...p, [variableId]: value }));
+    api.patch(`/studios/${studioId}/variables/${variableId}`, { value }).catch(() => {});
+  }, [studioId]);
+  const bumpVar = useCallback((variableId, delta) => {
+    setVarVals(p => ({ ...p, [variableId]: (Number(p[variableId]) || 0) + delta }));
+    api.post(`/studios/${studioId}/variables/${variableId}/bump`, { delta }).catch(() => {});
   }, [studioId]);
 
   // Live program state: fetch what's on each screen, then keep it fresh via the
@@ -107,9 +130,11 @@ export default function DeckDesigner() {
     socket.emit('join_studio', { studioId });
     const onPreview = (d) => { if (d?.screenId) setLiveState(prev => ({ ...prev, [d.screenId]: d.layoutId })); };
     const onState = (d) => { if (d?.buttonId != null) setStateIdx(prev => ({ ...prev, [d.buttonId]: d.state_index })); };
+    const onVar = (d) => { if (d?.id != null) setVarVals(prev => ({ ...prev, [d.id]: d.value })); };
     socket.on('screen_preview', onPreview);
     socket.on('deck_button_state', onState);
-    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); };
+    socket.on('variable_update', onVar);
+    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); socket.off('variable_update', onVar); };
   }, [studioId]);
 
   // Resolve a button's target to concrete screen ids (broadcastable only).
@@ -281,15 +306,28 @@ export default function DeckDesigner() {
     if (!deck || busy) return;
     setBusy(true);
     try {
-      const a = ACTIONS[preset.action_type];
-      const body = {
-        studio_id: studioId, deck_id: deck.id,
-        label: preset.label, icon: preset.icon || '', color: a.color,
-        action_type: preset.action_type, action_payload: {},
-        confirm: !!preset.confirm || !!a.guard,
-        x, y, w: 1, h: 1,
-        target: a.needsTarget ? 'all' : null,
-      };
+      let body;
+      if (preset.control_kind) {
+        // A continuous control bound to a variable (picked in the inspector).
+        body = {
+          studio_id: studioId, deck_id: deck.id,
+          label: preset.label, icon: preset.icon || '', color: '#334155',
+          action_type: 'set_variable', action_payload: { variable_id: '', min: 0, max: 100, step: 1 },
+          control_kind: preset.control_kind,
+          x, y, w: preset.control_kind === 'slider' ? 2 : 1, h: 1, target: null,
+        };
+      } else {
+        const a = ACTIONS[preset.action_type];
+        body = {
+          studio_id: studioId, deck_id: deck.id,
+          label: preset.label, icon: preset.icon || '', color: a.color,
+          action_type: preset.action_type, action_payload: {},
+          confirm: !!preset.confirm || !!a.guard,
+          x, y, w: 1, h: 1,
+          target: a.needsTarget ? 'all' : null,
+          control_kind: 'button',
+        };
+      }
       const b = await api.post('/console/buttons', body);
       setButtons(prev => [...prev, b]);
       setSelId(b.id);
@@ -433,6 +471,15 @@ export default function DeckDesigner() {
                 <span>{p.icon}</span><span className="text-gray-200 text-xs font-medium">{p.label}</span>
               </div>
             ))}
+            <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500 mt-3 mb-2 px-1">Controls</p>
+            {CONTROLS.map(p => (
+              <div key={p.control_kind} draggable
+                onDragStart={e => { e.dataTransfer.setData('control', p.control_kind); setDragId(null); }}
+                className="flex items-center gap-2 px-2 py-2 mb-1.5 bg-gray-800/70 hover:bg-gray-700 rounded-lg cursor-grab active:cursor-grabbing text-sm"
+                style={{ borderLeft: '3px solid #64748b' }}>
+                <span>{p.icon}</span><span className="text-gray-200 text-xs font-medium">{p.label}</span>
+              </div>
+            ))}
           </div>
           )}
 
@@ -452,7 +499,9 @@ export default function DeckDesigner() {
                       onDrop={e => {
                         e.preventDefault();
                         const presetType = e.dataTransfer.getData('preset');
+                        const controlKind = e.dataTransfer.getData('control');
                         if (presetType) addButton(x, y, LIBRARY.find(l => l.action_type === presetType));
+                        else if (controlKind) addButton(x, y, CONTROLS.find(cc => cc.control_kind === controlKind));
                         else if (dragId != null) moveButton(dragId, x, y);
                         setDragId(null);
                       }}
@@ -469,6 +518,50 @@ export default function DeckDesigner() {
                   const seq = !isMode ? (b.steps || []).length : 0;
                   const lit = mode === 'live' && !isMode && !seq && isLive(b);
                   const disp = displayOf(b);
+                  // ── Continuous controls (slider / stepper) ──
+                  if (b.control_kind === 'slider' || b.control_kind === 'stepper') {
+                    const cp = b.action_payload || {};
+                    const bound = !!cp.variable_id;
+                    const vname = variables.find(v => v.id === cp.variable_id)?.name;
+                    const live = mode === 'live';
+                    const common = {
+                      key: b.id, draggable: mode === 'edit',
+                      onDragStart: e => { if (mode !== 'edit') return; setDragId(b.id); e.dataTransfer.setData('text/plain', b.id); },
+                      onDragEnd: () => setDragId(null),
+                      onClick: () => { if (mode === 'edit') setSelId(b.id); },
+                      style: { gridColumn: `${(b.x || 0) + 1} / span ${b.w || 1}`, gridRow: `${(b.y || 0) + 1} / span ${b.h || 1}`, background: b.color || '#334155', outline: isSel ? '2px solid #60a5fa' : 'none', outlineOffset: 2 },
+                    };
+                    if (b.control_kind === 'slider') {
+                      const min = Number(cp.min ?? 0), max = Number(cp.max ?? 100), step = Number(cp.step || 1);
+                      const val = Number(varVals[cp.variable_id] ?? min);
+                      return (
+                        <div {...common} className={`relative rounded-lg flex flex-col justify-center gap-1 px-3 py-2 shadow-lg select-none ${mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                          <div className="flex items-center justify-between text-[11px] text-white/90 font-semibold gap-2">
+                            <span className="flex items-center gap-1 truncate">{b.icon && <span>{b.icon}</span>}{b.label}</span>
+                            <span className="font-mono shrink-0">{bound ? val : '—'}</span>
+                          </div>
+                          <input type="range" min={min} max={max} step={step} value={val}
+                            disabled={!live || !bound}
+                            onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}
+                            onChange={e => setVar(cp.variable_id, Number(e.target.value))}
+                            className="w-full accent-blue-400" style={{ pointerEvents: live && bound ? 'auto' : 'none' }} />
+                          <span className="text-[9px] font-mono truncate" style={{ color: bound ? 'rgba(255,255,255,.5)' : '#fbbf24' }}>{bound ? vname : 'bind a variable →'}</span>
+                        </div>
+                      );
+                    }
+                    const step = Number(cp.step || 1);
+                    const val = varVals[cp.variable_id];
+                    return (
+                      <div {...common} className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 shadow-lg select-none ${mode === 'edit' ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                        <span className="text-[11px] text-white/90 font-semibold truncate max-w-full">{b.icon} {b.label}</span>
+                        <div className="flex items-center gap-2">
+                          <button disabled={!live || !bound} onClick={e => { e.stopPropagation(); bumpVar(cp.variable_id, -step); }} className="w-6 h-6 rounded bg-black/30 text-white text-base leading-none disabled:opacity-40">−</button>
+                          <span className="text-white font-mono text-sm min-w-[2ch] text-center">{bound ? (val ?? 0) : '—'}</span>
+                          <button disabled={!live || !bound} onClick={e => { e.stopPropagation(); bumpVar(cp.variable_id, step); }} className="w-6 h-6 rounded bg-black/30 text-white text-base leading-none disabled:opacity-40">+</button>
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={b.id} draggable={mode === 'edit'}
                       onDragStart={e => { if (mode !== 'edit') return; setDragId(b.id); e.dataTransfer.setData('text/plain', b.id); }}
@@ -544,7 +637,32 @@ export default function DeckDesigner() {
                   <Field label="Colour"><input type="color" value={sel.color || '#374151'} onChange={e => patchButton(sel.id, { color: e.target.value })} className="w-full h-7 bg-transparent border border-gray-700 rounded cursor-pointer" /></Field>
                 </Section>
 
-                {/* Behaviour */}
+                {/* Control binding (slider / stepper) */}
+                {(sel.control_kind === 'slider' || sel.control_kind === 'stepper') && (
+                  <Section title="Control">
+                    <Field label="Variable">
+                      <select value={sel.action_payload?.variable_id || ''} onChange={e => patchButton(sel.id, { action_payload: { ...sel.action_payload, variable_id: e.target.value } })} className={inp}>
+                        <option value="">— pick variable —</option>
+                        {variables.map(v => <option key={v.id} value={v.id}>{v.name} ({v.kind})</option>)}
+                      </select>
+                    </Field>
+                    {sel.control_kind === 'slider' && (
+                      <div className="grid grid-cols-3 gap-2">
+                        <Field label="Min"><input type="number" value={sel.action_payload?.min ?? 0} onChange={e => patchButton(sel.id, { action_payload: { ...sel.action_payload, min: Number(e.target.value) } })} className={inp} /></Field>
+                        <Field label="Max"><input type="number" value={sel.action_payload?.max ?? 100} onChange={e => patchButton(sel.id, { action_payload: { ...sel.action_payload, max: Number(e.target.value) } })} className={inp} /></Field>
+                        <Field label="Step"><input type="number" value={sel.action_payload?.step ?? 1} onChange={e => patchButton(sel.id, { action_payload: { ...sel.action_payload, step: Number(e.target.value) || 1 } })} className={inp} /></Field>
+                      </div>
+                    )}
+                    {sel.control_kind === 'stepper' && (
+                      <Field label="Step (± per tap)"><input type="number" value={sel.action_payload?.step ?? 1} onChange={e => patchButton(sel.id, { action_payload: { ...sel.action_payload, step: Number(e.target.value) || 1 } })} className={inp} /></Field>
+                    )}
+                    {variables.length === 0 && <p className="text-[10px] text-amber-400/80 leading-snug">No variables in this studio yet — create one under Variables, then bind it here.</p>}
+                    <p className="text-[10px] text-gray-600 leading-snug">In Live this drives the variable — every module bound to it updates instantly.</p>
+                  </Section>
+                )}
+
+                {/* Behaviour (buttons only) */}
+                {!(sel.control_kind === 'slider' || sel.control_kind === 'stepper') && (<>
                 <Section title="Action">
                   <Field label="Mode">
                     <select value={sel.mode || 'momentary'} onChange={e => setButtonMode(sel.id, e.target.value)} className={inp}>
@@ -687,6 +805,7 @@ export default function DeckDesigner() {
                     </select>
                   </Section>
                 )}
+                </>)}
 
                 {/* Placement */}
                 <Section title="Placement">
