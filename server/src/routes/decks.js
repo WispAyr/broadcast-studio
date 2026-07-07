@@ -36,7 +36,7 @@ function safeParse(raw, fallback = {}) {
 
 function serializeButton(row) {
   if (!row) return null;
-  return { ...row, action_payload: safeParse(row.action_payload, {}), states: row.states ? safeParse(row.states, []) : [], confirm: !!row.confirm, enabled: !!row.enabled };
+  return { ...row, action_payload: safeParse(row.action_payload, {}), states: row.states ? safeParse(row.states, []) : [], steps: row.steps ? safeParse(row.steps, []) : [], confirm: !!row.confirm, enabled: !!row.enabled };
 }
 
 function studioOf(req) {

@@ -102,8 +102,9 @@ export default function DeckSurface() {
           const color = (isMode ? s.color : b.color) || ACTION_COLOR[b.action_type] || '#374151';
           const label = isMode ? (s.label || b.label) : b.label;
           const icon = isMode ? (s.icon ?? b.icon) : b.icon;
-          const badge = isMode ? (b.mode === 'multi' ? `${(stateIdx[b.id] || 0) + 1}/${b.states.length}` : ((stateIdx[b.id] || 0) ? 'ON' : 'OFF')) : null;
-          const lit = !isMode && isLive(b), isArmed = armed === b.id;
+          const seq = !isMode ? (b.steps || []).length : 0;
+          const badge = isMode ? (b.mode === 'multi' ? `${(stateIdx[b.id] || 0) + 1}/${b.states.length}` : ((stateIdx[b.id] || 0) ? 'ON' : 'OFF')) : (seq ? `⋯${seq}` : null);
+          const lit = !isMode && !seq && isLive(b), isArmed = armed === b.id;
           return (
             <button key={b.id} onClick={() => onTap(b)}
               style={{

@@ -172,6 +172,14 @@ export default function DeckDesigner() {
     patchButton(id, { states: (b.states || []).filter((_, idx) => idx !== i) });
   }
 
+  // ── Multi-step sequence (momentary) ──
+  const stepFrom = (b, over = {}) => ({ action_type: b.action_type || 'take_layout', action_payload: b.action_payload || {}, target: b.target || 'all', delayMs: 0, ...over });
+  function convertToSequence(id) { const b = buttons.find(x => x.id === id); if (!b) return; patchButton(id, { steps: [stepFrom(b)] }); }
+  function clearSequence(id) { patchButton(id, { steps: [] }); }
+  function addStep(id) { const b = buttons.find(x => x.id === id); if (!b) return; patchButton(id, { steps: [...(b.steps || []), stepFrom(b, { action_type: 'take_layout', action_payload: {} })] }); }
+  function updateStep(id, i, patch) { const b = buttons.find(x => x.id === id); if (!b) return; patchButton(id, { steps: (b.steps || []).map((s, idx) => idx === i ? { ...s, ...patch } : s) }); }
+  function removeStep(id, i) { const b = buttons.find(x => x.id === id); if (!b) return; patchButton(id, { steps: (b.steps || []).filter((_, idx) => idx !== i) }); }
+
   async function fireButton(b) {
     const body = {};
     if (b.mode !== 'toggle' && b.mode !== 'multi' && ACTIONS[b.action_type]?.needsTarget && b.target && b.target !== 'all') {
@@ -458,7 +466,8 @@ export default function DeckDesigner() {
                   const a = ACTIONS[b.action_type] || {};
                   const isSel = b.id === selId;
                   const isMode = b.mode === 'toggle' || b.mode === 'multi';
-                  const lit = mode === 'live' && !isMode && isLive(b);
+                  const seq = !isMode ? (b.steps || []).length : 0;
+                  const lit = mode === 'live' && !isMode && !seq && isLive(b);
                   const disp = displayOf(b);
                   return (
                     <div key={b.id} draggable={mode === 'edit'}
@@ -475,6 +484,7 @@ export default function DeckDesigner() {
                       className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none ${mode === 'live' ? 'cursor-pointer active:scale-95 transition-transform' : 'cursor-grab active:cursor-grabbing'}`}>
                       {lit && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
                       {isMode && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-white/70 bg-black/25 rounded px-1">{disp.badge}</span>}
+                      {!isMode && seq > 0 && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-white/70 bg-black/25 rounded px-1">⋯{seq}</span>}
                       {b.shortcut && <span className="absolute top-1 left-1.5 text-[9px] font-mono font-bold text-white/70 bg-black/30 rounded px-1 leading-tight">{b.shortcut}</span>}
                       {disp.icon && <span className="text-2xl leading-none">{disp.icon}</span>}
                       <span className="text-white text-sm font-bold leading-tight">{disp.label}</span>
@@ -545,6 +555,46 @@ export default function DeckDesigner() {
                   </Field>
 
                   {(!sel.mode || sel.mode === 'momentary') ? (
+                    (sel.steps && sel.steps.length) ? (
+                      <div className="space-y-2 mt-1">
+                        {sel.steps.map((st, i) => (
+                          <div key={i} className="border border-gray-800 rounded-lg p-2 space-y-1.5 bg-gray-900/40">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-gray-500">STEP {i + 1}</span>
+                              <button onClick={() => removeStep(sel.id, i)} className="text-[10px] text-red-400 hover:text-red-300" title="Remove step">✕</button>
+                            </div>
+                            <select value={st.action_type} onChange={e => updateStep(sel.id, i, { action_type: e.target.value, action_payload: {} })} className={inp}>
+                              {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                            </select>
+                            {ACTIONS[st.action_type]?.needsLayout && (
+                              <select value={st.action_payload?.layout_id || ''} onChange={e => updateStep(sel.id, i, { action_payload: { layout_id: e.target.value } })} className={inp}>
+                                <option value="">— layout —</option>
+                                {layouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                              </select>
+                            )}
+                            {ACTIONS[st.action_type]?.needsScene && (
+                              <select value={st.action_payload?.scene_id || ''} onChange={e => updateStep(sel.id, i, { action_payload: { scene_id: e.target.value } })} className={inp}>
+                                <option value="">— scene —</option>
+                                {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                              </select>
+                            )}
+                            {ACTIONS[st.action_type]?.needsTarget && (
+                              <select value={st.target || 'all'} onChange={e => updateStep(sel.id, i, { target: e.target.value })} className={inp}>
+                                <option value="all">All screens</option>
+                                {screens.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                {groups.map(g => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
+                              </select>
+                            )}
+                            <Field label="Delay before (ms)"><input type="number" min={0} step={100} value={st.delayMs || 0} onChange={e => updateStep(sel.id, i, { delayMs: Math.max(0, +e.target.value || 0) })} className={inp} /></Field>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <button onClick={() => addStep(sel.id)} className="flex-1 text-[11px] text-blue-400 hover:text-blue-300 py-1 border border-dashed border-gray-700 rounded-lg">+ Add step</button>
+                          <button onClick={() => clearSequence(sel.id)} className="text-[11px] text-gray-500 hover:text-gray-300 py-1 px-2" title="Back to a single action">Single</button>
+                        </div>
+                        <p className="text-[10px] text-gray-600 leading-snug">Steps run top-to-bottom on one press. Delay = wait before each step.</p>
+                      </div>
+                    ) : (
                     <>
                       <Field label="Type">
                         <select value={sel.action_type} onChange={e => setAction(sel.id, e.target.value)} className={inp}>
@@ -567,7 +617,9 @@ export default function DeckDesigner() {
                           </select>
                         </Field>
                       )}
+                      <button onClick={() => convertToSequence(sel.id)} className="w-full text-[11px] text-blue-400 hover:text-blue-300 py-1 border border-dashed border-gray-700 rounded-lg mt-1">＋ Run several actions in sequence</button>
                     </>
+                    )
                   ) : (
                     <div className="space-y-2 mt-1">
                       {(sel.states || []).map((st, i) => (
