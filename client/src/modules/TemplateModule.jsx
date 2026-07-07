@@ -91,7 +91,30 @@ const ICON_MAP = {
   eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z',
 };
 
-// ─── Single element renderer (no interactivity — screen display only) ───
+// Touch-button navigation. Screens are output surfaces, so RenderEl's `base`
+// sets pointer-events:none on every element (and ScreenDisplay wraps each layer
+// the same way). A button element opts BACK in (pointer-events:auto) so taps
+// reach it, and runs one of these actions.
+function runButtonAction(bc) {
+  const action = bc.action || 'url';
+  const target = bc.target || '';
+  switch (action) {
+    case 'back': window.history.back(); return;
+    case 'reload': window.location.reload(); return;
+    case 'fullscreen':
+      if (document.fullscreenElement) document.exitFullscreen?.();
+      else document.documentElement.requestFullscreen?.().catch(() => {});
+      return;
+    case 'screen': if (target) window.location.href = `/screen/${target}`; return;
+    case 'url':
+    default:
+      if (!target) return;
+      if (bc.newTab) window.open(target, '_blank', 'noopener');
+      else window.location.href = target;
+  }
+}
+
+// ─── Single element renderer (screen display; buttons are interactive) ───
 function RenderEl({ el, frame, scale }) {
   const props = getElementAtFrame(el, frame);
   if (!el.visible) return null;
@@ -191,6 +214,43 @@ function RenderEl({ el, frame, scale }) {
 
   if (el.type === 'particles') {
     return <ParticlesRenderer el={el} style={base} />;
+  }
+
+  if (el.type === 'button') {
+    const bc = el.buttonConfig || {};
+    const isImg = bc.icon && /^(https?:|\/|data:)/.test(bc.icon);
+    const iconPx = (bc.fontSize || 40) * 1.4 * scale;
+    return (
+      <button
+        type="button"
+        onClick={() => runButtonAction(bc)}
+        style={{
+          ...base,
+          pointerEvents: 'auto',       // ← pierces the screen player's pointer-events:none
+          cursor: 'pointer',
+          touchAction: 'manipulation',
+          WebkitTapHighlightColor: 'transparent',
+          appearance: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 * scale,
+          background: bc.bg || '#3b82f6',
+          color: bc.color || '#fff',
+          borderRadius: (bc.radius ?? 16) * scale,
+          border: bc.borderColor ? `${2 * scale}px solid ${bc.borderColor}` : 'none',
+          fontSize: (bc.fontSize || 40) * scale,
+          fontWeight: 700,
+          boxShadow: elStyle.shadow || `0 ${4 * scale}px ${16 * scale}px rgba(0,0,0,0.3)`,
+          overflow: 'hidden', textAlign: 'center', padding: 8 * scale,
+        }}
+        onPointerDown={e => { e.currentTarget.style.filter = 'brightness(1.15)'; e.currentTarget.style.transform = `${base.transform} scale(0.97)`; }}
+        onPointerUp={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = base.transform; }}
+        onPointerLeave={e => { e.currentTarget.style.filter = ''; e.currentTarget.style.transform = base.transform; }}
+      >
+        {bc.icon && (isImg
+          ? <img src={bc.icon} alt="" style={{ width: iconPx, height: iconPx, objectFit: 'contain' }} />
+          : <span style={{ fontSize: iconPx, lineHeight: 1 }}>{bc.icon}</span>)}
+        <span>{bc.label || 'Button'}</span>
+      </button>
+    );
   }
 
   return null;

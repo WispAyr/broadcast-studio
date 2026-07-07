@@ -28,6 +28,19 @@ const MODULE_ICONS = {
 
 // Config field definitions per module type for friendly editing
 const MODULE_CONFIG_FIELDS = {
+  touch_menu: [
+    { key: 'title', label: 'Heading (optional)', type: 'text', default: '' },
+    { key: 'itemsText', label: 'Menu Items — one per line: Label | target | icon | action', type: 'textarea',
+      default: 'Weather | /screen/WEATHER_ID | 🌦 | screen\nTravel | https://trains.wispayr.online | 🚆 | url\nBack | | ⬅ | back' },
+    { key: 'columns', label: 'Columns (0 = auto)', type: 'number', default: 0 },
+    { key: 'shape', label: 'Tile Shape', type: 'select', options: ['card', 'pill'], default: 'card' },
+    { key: 'vAlign', label: 'Vertical Align', type: 'select', options: ['center', 'top', 'bottom'], default: 'center' },
+    { key: 'accent', label: 'Accent / Press Colour', type: 'color', default: '#3b82f6' },
+    { key: 'textColor', label: 'Text Colour', type: 'color', default: '#ffffff' },
+    { key: 'background', label: 'Background', type: 'text', default: 'transparent' },
+    { key: 'labelSize', label: 'Label Size', type: 'text', default: '1.5rem' },
+    { key: 'iconSize', label: 'Icon Size', type: 'text', default: '2.75rem' },
+  ],
   clock: [
     { key: 'format', label: 'Format', type: 'select', options: ['24h', '12h'], default: '24h' },
     { key: 'showSeconds', label: 'Show Seconds', type: 'checkbox', default: true },

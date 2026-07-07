@@ -130,7 +130,16 @@ function defaultElement(type) {
     particleConfig: { count: 50, color: '#ff6600', speed: 2, size: 4, spread: 360 },
     iconConfig: { icon: 'star' },
     gradientConfig: { stops: [{ color: '#1a1a2e', pos: 0 }, { color: '#16213e', pos: 50 }, { color: '#0f3460', pos: 100 }], angle: 135 },
+    // Touch-menu button — interactive on live screens (taps navigate). See
+    // TemplateModule RenderEl for the click handling that pierces the screen
+    // player's pointer-events:none.
+    buttonConfig: { label: 'Menu', icon: '', action: 'url', target: '', newTab: false, bg: '#3b82f6', color: '#ffffff', fontSize: 40, radius: 16, borderColor: '' },
   };
+  if (type === 'button') {
+    base.name = 'Button';
+    base.keyframes['0'].width = 340;
+    base.keyframes['0'].height = 140;
+  }
   if (type === 'video') {    base.keyframes['0'] = { x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, rotation: 0, opacity: 1, scale: 1 };    base.name = 'VJ Loop';  }
   if (type === 'gradient') {
     base.keyframes['0'] = { x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, rotation: 0, opacity: 1, scale: 1 };
@@ -299,6 +308,28 @@ function RenderElement({ el, frame, selected, onSelect, onDragStart, scale }) {
   } else if (el.type === 'particles') {
     // Render as its own component so useMemo is at component scope (not inside .map)
     content = <ParticlesElement el={el} style={style} handleMouseDown={handleMouseDown} scale={scale} />;
+  } else if (el.type === 'button') {
+    const bc = el.buttonConfig || {};
+    const isImg = bc.icon && /^(https?:|\/|data:)/.test(bc.icon);
+    content = (
+      <div style={{
+        ...style,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 * scale,
+        background: bc.bg || '#3b82f6',
+        color: bc.color || '#fff',
+        borderRadius: (bc.radius ?? 16) * scale,
+        border: bc.borderColor ? `${2 * scale}px solid ${bc.borderColor}` : 'none',
+        fontSize: (bc.fontSize || 40) * scale,
+        fontWeight: 700,
+        boxShadow: elStyle.shadow || `0 ${4 * scale}px ${16 * scale}px rgba(0,0,0,0.3)`,
+        overflow: 'hidden', textAlign: 'center', padding: 8 * scale,
+      }} onMouseDown={handleMouseDown}>
+        {bc.icon && (isImg
+          ? <img src={bc.icon} alt="" style={{ width: (bc.fontSize || 40) * 1.4 * scale, height: (bc.fontSize || 40) * 1.4 * scale, objectFit: 'contain' }} />
+          : <span style={{ fontSize: (bc.fontSize || 40) * 1.4 * scale, lineHeight: 1 }}>{bc.icon}</span>)}
+        <span>{bc.label || 'Button'}</span>
+      </div>
+    );
   }
 
   return content;
@@ -672,6 +703,7 @@ export default function TemplateEditor() {
           { type: 'particles', label: '✨', title: 'Add Particles' },
           { type: 'video', label: '🎬', title: 'Add Video / VJ Loop' },
           { type: 'gradient', label: '🌈', title: 'Add Gradient' },
+          { type: 'button', label: '🔘', title: 'Add Touch Button (navigates on live screens)' },
         ].map(({ type, label, title }) => (
           <button key={type} onClick={() => addElement(type)} className="p-1.5 hover:bg-gray-800 rounded text-gray-400 hover:text-white text-sm" title={title}>{label}</button>
         ))}
@@ -712,7 +744,7 @@ export default function TemplateEditor() {
                     className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs ${selectedId === el.id ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'}`}
                     onClick={() => { setSelectedId(el.id); setSelectedKeyframe(Object.keys(el.keyframes).map(Number).sort((a,b)=>a-b)[0] || 0); }}
                   >
-                    <span className="opacity-60">{el.type === 'text' ? 'T' : el.type === 'shape' ? '■' : el.type === 'image' ? '🖼' : el.type === 'icon' ? '★' : el.type === 'video' ? '🎬' : el.type === 'particles' ? '✨' : '🌈'}</span>
+                    <span className="opacity-60">{el.type === 'text' ? 'T' : el.type === 'shape' ? '■' : el.type === 'image' ? '🖼' : el.type === 'icon' ? '★' : el.type === 'video' ? '🎬' : el.type === 'particles' ? '✨' : el.type === 'button' ? '🔘' : '🌈'}</span>
                     <span className="truncate flex-1">{el.name}</span>
                     <button
                       onClick={e => { e.stopPropagation(); updateElements(elements.map(x => x.id === el.id ? { ...x, visible: !x.visible } : x)); }}
@@ -1073,6 +1105,35 @@ export default function TemplateEditor() {
                       className="text-xs text-blue-400 hover:text-blue-300"
                     >+ Add Stop</button>
                   </div>
+                </div>
+              )}
+
+              {selectedEl.type === 'button' && (
+                <div>
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Touch Button</h4>
+                  <div className="space-y-1.5">
+                    <PropInput label="Label" value={selectedEl.buttonConfig?.label} type="text" onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, label: v } }))} />
+                    <PropInput label="Icon (emoji/URL)" value={selectedEl.buttonConfig?.icon} type="text" onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, icon: v } }))} />
+                    <PropInput label="Action" value={selectedEl.buttonConfig?.action || 'url'} type="select" options={['url', 'screen', 'back', 'reload', 'fullscreen']} onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, action: v } }))} />
+                    {(selectedEl.buttonConfig?.action === 'url' || selectedEl.buttonConfig?.action === 'screen' || !selectedEl.buttonConfig?.action) && (
+                      <PropInput
+                        label={selectedEl.buttonConfig?.action === 'screen' ? 'Screen ID' : 'URL'}
+                        value={selectedEl.buttonConfig?.target} type="text"
+                        onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, target: v } }))} />
+                    )}
+                    {(selectedEl.buttonConfig?.action === 'url' || !selectedEl.buttonConfig?.action) && (
+                      <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+                        <input type="checkbox" checked={!!selectedEl.buttonConfig?.newTab} onChange={ev => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, newTab: ev.target.checked } }))} className="accent-blue-500" />
+                        Open in new tab
+                      </label>
+                    )}
+                    <PropInput label="Background" value={selectedEl.buttonConfig?.bg} type="color" onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, bg: v } }))} />
+                    <PropInput label="Text Colour" value={selectedEl.buttonConfig?.color} type="color" onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, color: v } }))} />
+                    <PropInput label="Border Colour" value={selectedEl.buttonConfig?.borderColor} type="color" onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, borderColor: v } }))} />
+                    <PropInput label="Font Size" value={selectedEl.buttonConfig?.fontSize} onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, fontSize: v } }))} min={8} />
+                    <PropInput label="Corner Radius" value={selectedEl.buttonConfig?.radius} onChange={v => updateSelectedElement(e => ({ ...e, buttonConfig: { ...e.buttonConfig, radius: v } }))} min={0} />
+                  </div>
+                  <p className="text-[10px] text-gray-600 mt-1.5 leading-snug">Interactive only on a live screen. Tap navigates; the editor preview is static.</p>
                 </div>
               )}
 
