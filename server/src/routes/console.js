@@ -28,6 +28,20 @@ const router = express.Router();
 // is just a label on the button row; NULL renders under "MAIN".
 try { db.exec('ALTER TABLE console_buttons ADD COLUMN page TEXT'); } catch { /* exists */ }
 
+// Deck placement + targeting — a button may belong to a designed Deck (grid of
+// placed buttons) instead of / as well as the flat console. `deck_id` groups it
+// under a deck; x/y/w/h place it; `target` is its default screen target
+// ('all' | <screenId> | 'group:<id>'). All idempotent, all additive: legacy
+// console buttons (deck_id NULL) are untouched. See routes/decks.js.
+for (const ddl of [
+  'ALTER TABLE console_buttons ADD COLUMN deck_id TEXT',
+  'ALTER TABLE console_buttons ADD COLUMN x INTEGER DEFAULT 0',
+  'ALTER TABLE console_buttons ADD COLUMN y INTEGER DEFAULT 0',
+  'ALTER TABLE console_buttons ADD COLUMN w INTEGER DEFAULT 1',
+  'ALTER TABLE console_buttons ADD COLUMN h INTEGER DEFAULT 1',
+  'ALTER TABLE console_buttons ADD COLUMN target TEXT',
+]) { try { db.exec(ddl); } catch { /* column exists */ } }
+
 function safeParse(raw, fallback = {}) {
   try { return JSON.parse(raw || JSON.stringify(fallback)); } catch { return fallback; }
 }
@@ -255,7 +269,9 @@ router.get('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
     if (!studioId) return res.status(400).json({ error: 'studio_id required' });
-    const rows = db.prepare('SELECT * FROM console_buttons WHERE studio_id = ? ORDER BY sort_order, created_at').all(studioId);
+    // Legacy flat console only — Deck-owned buttons (deck_id set) are managed
+    // and fetched via /api/decks, so they don't leak into the classic console.
+    const rows = db.prepare('SELECT * FROM console_buttons WHERE studio_id = ? AND deck_id IS NULL ORDER BY sort_order, created_at').all(studioId);
     res.json(rows.map(serializeButton));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -263,15 +279,17 @@ router.get('/buttons', authenticate, (req, res) => {
 router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
+      deck_id, x, y, w, h, target } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
-        sort_order ?? (maxOrder + 1), page || null);
+        sort_order ?? (maxOrder + 1), page || null,
+        deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null);
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -280,7 +298,8 @@ router.put('/buttons/:id', authenticate, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
+      deck_id, x, y, w, h, target } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -292,6 +311,12 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         enabled = COALESCE(?, enabled),
         sort_order = COALESCE(?, sort_order),
         page = ?,
+        deck_id = COALESCE(?, deck_id),
+        x = COALESCE(?, x),
+        y = COALESCE(?, y),
+        w = COALESCE(?, w),
+        h = COALESCE(?, h),
+        target = ?,
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -305,6 +330,12 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         enabled === undefined ? null : (enabled ? 1 : 0),
         sort_order === undefined ? null : sort_order,
         page === undefined ? existing.page : (page || null),
+        deck_id ?? null,
+        x === undefined ? null : x,
+        y === undefined ? null : y,
+        w === undefined ? null : w,
+        h === undefined ? null : h,
+        target === undefined ? existing.target : (target || null),
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));
