@@ -47,6 +47,10 @@ for (const ddl of [
   "ALTER TABLE console_buttons ADD COLUMN mode TEXT DEFAULT 'momentary'",
   'ALTER TABLE console_buttons ADD COLUMN states TEXT',
   'ALTER TABLE console_buttons ADD COLUMN state_index INTEGER DEFAULT 0',
+  // Multi-step sequence for a momentary button: JSON [{action_type,
+  // action_payload, target, delayMs}] run in order on a single press. Empty =
+  // single action (the base action_type/payload).
+  'ALTER TABLE console_buttons ADD COLUMN steps TEXT',
 ]) { try { db.exec(ddl); } catch { /* column exists */ } }
 
 // Resolve a stored target ('all' | <screenId> | 'group:<id>') to screen ids
@@ -69,6 +73,7 @@ function serializeButton(row) {
     ...row,
     action_payload: safeParse(row.action_payload, {}),
     states: row.states ? safeParse(row.states, []) : [],
+    steps: row.steps ? safeParse(row.steps, []) : [],
     confirm: !!row.confirm,
     enabled: !!row.enabled,
   };
@@ -298,17 +303,18 @@ router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target, shortcut, mode, states } = req.body;
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut, mode, states, state_index)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut, mode, states, state_index, steps)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
         sort_order ?? (maxOrder + 1), page || null,
         deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null, shortcut || null,
-        mode || 'momentary', states === undefined ? null : JSON.stringify(states || []));
+        mode || 'momentary', states === undefined ? null : JSON.stringify(states || []),
+        steps === undefined ? null : JSON.stringify(steps || []));
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -318,7 +324,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target, shortcut, mode, states } = req.body;
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -339,6 +345,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         shortcut = ?,
         mode = COALESCE(?, mode),
         states = ?,
+        steps = ?,
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -361,6 +368,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         shortcut === undefined ? existing.shortcut : (shortcut || null),
         mode ?? null,
         states === undefined ? existing.states : JSON.stringify(states || []),
+        steps === undefined ? existing.steps : JSON.stringify(steps || []),
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));
@@ -510,6 +518,22 @@ async function handleFire(req, res) {
         getIO().to(`studio:${studioId}`).emit('deck_button_state', { buttonId: button.id, state_index: next });
         return res.json({ ok: true, button: button.label, state_index: next, result });
       }
+    }
+
+    // Multi-step sequence: run each step in order, honouring per-step delayMs.
+    // Responds immediately; steps play out server-side (each with its own target).
+    const steps = safeParse(button.steps, []);
+    if (Array.isArray(steps) && steps.length) {
+      let cum = 0;
+      for (const st of steps) {
+        cum += Math.max(0, st.delayMs || 0);
+        const run = () => {
+          const synthetic = { ...button, action_type: st.action_type, action_payload: JSON.stringify(st.action_payload || {}) };
+          Promise.resolve(dispatchAction(studioId, synthetic, getIO(), req.user?.id, { targetScreenIds: resolveTarget(st.target) })).catch(() => {});
+        };
+        if (cum <= 0) run(); else setTimeout(run, cum);
+      }
+      return res.json({ ok: true, button: button.label, steps: steps.length });
     }
 
     // Optional target group: ?target=<screenId> (or comma list, or body.target).
