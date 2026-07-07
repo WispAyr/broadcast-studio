@@ -43,7 +43,7 @@ function cellsOf(b) {
 }
 
 export default function DeckDesigner() {
-  const { studioId, studios, setStudioId, isSuperAdmin, layouts } = useLiveData();
+  const { studioId, studios, setStudioId, isSuperAdmin, canSwitchStudios, layouts } = useLiveData();
   const toast = useToast();
 
   const [decks, setDecks] = useState([]);
@@ -388,7 +388,7 @@ export default function DeckDesigner() {
           <div className="text-4xl mb-3">🎛️</div>
           <p className="text-gray-300 font-semibold mb-1">No studio selected</p>
           <p className="text-gray-500 text-sm mb-4">Pick a studio to design a control deck for its screens.</p>
-          {isSuperAdmin && studios.length > 0 && (
+          {canSwitchStudios && studios.length > 0 && (
             <select value={studioId || ''} onChange={e => setStudioId(e.target.value)}
               className="px-3 py-2 bg-gray-900 border border-gray-700 text-white rounded-lg text-sm">
               <option value="">Select studio…</option>
@@ -412,7 +412,7 @@ export default function DeckDesigner() {
           </button>
         </div>
         <div className="w-px h-5 bg-gray-800 mx-1" />
-        {isSuperAdmin && studios.length > 0 && (
+        {canSwitchStudios && studios.length > 0 && (
           <select value={studioId} onChange={e => setStudioId(e.target.value)}
             className="px-2 py-1 bg-gray-900 border border-gray-700 text-white rounded text-xs">
             {studios.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
