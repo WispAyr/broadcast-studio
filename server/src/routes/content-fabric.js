@@ -47,13 +47,26 @@ db.exec(`
     id TEXT PRIMARY KEY, studio_id TEXT, name TEXT NOT NULL, path TEXT, kind TEXT,
     tags TEXT, created_at TEXT DEFAULT (datetime('now'))
   );
+  -- CF-3 sharing: a resource can be granted to a studio / site / customer /
+  -- workgroup. Combined with visibility='global', this controls which studios
+  -- (customers) can see a layout etc. The layouts list resolves owned ∪ global
+  -- ∪ granted. All additive: default visibility='private' → nothing shared.
+  CREATE TABLE IF NOT EXISTS resource_grants (
+    id TEXT PRIMARY KEY, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL,
+    grantee_type TEXT NOT NULL, grantee_id TEXT NOT NULL, permission TEXT DEFAULT 'use',
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE (resource_type, resource_id, grantee_type, grantee_id)
+  );
 `);
-// studios gain an optional site_id; tags on every content type (idempotent).
+// studios gain an optional site_id; tags + visibility on every content type.
 for (const ddl of [
   'ALTER TABLE studios ADD COLUMN site_id TEXT',
   'ALTER TABLE layouts ADD COLUMN tags TEXT',
   'ALTER TABLE decks ADD COLUMN tags TEXT',
   'ALTER TABLE screen_scenes ADD COLUMN tags TEXT',
+  "ALTER TABLE layouts ADD COLUMN visibility TEXT DEFAULT 'private'",
+  "ALTER TABLE decks ADD COLUMN visibility TEXT DEFAULT 'private'",
+  "ALTER TABLE screen_scenes ADD COLUMN visibility TEXT DEFAULT 'private'",
 ]) { try { db.exec(ddl); } catch { /* exists */ } }
 
 // Backfill: ensure a default customer + site, and park any unassigned studio there.
@@ -75,6 +88,30 @@ const RESOURCE = {
   media: { table: 'media_assets', name: 'name' },
 };
 function parseTags(raw) { try { const t = JSON.parse(raw || '[]'); return Array.isArray(t) ? t : []; } catch { return []; } }
+
+// Resource ids of `type` a studio can see BEYOND its own — i.e. global +
+// granted (to the studio, its site, or its customer). Additive: with nothing
+// shared this is empty, so callers that union owned get unchanged behaviour.
+function accessibleResourceIds(type, studioId) {
+  const meta = RESOURCE[type];
+  if (!meta || !studioId) return new Set();
+  const studio = db.prepare('SELECT id, site_id FROM studios WHERE id = ?').get(studioId);
+  const siteId = studio?.site_id || null;
+  const custId = siteId ? (db.prepare('SELECT customer_id FROM sites WHERE id = ?').get(siteId)?.customer_id || null) : null;
+  const ids = new Set();
+  let cols;
+  try { cols = db.prepare(`PRAGMA table_info(${meta.table})`).all().map(c => c.name); } catch { cols = []; }
+  if (cols.includes('visibility')) {
+    for (const r of db.prepare(`SELECT id FROM ${meta.table} WHERE visibility = 'global'`).all()) ids.add(r.id);
+  }
+  const grants = db.prepare(`SELECT resource_id, grantee_type, grantee_id FROM resource_grants WHERE resource_type = ?`).all(type);
+  for (const g of grants) {
+    if ((g.grantee_type === 'studio' && g.grantee_id === studioId) ||
+        (g.grantee_type === 'site' && siteId && g.grantee_id === siteId) ||
+        (g.grantee_type === 'customer' && custId && g.grantee_id === custId)) ids.add(g.resource_id);
+  }
+  return ids;
+}
 
 // ── Collections router ─────────────────────────────────────────────────────
 const collections = express.Router();
@@ -222,11 +259,12 @@ content.get('/:type', authenticate, (req, res) => {
     const meta = RESOURCE[req.params.type];
     if (!meta) return res.status(400).json({ error: 'unknown type' });
     const studioId = req.query.studio_id;
-    const hasStudio = db.prepare(`PRAGMA table_info(${meta.table})`).all().some(c => c.name === 'studio_id');
-    const rows = (hasStudio && studioId)
-      ? db.prepare(`SELECT id, ${meta.name} AS name, tags FROM ${meta.table} WHERE studio_id = ? ORDER BY ${meta.name}`).all(studioId)
-      : db.prepare(`SELECT id, ${meta.name} AS name, tags FROM ${meta.table} ORDER BY ${meta.name}`).all();
-    res.json(rows.map(r => ({ ...r, tags: parseTags(r.tags) })));
+    const cols = db.prepare(`PRAGMA table_info(${meta.table})`).all().map(c => c.name);
+    const vis = cols.includes('visibility') ? ', visibility' : '';
+    const rows = (cols.includes('studio_id') && studioId)
+      ? db.prepare(`SELECT id, ${meta.name} AS name, tags${vis} FROM ${meta.table} WHERE studio_id = ? ORDER BY ${meta.name}`).all(studioId)
+      : db.prepare(`SELECT id, ${meta.name} AS name, tags${vis} FROM ${meta.table} ORDER BY ${meta.name}`).all();
+    res.json(rows.map(r => ({ ...r, tags: parseTags(r.tags), visibility: r.visibility || 'private' })));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -242,4 +280,42 @@ content.put('/:type/:id/tags', authenticate, (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-module.exports = { collections, customers, content };
+// Visibility: private | shared | global. 'global' = everyone; 'shared' = only
+// where explicitly granted (see grants); 'private' = owner studio only.
+content.put('/:type/:id/visibility', authenticate, (req, res) => {
+  try {
+    const meta = RESOURCE[req.params.type];
+    if (!meta) return res.status(400).json({ error: 'unknown type' });
+    const v = ['private', 'shared', 'global'].includes(req.body.visibility) ? req.body.visibility : 'private';
+    const cols = db.prepare(`PRAGMA table_info(${meta.table})`).all().map(c => c.name);
+    if (!cols.includes('visibility')) return res.status(400).json({ error: 'type not shareable' });
+    const r = db.prepare(`UPDATE ${meta.table} SET visibility = ? WHERE id = ?`).run(v, req.params.id);
+    if (!r.changes) return res.status(404).json({ error: 'resource not found' });
+    res.json({ ok: true, visibility: v });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Grants — who a shared resource is granted to (studio | site | customer).
+content.get('/:type/:id/grants', authenticate, (req, res) => {
+  try {
+    const rows = db.prepare('SELECT grantee_type, grantee_id, permission FROM resource_grants WHERE resource_type = ? AND resource_id = ?').all(req.params.type, req.params.id);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+content.post('/:type/:id/grants', authenticate, (req, res) => {
+  try {
+    const { grantee_type, grantee_id, permission } = req.body;
+    if (!['studio', 'site', 'customer', 'workgroup'].includes(grantee_type) || !grantee_id) return res.status(400).json({ error: 'valid grantee_type + grantee_id required' });
+    try { db.prepare('INSERT INTO resource_grants (id, resource_type, resource_id, grantee_type, grantee_id, permission) VALUES (?, ?, ?, ?, ?, ?)').run(uuidv4(), req.params.type, req.params.id, grantee_type, grantee_id, permission || 'use'); } catch { /* dup */ }
+    res.status(201).json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+content.delete('/:type/:id/grants', authenticate, (req, res) => {
+  try {
+    db.prepare('DELETE FROM resource_grants WHERE resource_type = ? AND resource_id = ? AND grantee_type = ? AND grantee_id = ?')
+      .run(req.params.type, req.params.id, req.body.grantee_type, req.body.grantee_id);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+module.exports = { collections, customers, content, accessibleResourceIds };
