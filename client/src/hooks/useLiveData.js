@@ -44,6 +44,21 @@ export default function useLiveData() {
       .catch((err) => console.error('Failed to fetch studios:', err));
   }, [isSuperAdmin]);
 
+  // Non-super-admin: studios come from workgroup access (own studio + any
+  // studio granted via a workgroup). If they can reach more than one, they get
+  // a picker too. Additive — this only widens reach, never narrows it.
+  useEffect(() => {
+    if (isSuperAdmin) return;
+    api.get('/me/access')
+      .then((acc) => {
+        if (!mountedRef.current) return;
+        const arr = acc?.studios || [];
+        setStudios(arr);
+        setStudioIdState((curr) => curr || acc?.home_studio_id || arr[0]?.id || null);
+      })
+      .catch(() => {});
+  }, [isSuperAdmin]);
+
   const fetchData = useCallback(async () => {
     if (!studioId) { setLoading(false); return; }
     try {
@@ -112,6 +127,7 @@ export default function useLiveData() {
     studios,
     setStudioId,
     isSuperAdmin,
+    canSwitchStudios: isSuperAdmin || studios.length > 1,
     liveLayoutId,
     onlineCount,
     fetchData,
