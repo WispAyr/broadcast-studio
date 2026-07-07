@@ -3,6 +3,7 @@ import useLiveData from '../../hooks/useLiveData';
 import api from '../../lib/api';
 import { useToast } from '../../components/Toast';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { connectSocket } from '../../lib/socket';
 
 // ── Deck Designer (Deck v1 · M1) ──────────────────────────────────────────
 // Lay out a grid of buttons that control the studio's screens. Each button
@@ -50,6 +51,10 @@ export default function DeckDesigner() {
   const [dragId, setDragId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Live mode: fire buttons + show program tally.
+  const [mode, setMode] = useState('edit');       // 'edit' | 'live'
+  const [liveState, setLiveState] = useState({});  // screenId -> current_layout_id
+  const [fireBtn, setFireBtn] = useState(null);    // guarded button awaiting confirm
 
   const sel = useMemo(() => buttons.find(b => b.id === selId) || null, [buttons, selId]);
   const cols = deck?.grid_cols || 6;
@@ -84,6 +89,70 @@ export default function DeckDesigner() {
     api.get(`/screen-groups?studio_id=${studioId}`).then(r => setGroups((r?.groups || []).filter(g => !g.studio_id || g.studio_id === studioId))).catch(() => setGroups([]));
     api.get('/screens').then(r => setScreens((r?.screens || r || []).filter(s => s.studio_id === studioId))).catch(() => setScreens([]));
   }, [studioId]);
+
+  // Live program state: fetch what's on each screen, then keep it fresh via the
+  // studio's screen_preview stream (emitted on every take, from any surface).
+  useEffect(() => {
+    if (!studioId) return;
+    let alive = true;
+    api.get(`/console/state?studio_id=${studioId}`).then(st => {
+      if (!alive) return;
+      const m = {};
+      (st.screens || []).forEach(s => { m[s.id] = s.current_layout_id; });
+      setLiveState(m);
+    }).catch(() => {});
+    const socket = connectSocket();
+    socket.emit('join_studio', { studioId });
+    const onPreview = (d) => { if (d?.screenId) setLiveState(prev => ({ ...prev, [d.screenId]: d.layoutId })); };
+    socket.on('screen_preview', onPreview);
+    return () => { alive = false; socket.off('screen_preview', onPreview); };
+  }, [studioId]);
+
+  // Resolve a button's target to concrete screen ids (broadcastable only).
+  const targetScreens = useCallback((b) => {
+    const broadcastable = screens.filter(s => s.accepts_broadcasts !== 0 && s.accepts_broadcasts !== false);
+    const t = b.target;
+    if (!t || t === 'all') return broadcastable.map(s => s.id);
+    if (t.startsWith('group:')) { const gid = t.slice(6); return screens.filter(s => s.group_id === gid).map(s => s.id); }
+    return screens.some(s => s.id === t) ? [t] : [];
+  }, [screens]);
+
+  // A take_layout button is "live" when every screen it targets is on its layout.
+  const isLive = useCallback((b) => {
+    if (b.action_type !== 'take_layout' || !b.action_payload?.layout_id) return false;
+    const ids = targetScreens(b);
+    if (!ids.length) return false;
+    return ids.every(id => liveState[id] === b.action_payload.layout_id);
+  }, [liveState, targetScreens]);
+
+  async function fireButton(b) {
+    const body = {};
+    if (ACTIONS[b.action_type]?.needsTarget && b.target && b.target !== 'all') {
+      body.target = targetScreens(b).join(',');
+    }
+    try {
+      const res = await api.post(`/console/${studioId}/fire/${b.id}`, body);
+      const r = res?.result || {};
+      const detail = r.applied != null ? ` — ${r.applied} screen${r.applied !== 1 ? 's' : ''}${r.locked ? `, ${r.locked} locked` : ''}` : '';
+      toast?.(`${b.label} fired${detail}`, 'success');
+    } catch (e) { toast?.(e.message, 'error'); }
+  }
+
+  function onButtonClick(b) {
+    if (mode !== 'live') { setSelId(b.id); return; }
+    if (b.confirm) setFireBtn(b); else fireButton(b);
+  }
+
+  const layoutName = useCallback((id) => layouts.find(l => l.id === id)?.name || null, [layouts]);
+
+  // Live "on air" = the most common current layout across screens (derived from
+  // liveState so it tracks every take, not just the initial fetch).
+  const onAirName = useMemo(() => {
+    const counts = {};
+    Object.values(liveState).forEach(id => { if (id) counts[id] = (counts[id] || 0) + 1; });
+    const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    return top ? layoutName(top) : null;
+  }, [liveState, layoutName]);
 
   // ── Deck ops ───────────────────────────────────────────────────────────────
   async function createDeck() {
@@ -220,7 +289,12 @@ export default function DeckDesigner() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800 bg-gray-900/60 shrink-0">
         <span className="text-sm font-semibold text-white mr-1">Deck Designer</span>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 border border-amber-700/50 rounded px-1.5 py-0.5">Edit</span>
+        <div className="flex rounded-md overflow-hidden border border-gray-700 text-[10px] font-mono uppercase tracking-wider">
+          <button onClick={() => { setMode('edit'); }} className={`px-2.5 py-1 transition-colors ${mode === 'edit' ? 'bg-amber-600/30 text-amber-300' : 'text-gray-400 hover:bg-gray-800'}`}>Edit</button>
+          <button onClick={() => { setMode('live'); setSelId(null); }} className={`px-2.5 py-1 transition-colors flex items-center gap-1 ${mode === 'live' ? 'bg-red-600/40 text-red-200' : 'text-gray-400 hover:bg-gray-800'}`}>
+            {mode === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}Live
+          </button>
+        </div>
         <div className="w-px h-5 bg-gray-800 mx-1" />
         {isSuperAdmin && studios.length > 0 && (
           <select value={studioId} onChange={e => setStudioId(e.target.value)}
@@ -261,7 +335,8 @@ export default function DeckDesigner() {
         </div>
       ) : (
         <div className="flex-1 flex min-h-0">
-          {/* Library */}
+          {/* Library (edit only) */}
+          {mode === 'edit' && (
           <div className="w-40 shrink-0 border-r border-gray-800 p-2 overflow-y-auto">
             <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500 mb-2 px-1">Library</p>
             <p className="text-[10px] text-gray-600 mb-2 px-1 leading-snug">Click an empty cell, or drag a preset onto the grid.</p>
@@ -274,6 +349,7 @@ export default function DeckDesigner() {
               </div>
             ))}
           </div>
+          )}
 
           {/* Canvas */}
           <div className="flex-1 min-w-0 overflow-auto p-6 flex items-start justify-center">
@@ -281,8 +357,8 @@ export default function DeckDesigner() {
               style={{ maxWidth: 860 }}>
               <div className="grid gap-2"
                 style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, minmax(72px, 1fr))`, aspectRatio: `${cols} / ${rows}` }}>
-                {/* Empty drop cells */}
-                {Array.from({ length: rows }).flatMap((_, y) => Array.from({ length: cols }).map((_, x) => {
+                {/* Empty drop cells (edit only) */}
+                {mode === 'edit' && Array.from({ length: rows }).flatMap((_, y) => Array.from({ length: cols }).map((_, x) => {
                   if (occupied.has(`${x},${y}`)) return null;
                   return (
                     <button key={`cell-${x}-${y}`}
@@ -304,18 +380,21 @@ export default function DeckDesigner() {
                 {buttons.map(b => {
                   const a = ACTIONS[b.action_type] || {};
                   const isSel = b.id === selId;
+                  const lit = mode === 'live' && isLive(b);
                   return (
-                    <div key={b.id} draggable
-                      onDragStart={e => { setDragId(b.id); e.dataTransfer.setData('text/plain', b.id); }}
+                    <div key={b.id} draggable={mode === 'edit'}
+                      onDragStart={e => { if (mode !== 'edit') return; setDragId(b.id); e.dataTransfer.setData('text/plain', b.id); }}
                       onDragEnd={() => setDragId(null)}
-                      onClick={() => setSelId(b.id)}
+                      onClick={() => onButtonClick(b)}
                       style={{
                         gridColumn: `${(b.x || 0) + 1} / span ${b.w || 1}`,
                         gridRow: `${(b.y || 0) + 1} / span ${b.h || 1}`,
                         background: b.color || a.color || '#374151',
-                        outline: isSel ? '2px solid #60a5fa' : 'none', outlineOffset: 2,
+                        outline: isSel ? '2px solid #60a5fa' : lit ? '2px solid #34d399' : 'none', outlineOffset: 2,
+                        boxShadow: lit ? '0 0 0 1px rgba(52,211,153,.6), 0 0 22px rgba(52,211,153,.45)' : undefined,
                       }}
-                      className="rounded-lg cursor-grab active:cursor-grabbing flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none">
+                      className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none ${mode === 'live' ? 'cursor-pointer active:scale-95 transition-transform' : 'cursor-grab active:cursor-grabbing'}`}>
+                      {lit && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
                       {b.icon && <span className="text-2xl leading-none">{b.icon}</span>}
                       <span className="text-white text-sm font-bold leading-tight">{b.label}</span>
                       {b.action_type === 'take_layout' && b.action_payload?.layout_id && (
@@ -331,9 +410,27 @@ export default function DeckDesigner() {
             </div>
           </div>
 
-          {/* Inspector */}
+          {/* Inspector (edit) / Program (live) */}
           <div className="w-64 shrink-0 border-l border-gray-800 overflow-y-auto">
-            {!sel ? (
+            {mode === 'live' ? (
+              <div className="p-3 space-y-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500">Program</p>
+                <div className="text-xs text-gray-400">On air: <span className="text-white font-semibold">{onAirName || '—'}</span></div>
+                <div className="space-y-1">
+                  {screens.map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-gray-900/60 rounded text-xs">
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.is_online ? 'bg-green-400' : 'bg-gray-600'}`} />
+                        <span className="text-gray-300 truncate">{s.name}</span>
+                      </span>
+                      <span className="text-gray-500 truncate">{layoutName(liveState[s.id]) || '—'}</span>
+                    </div>
+                  ))}
+                  {screens.length === 0 && <p className="text-[11px] text-gray-600">No screens in this studio.</p>}
+                </div>
+                <p className="text-[10px] text-gray-600 leading-snug pt-1">Tap a button to fire it live. A green ring = it's currently on its target.</p>
+              </div>
+            ) : !sel ? (
               <div className="p-4 text-center text-gray-600 text-xs mt-8">
                 Select a button to edit it, or click an empty cell to add one.
               </div>
@@ -419,6 +516,17 @@ export default function DeckDesigner() {
         variant="danger"
         onConfirm={() => { setConfirmDelete(false); deleteDeck(); }}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      {/* Guarded fire — confirm before pushing to live screens */}
+      <ConfirmDialog
+        open={!!fireBtn}
+        title={`Fire "${fireBtn?.label}"?`}
+        message={`This runs "${ACTIONS[fireBtn?.action_type]?.label || fireBtn?.action_type}" on ${targetLabel(fireBtn?.target).toLowerCase()} now, live.`}
+        confirmLabel="Fire"
+        variant="danger"
+        onConfirm={() => { const b = fireBtn; setFireBtn(null); if (b) fireButton(b); }}
+        onCancel={() => setFireBtn(null)}
       />
     </div>
   );
