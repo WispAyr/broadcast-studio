@@ -4,19 +4,32 @@ const { db, getLayoutsByStudio, getLayoutById } = require('../db');
 const { authenticate, optionalAuthenticate } = require('../middleware/auth');
 const { enrichLayout } = require('../lib/enrich-layout');
 const { getIO } = require('../ws');
+const { accessibleResourceIds } = require('./content-fabric');
 
 const router = express.Router();
+
+// Owned layouts ∪ shared/granted layouts accessible to this studio (CF-3).
+// Additive: with nothing shared, this returns exactly the owned set.
+function layoutsForStudio(studioId) {
+  const owned = getLayoutsByStudio(studioId);
+  const ownedIds = new Set(owned.map(l => l.id));
+  const extraIds = [...accessibleResourceIds('layout', studioId)].filter(id => !ownedIds.has(id));
+  const extra = extraIds.length
+    ? db.prepare(`SELECT * FROM layouts WHERE id IN (${extraIds.map(() => '?').join(',')})`).all(...extraIds)
+    : [];
+  return [...owned, ...extra];
+}
 
 // GET / - list layouts for studio
 router.get('/', authenticate, (req, res) => {
   try {
     let layouts;
     if (req.query.studio_id) {
-      layouts = getLayoutsByStudio(req.query.studio_id);
+      layouts = layoutsForStudio(req.query.studio_id);
     } else if (req.user.role === 'super_admin') {
       layouts = db.prepare('SELECT * FROM layouts').all();
     } else {
-      layouts = getLayoutsByStudio(req.user.studio_id);
+      layouts = layoutsForStudio(req.user.studio_id);
     }
     // Parse modules JSON string for each layout
     const parsed = layouts.map(l => {

@@ -25,6 +25,25 @@ export default function ContentManager() {
   const [tab, setTab] = useState('layout');
   const [query, setQuery] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [allStudios, setAllStudios] = useState([]);      // grant targets
+  const [grantsByRes, setGrantsByRes] = useState({});    // "type:id" -> [{grantee_type,grantee_id}]
+
+  useEffect(() => { api.get('/studios').then(s => setAllStudios(s || [])).catch(() => {}); }, []);
+  const grantKey = (type, id) => `${type}:${id}`;
+  const loadGrants = useCallback((type, id) => {
+    api.get(`/content/${type}/${id}/grants`).then(g => setGrantsByRes(p => ({ ...p, [grantKey(type, id)]: g }))).catch(() => {});
+  }, []);
+  const grantedTo = (type, id, studioId) => (grantsByRes[grantKey(type, id)] || []).some(g => g.grantee_type === 'studio' && g.grantee_id === studioId);
+  async function setVisibility(type, id, v) {
+    setResources(r => ({ ...r, [type]: r[type].map(x => x.id === id ? { ...x, visibility: v } : x) }));
+    try { await api.put(`/content/${type}/${id}/visibility`, { visibility: v }); if (v === 'shared') loadGrants(type, id); }
+    catch (e) { toast?.(e.message, 'error'); }
+  }
+  async function toggleGrant(type, id, studioId, on) {
+    setGrantsByRes(p => { const k = grantKey(type, id); const cur = p[k] || []; return { ...p, [k]: on ? [...cur, { grantee_type: 'studio', grantee_id: studioId }] : cur.filter(g => !(g.grantee_type === 'studio' && g.grantee_id === studioId)) }; });
+    try { await (on ? api.post(`/content/${type}/${id}/grants`, { grantee_type: 'studio', grantee_id: studioId }) : api.delete(`/content/${type}/${id}/grants`, { grantee_type: 'studio', grantee_id: studioId })); }
+    catch (e) { toast?.(e.message, 'error'); }
+  }
 
   const loadCollections = useCallback(async () => {
     try { setCollections(await api.get('/collections')); } catch (e) { toast?.(e.message, 'error'); }
@@ -46,6 +65,12 @@ export default function ContentManager() {
     if (!selId) { setDetail(null); return; }
     api.get(`/collections/${selId}`).then(setDetail).catch(e => toast?.(e.message, 'error'));
   }, [selId, toast]);
+
+  // Load grants for any already-shared resources in view.
+  useEffect(() => {
+    (resources[tab] || []).forEach(r => { if (r.visibility === 'shared' && !grantsByRes[grantKey(tab, r.id)]) loadGrants(tab, r.id); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resources, tab]);
 
   const inCollection = useCallback((type, id) => detail?.items?.some(it => it.resource_type === type && it.resource_id === id), [detail]);
 
@@ -172,6 +197,25 @@ export default function ContentManager() {
                       </div>
                       <input defaultValue={(r.tags || []).join(', ')} onBlur={e => saveTags(tab, r.id, e.target.value)}
                         placeholder="tags…" className="w-full mt-1.5 px-2 py-1 bg-gray-950 border border-gray-800 rounded text-[11px] text-gray-300 font-mono" />
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <span className="text-[9px] font-mono uppercase text-gray-600">Access</span>
+                        <select value={r.visibility || 'private'} onChange={e => setVisibility(tab, r.id, e.target.value)}
+                          className="flex-1 px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-[11px] text-gray-300">
+                          <option value="private">Private (this studio)</option>
+                          <option value="shared">Shared → chosen studios</option>
+                          <option value="global">Global (everyone)</option>
+                        </select>
+                      </div>
+                      {r.visibility === 'shared' && (
+                        <div className="mt-1 pl-2 border-l border-gray-800 space-y-0.5">
+                          {allStudios.filter(s => s.id !== studioId).map(s => (
+                            <label key={s.id} className="flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer">
+                              <input type="checkbox" checked={grantedTo(tab, r.id, s.id)} onChange={e => toggleGrant(tab, r.id, s.id, e.target.checked)} className="accent-indigo-500" />
+                              <span className="truncate">{s.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
