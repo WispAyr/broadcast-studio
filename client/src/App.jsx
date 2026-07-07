@@ -34,6 +34,7 @@ const Console = React.lazy(() => import('./pages/Console'));
 const Schedule = React.lazy(() => import('./pages/control/Schedule'));
 const DeckDesigner = React.lazy(() => import('./pages/control/DeckDesigner'));
 const DeckSurface = React.lazy(() => import('./pages/DeckSurface'));
+const SceneDesigner = React.lazy(() => import('./pages/control/SceneDesigner'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="kiltwalk" element={<KiltwalkOps />} />
         <Route path="console" element={<ControlConsole />} />
         <Route path="deck" element={<DeckDesigner />} />
+        <Route path="scenes" element={<SceneDesigner />} />
       </Route>
       <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/screen/:id" element={<ScreenDisplay />} />
