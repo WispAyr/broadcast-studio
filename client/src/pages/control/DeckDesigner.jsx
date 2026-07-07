@@ -143,7 +143,30 @@ export default function DeckDesigner() {
     if (b.confirm) setFireBtn(b); else fireButton(b);
   }
 
+  // Keyboard shortcuts fire buttons in Live mode (F-keys, digits, letters).
+  useEffect(() => {
+    if (mode !== 'live') return;
+    const onKey = (e) => {
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const key = (e.key || '').toLowerCase();
+      const b = buttons.find(x => (x.shortcut || '').trim().toLowerCase() === key && key);
+      if (b) { e.preventDefault(); if (b.confirm) setFireBtn(b); else fireButton(b); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, buttons]);
+
   const layoutName = useCallback((id) => layouts.find(l => l.id === id)?.name || null, [layouts]);
+
+  // Deck lifecycle: flip draft <-> published.
+  async function setStatus(status) {
+    if (!deck) return;
+    setDeck(d => ({ ...d, status }));
+    try { await api.put(`/decks/${deck.id}`, { status }); loadDecks(); }
+    catch (e) { toast?.(e.message, 'error'); }
+  }
 
   // Live "on air" = the most common current layout across screens (derived from
   // liveState so it tracks every take, not just the initial fetch).
@@ -311,6 +334,11 @@ export default function DeckDesigner() {
         {deck && (
           <>
             <button onClick={renameDeck} className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded">Rename</button>
+            <button onClick={() => setStatus(deck.status === 'published' ? 'draft' : 'published')}
+              title={deck.status === 'published' ? 'Published — click to unpublish' : 'Draft — click to publish'}
+              className={`px-2 py-1 text-xs rounded font-medium ${deck.status === 'published' ? 'bg-emerald-700/40 text-emerald-300 hover:bg-emerald-700/60' : 'bg-amber-700/30 text-amber-300 hover:bg-amber-700/50'}`}>
+              {deck.status === 'published' ? '● Published' : '○ Draft'}
+            </button>
             <div className="flex items-center gap-1 text-xs text-gray-500 ml-1">
               <span>Grid</span>
               <input type="number" min={1} max={12} value={cols} onChange={e => resizeDeck({ grid_cols: Math.max(1, +e.target.value || 1) })}
@@ -395,6 +423,7 @@ export default function DeckDesigner() {
                       }}
                       className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none ${mode === 'live' ? 'cursor-pointer active:scale-95 transition-transform' : 'cursor-grab active:cursor-grabbing'}`}>
                       {lit && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
+                      {b.shortcut && <span className="absolute top-1 left-1.5 text-[9px] font-mono font-bold text-white/70 bg-black/30 rounded px-1 leading-tight">{b.shortcut}</span>}
                       {b.icon && <span className="text-2xl leading-none">{b.icon}</span>}
                       <span className="text-white text-sm font-bold leading-tight">{b.label}</span>
                       {b.action_type === 'take_layout' && b.action_payload?.layout_id && (
@@ -480,6 +509,9 @@ export default function DeckDesigner() {
                     <input type="checkbox" checked={!!sel.confirm} onChange={e => patchButton(sel.id, { confirm: e.target.checked })} className="accent-blue-500" />
                     Confirm before firing
                   </label>
+                  <Field label="Shortcut (fires in Live)">
+                    <input value={sel.shortcut || ''} onChange={e => patchButton(sel.id, { shortcut: e.target.value }, false)} onBlur={e => patchButton(sel.id, { shortcut: e.target.value.trim() })} placeholder="e.g. F1 · 1 · q" className={inp} />
+                  </Field>
                 </Section>
 
                 {/* Target */}
