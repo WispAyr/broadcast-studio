@@ -315,6 +315,21 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ count: 4, station: 'Ayr', layout: 'split' }) },
     { name: 'nar_warnings', description: 'Met Office weather warnings for Ayrshire — all-clear or coloured alert strip', category: 'situational', icon: '⚠️',
       default_config: JSON.stringify({ variant: 'strip' }) },
+    { name: 'touch_menu', description: 'Interactive touch-screen menu — tap tiles to navigate to other screens/pages (kiosk-friendly, clicks pass through the screen player)', category: 'broadcast', icon: '🔘',
+      default_config: JSON.stringify({
+        title: '',
+        columns: 0,
+        shape: 'card',
+        accent: '#3b82f6',
+        textColor: '#ffffff',
+        background: 'transparent',
+        items: [
+          { label: 'Weather', icon: '🌦', action: 'url', target: 'https://weather.ayrshire.wispayr.online' },
+          { label: 'Travel', icon: '🚆', action: 'url', target: 'https://trains.wispayr.online' },
+          { label: 'Reload', icon: '🔄', action: 'reload' },
+          { label: 'Fullscreen', icon: '⛶', action: 'fullscreen' },
+        ],
+      }) },
   ];
 
   const insertOrIgnore = db.prepare(`
