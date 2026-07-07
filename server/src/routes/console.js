@@ -28,6 +28,41 @@ const router = express.Router();
 // is just a label on the button row; NULL renders under "MAIN".
 try { db.exec('ALTER TABLE console_buttons ADD COLUMN page TEXT'); } catch { /* exists */ }
 
+// Deck placement + targeting — a button may belong to a designed Deck (grid of
+// placed buttons) instead of / as well as the flat console. `deck_id` groups it
+// under a deck; x/y/w/h place it; `target` is its default screen target
+// ('all' | <screenId> | 'group:<id>'). All idempotent, all additive: legacy
+// console buttons (deck_id NULL) are untouched. See routes/decks.js.
+for (const ddl of [
+  'ALTER TABLE console_buttons ADD COLUMN deck_id TEXT',
+  'ALTER TABLE console_buttons ADD COLUMN x INTEGER DEFAULT 0',
+  'ALTER TABLE console_buttons ADD COLUMN y INTEGER DEFAULT 0',
+  'ALTER TABLE console_buttons ADD COLUMN w INTEGER DEFAULT 1',
+  'ALTER TABLE console_buttons ADD COLUMN h INTEGER DEFAULT 1',
+  'ALTER TABLE console_buttons ADD COLUMN target TEXT',
+  'ALTER TABLE console_buttons ADD COLUMN shortcut TEXT',
+  // Button modes: 'momentary' (default) | 'toggle' | 'multi'. `states` is a JSON
+  // array of {label,icon,color,action_type,action_payload,target}; `state_index`
+  // is the current one. Momentary ignores states (uses the base action).
+  "ALTER TABLE console_buttons ADD COLUMN mode TEXT DEFAULT 'momentary'",
+  'ALTER TABLE console_buttons ADD COLUMN states TEXT',
+  'ALTER TABLE console_buttons ADD COLUMN state_index INTEGER DEFAULT 0',
+  // Multi-step sequence for a momentary button: JSON [{action_type,
+  // action_payload, target, delayMs}] run in order on a single press. Empty =
+  // single action (the base action_type/payload).
+  'ALTER TABLE console_buttons ADD COLUMN steps TEXT',
+]) { try { db.exec(ddl); } catch { /* column exists */ } }
+
+// Resolve a stored target ('all' | <screenId> | 'group:<id>') to screen ids
+// (null = whole studio). Used by mode-driven fires that carry their own target.
+function resolveTarget(target) {
+  if (!target || target === 'all') return null;
+  if (String(target).startsWith('group:')) {
+    return db.prepare('SELECT id FROM screens WHERE group_id = ?').all(String(target).slice(6)).map(r => r.id);
+  }
+  return [target];
+}
+
 function safeParse(raw, fallback = {}) {
   try { return JSON.parse(raw || JSON.stringify(fallback)); } catch { return fallback; }
 }
@@ -37,6 +72,8 @@ function serializeButton(row) {
   return {
     ...row,
     action_payload: safeParse(row.action_payload, {}),
+    states: row.states ? safeParse(row.states, []) : [],
+    steps: row.steps ? safeParse(row.steps, []) : [],
     confirm: !!row.confirm,
     enabled: !!row.enabled,
   };
@@ -255,7 +292,9 @@ router.get('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
     if (!studioId) return res.status(400).json({ error: 'studio_id required' });
-    const rows = db.prepare('SELECT * FROM console_buttons WHERE studio_id = ? ORDER BY sort_order, created_at').all(studioId);
+    // Legacy flat console only — Deck-owned buttons (deck_id set) are managed
+    // and fetched via /api/decks, so they don't leak into the classic console.
+    const rows = db.prepare('SELECT * FROM console_buttons WHERE studio_id = ? AND deck_id IS NULL ORDER BY sort_order, created_at').all(studioId);
     res.json(rows.map(serializeButton));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -263,15 +302,19 @@ router.get('/buttons', authenticate, (req, res) => {
 router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut, mode, states, state_index, steps)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
-        sort_order ?? (maxOrder + 1), page || null);
+        sort_order ?? (maxOrder + 1), page || null,
+        deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null, shortcut || null,
+        mode || 'momentary', states === undefined ? null : JSON.stringify(states || []),
+        steps === undefined ? null : JSON.stringify(steps || []));
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -280,7 +323,8 @@ router.put('/buttons/:id', authenticate, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
-    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page } = req.body;
+    const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
+      deck_id, x, y, w, h, target, shortcut, mode, states, steps } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -292,6 +336,16 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         enabled = COALESCE(?, enabled),
         sort_order = COALESCE(?, sort_order),
         page = ?,
+        deck_id = COALESCE(?, deck_id),
+        x = COALESCE(?, x),
+        y = COALESCE(?, y),
+        w = COALESCE(?, w),
+        h = COALESCE(?, h),
+        target = ?,
+        shortcut = ?,
+        mode = COALESCE(?, mode),
+        states = ?,
+        steps = ?,
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -305,6 +359,16 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         enabled === undefined ? null : (enabled ? 1 : 0),
         sort_order === undefined ? null : sort_order,
         page === undefined ? existing.page : (page || null),
+        deck_id ?? null,
+        x === undefined ? null : x,
+        y === undefined ? null : y,
+        w === undefined ? null : w,
+        h === undefined ? null : h,
+        target === undefined ? existing.target : (target || null),
+        shortcut === undefined ? existing.shortcut : (shortcut || null),
+        mode ?? null,
+        states === undefined ? existing.states : JSON.stringify(states || []),
+        steps === undefined ? existing.steps : JSON.stringify(steps || []),
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));
@@ -438,6 +502,40 @@ async function handleFire(req, res) {
     const button = db.prepare('SELECT * FROM console_buttons WHERE id = ? AND studio_id = ?').get(buttonId, studioId);
     if (!button) return res.status(404).json({ error: 'button not found' });
     if (!button.enabled) return res.status(409).json({ error: 'button disabled' });
+
+    // Modes (toggle / multi): a press advances to the next state and runs THAT
+    // state's action, then persists + broadcasts the new state so every surface
+    // updates its lit display. Momentary buttons fall through unchanged.
+    if ((button.mode === 'toggle' || button.mode === 'multi')) {
+      const states = safeParse(button.states, []);
+      if (Array.isArray(states) && states.length) {
+        const cur = button.state_index || 0;
+        const next = button.mode === 'toggle' ? (cur ? 0 : 1) : (cur + 1) % states.length;
+        const st = states[next] || states[0];
+        const synthetic = { ...button, action_type: st.action_type, action_payload: JSON.stringify(st.action_payload || {}) };
+        const result = await dispatchAction(studioId, synthetic, getIO(), req.user?.id, { targetScreenIds: resolveTarget(st.target) });
+        db.prepare("UPDATE console_buttons SET state_index = ?, updated_at = datetime('now') WHERE id = ?").run(next, button.id);
+        getIO().to(`studio:${studioId}`).emit('deck_button_state', { buttonId: button.id, state_index: next });
+        return res.json({ ok: true, button: button.label, state_index: next, result });
+      }
+    }
+
+    // Multi-step sequence: run each step in order, honouring per-step delayMs.
+    // Responds immediately; steps play out server-side (each with its own target).
+    const steps = safeParse(button.steps, []);
+    if (Array.isArray(steps) && steps.length) {
+      let cum = 0;
+      for (const st of steps) {
+        cum += Math.max(0, st.delayMs || 0);
+        const run = () => {
+          const synthetic = { ...button, action_type: st.action_type, action_payload: JSON.stringify(st.action_payload || {}) };
+          Promise.resolve(dispatchAction(studioId, synthetic, getIO(), req.user?.id, { targetScreenIds: resolveTarget(st.target) })).catch(() => {});
+        };
+        if (cum <= 0) run(); else setTimeout(run, cum);
+      }
+      return res.json({ ok: true, button: button.label, steps: steps.length });
+    }
+
     // Optional target group: ?target=<screenId> (or comma list, or body.target).
     // Omitted / 'all' = whole studio. Only layout-taking actions use it.
     const rawTarget = req.body?.target ?? req.query?.target;

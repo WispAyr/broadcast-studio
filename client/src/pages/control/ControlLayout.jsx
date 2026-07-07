@@ -12,6 +12,7 @@ import CommandPalette from '../../components/CommandPalette';
 const navItems = [
   { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
   { path: 'console', label: 'Console', icon: 'console' },
+  { path: 'deck', label: 'Deck', icon: 'grid' },
   { path: 'shows', label: 'Shows', icon: 'film' },
   { path: 'layouts', label: 'Layouts', icon: 'layout' },
   { path: 'screens', label: 'Screens', icon: 'monitor' },

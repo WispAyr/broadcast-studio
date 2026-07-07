@@ -319,6 +319,21 @@ function ensureModuleTypes() {
       default_config: JSON.stringify({ variant: 'row', showArt: true, showWire: true }) },
     { name: 'nar_sideliners', description: 'SideLiners v2 — featured match score strip or live-scores grid (API-Football via intranet)', category: 'broadcast', icon: '⚽',
       default_config: JSON.stringify({ variant: 'row', showWire: true }) },
+    { name: 'touch_menu', description: 'Interactive touch-screen menu — tap tiles to navigate to other screens/pages (kiosk-friendly, clicks pass through the screen player)', category: 'broadcast', icon: '🔘',
+      default_config: JSON.stringify({
+        title: '',
+        columns: 0,
+        shape: 'card',
+        accent: '#3b82f6',
+        textColor: '#ffffff',
+        background: 'transparent',
+        items: [
+          { label: 'Weather', icon: '🌦', action: 'url', target: 'https://weather.ayrshire.wispayr.online' },
+          { label: 'Travel', icon: '🚆', action: 'url', target: 'https://trains.wispayr.online' },
+          { label: 'Reload', icon: '🔄', action: 'reload' },
+          { label: 'Fullscreen', icon: '⛶', action: 'fullscreen' },
+        ],
+      }) },
   ];
 
   const insertOrIgnore = db.prepare(`

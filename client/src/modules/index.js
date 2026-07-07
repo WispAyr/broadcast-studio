@@ -41,6 +41,7 @@ import VisualizerModule from './VisualizerModule';
 import RemotionModule from './RemotionModule';
 import CanvaModule from './CanvaModule';
 import TemplateModule from './TemplateModule';
+import TouchMenuModule from './TouchMenuModule';
 import SidelinersModule from './SidelinersModule';
 import SurfaceCarouselModule from './SurfaceCarouselModule';
 
@@ -119,6 +120,11 @@ const moduleRegistry = {
   remotion: RemotionModule,
   canva: CanvaModule,
   template: TemplateModule,    // Live template composition player
+  // Interactive touch menu for kiosk/touch screens — tap tiles to navigate to
+  // other pages/screens. Opts back into pointer-events past the screen player.
+  touch_menu: TouchMenuModule,
+  menu: TouchMenuModule,
+  touchscreen_menu: TouchMenuModule,
   sideliners: SidelinersModule, // SideLiner's sports-show graphics package
   surface_carousel: SurfaceCarouselModule,  // Rotating iframe carousel — office wall views from live.wispayr.online
   // Kiltwalk event modules
