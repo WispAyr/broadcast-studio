@@ -40,6 +40,7 @@ for (const ddl of [
   'ALTER TABLE console_buttons ADD COLUMN w INTEGER DEFAULT 1',
   'ALTER TABLE console_buttons ADD COLUMN h INTEGER DEFAULT 1',
   'ALTER TABLE console_buttons ADD COLUMN target TEXT',
+  'ALTER TABLE console_buttons ADD COLUMN shortcut TEXT',
 ]) { try { db.exec(ddl); } catch { /* column exists */ } }
 
 function safeParse(raw, fallback = {}) {
@@ -280,16 +281,16 @@ router.post('/buttons', authenticate, (req, res) => {
   try {
     const studioId = studioOf(req);
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target } = req.body;
+      deck_id, x, y, w, h, target, shortcut } = req.body;
     if (!studioId || !label || !action_type) return res.status(400).json({ error: 'studio_id, label, action_type required' });
     const id = uuidv4();
     const maxOrder = db.prepare('SELECT MAX(sort_order) m FROM console_buttons WHERE studio_id = ?').get(studioId)?.m ?? -1;
-    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    db.prepare(`INSERT INTO console_buttons (id, studio_id, label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page, deck_id, x, y, w, h, target, shortcut)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(id, studioId, label, sublabel || null, icon || null, color || null, action_type,
         JSON.stringify(action_payload || {}), confirm ? 1 : 0, enabled === false ? 0 : 1,
         sort_order ?? (maxOrder + 1), page || null,
-        deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null);
+        deck_id || null, x ?? 0, y ?? 0, w ?? 1, h ?? 1, target || null, shortcut || null);
     res.status(201).json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -299,7 +300,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
     const existing = db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'button not found' });
     const { label, sublabel, icon, color, action_type, action_payload, confirm, enabled, sort_order, page,
-      deck_id, x, y, w, h, target } = req.body;
+      deck_id, x, y, w, h, target, shortcut } = req.body;
     db.prepare(`UPDATE console_buttons SET
         label = COALESCE(?, label),
         sublabel = ?,
@@ -317,6 +318,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         w = COALESCE(?, w),
         h = COALESCE(?, h),
         target = ?,
+        shortcut = ?,
         updated_at = datetime('now')
       WHERE id = ?`)
       .run(
@@ -336,6 +338,7 @@ router.put('/buttons/:id', authenticate, (req, res) => {
         w === undefined ? null : w,
         h === undefined ? null : h,
         target === undefined ? existing.target : (target || null),
+        shortcut === undefined ? existing.shortcut : (shortcut || null),
         req.params.id,
       );
     res.json(serializeButton(db.prepare('SELECT * FROM console_buttons WHERE id = ?').get(req.params.id)));
