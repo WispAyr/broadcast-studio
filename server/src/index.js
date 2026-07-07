@@ -61,6 +61,7 @@ app.use('/api/nuro', require('./routes/nuro'));
 app.use('/api/display-nodes', require('./routes/display-nodes'));
 app.use('/api/scenes', require('./routes/scenes'));
 app.use('/api/console', require('./routes/console'));
+app.use('/api/decks', require('./routes/decks'));
 app.use('/api/card-wall', require('./routes/card-wall'));
 app.use('/api/livetv', require('./routes/livetv'));
 app.use('/api/pavilion-festival', require('./routes/pavilion-festival'));
