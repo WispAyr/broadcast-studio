@@ -20,6 +20,7 @@ export default function DeckSurface() {
   const [liveState, setLiveState] = useState({});
   const [error, setError] = useState(null);
   const [armed, setArmed] = useState(null);       // guarded button awaiting 2nd tap
+  const [stateIdx, setStateIdx] = useState({});   // buttonId -> current state (toggle/multi)
   const armTimer = useRef(null);
 
   // Load the deck (needs an operator/staff token on this device).
@@ -30,7 +31,7 @@ export default function DeckSurface() {
       return;
     }
     api.get(`/decks/${id}`)
-      .then(d => { if (!alive) return; setDeck(d); setButtons(d.buttons || []); })
+      .then(d => { if (!alive) return; setDeck(d); setButtons(d.buttons || []); setStateIdx(Object.fromEntries((d.buttons || []).map(b => [b.id, b.state_index || 0]))); })
       .catch(e => setError(e.status === 401 ? 'Session expired — sign in again on this device.' : (e.message || 'Deck not found')));
     return () => { alive = false; };
   }, [id]);
@@ -48,8 +49,10 @@ export default function DeckSurface() {
     const socket = connectSocket();
     socket.emit('join_studio', { studioId: deck.studio_id });
     const onPreview = (d) => { if (d?.screenId) setLiveState(p => ({ ...p, [d.screenId]: d.layoutId })); };
+    const onState = (d) => { if (d?.buttonId != null) setStateIdx(p => ({ ...p, [d.buttonId]: d.state_index })); };
     socket.on('screen_preview', onPreview);
-    return () => { alive = false; socket.off('screen_preview', onPreview); };
+    socket.on('deck_button_state', onState);
+    return () => { alive = false; socket.off('screen_preview', onPreview); socket.off('deck_button_state', onState); };
   }, [deck?.studio_id]);
 
   // First tap → browser fullscreen (kiosk).
@@ -94,13 +97,19 @@ export default function DeckSurface() {
     <div style={{ position: 'fixed', inset: 0, background: '#0a0e14', padding: '2vmin', cursor: 'none' }}>
       <div style={{ width: '100%', height: '100%', display: 'grid', gap: '1.4vmin', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>
         {buttons.map(b => {
-          const lit = isLive(b), isArmed = armed === b.id;
+          const isMode = (b.mode === 'toggle' || b.mode === 'multi') && Array.isArray(b.states) && b.states.length;
+          const s = isMode ? (b.states[stateIdx[b.id] || 0] || b.states[0]) : null;
+          const color = (isMode ? s.color : b.color) || ACTION_COLOR[b.action_type] || '#374151';
+          const label = isMode ? (s.label || b.label) : b.label;
+          const icon = isMode ? (s.icon ?? b.icon) : b.icon;
+          const badge = isMode ? (b.mode === 'multi' ? `${(stateIdx[b.id] || 0) + 1}/${b.states.length}` : ((stateIdx[b.id] || 0) ? 'ON' : 'OFF')) : null;
+          const lit = !isMode && isLive(b), isArmed = armed === b.id;
           return (
             <button key={b.id} onClick={() => onTap(b)}
               style={{
                 gridColumn: `${(b.x || 0) + 1} / span ${b.w || 1}`,
                 gridRow: `${(b.y || 0) + 1} / span ${b.h || 1}`,
-                background: isArmed ? '#b91c1c' : (b.color || ACTION_COLOR[b.action_type] || '#374151'),
+                background: isArmed ? '#b91c1c' : color,
                 border: 'none', borderRadius: '1.6vmin', color: '#fff', cursor: 'pointer',
                 outline: lit ? '0.4vmin solid #34d399' : 'none', outlineOffset: '-0.4vmin',
                 boxShadow: lit ? '0 0 4vmin rgba(52,211,153,.5)' : '0 0.4vmin 1.6vmin rgba(0,0,0,.4)',
@@ -112,8 +121,9 @@ export default function DeckSurface() {
               onPointerUp={e => { e.currentTarget.style.transform = ''; }}
               onPointerLeave={e => { e.currentTarget.style.transform = ''; }}>
               {lit && <span style={{ position: 'absolute', top: '0.8vmin', right: '1vmin', fontSize: '1.4vmin', color: '#a7f3d0', fontFamily: 'monospace', letterSpacing: '.05em' }}>● LIVE</span>}
-              {b.icon && <span style={{ fontSize: '5vmin', lineHeight: 1 }}>{b.icon}</span>}
-              <span style={{ fontSize: '2.6vmin', padding: '0 0.6vmin' }}>{isArmed ? 'Tap to confirm' : b.label}</span>
+              {badge && <span style={{ position: 'absolute', top: '0.8vmin', right: '1vmin', fontSize: '1.4vmin', color: 'rgba(255,255,255,.7)', fontFamily: 'monospace' }}>{badge}</span>}
+              {icon && <span style={{ fontSize: '5vmin', lineHeight: 1 }}>{icon}</span>}
+              <span style={{ fontSize: '2.6vmin', padding: '0 0.6vmin' }}>{isArmed ? 'Tap to confirm' : label}</span>
             </button>
           );
         })}
