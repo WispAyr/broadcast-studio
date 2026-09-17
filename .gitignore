@@ -20,3 +20,15 @@ client/dist/
 *.bak-*
 dist.bak.*
 _*_bak_*
+
+# Google OAuth client credentials — NEVER commit
+youtube_oauth.json
+
+# runtime state and tenant media — never versioned
+server/data/private/
+server/data/web-source-snapshots/
+server/data/web-sources.json
+server/data/livetv.json
+server/data/bingo-games.json
+server/data/yt_autotitle.json
+server/data/*.sql

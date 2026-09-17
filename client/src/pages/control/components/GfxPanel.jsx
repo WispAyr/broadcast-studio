@@ -37,7 +37,7 @@ export default function GfxPanel({ studioId, screens = [], inShell }) {
       <button onClick={nowPlaying}
         className="w-full text-left px-3 py-2 rounded-md bg-purple-700/40 hover:bg-purple-600/60 transition-colors flex items-center gap-2">
         <span className="text-base">♪</span>
-        <span className="text-[12px] text-white font-semibold">Now Playing lower-third</span>
+        <span className="text-xs text-white font-semibold">Now Playing lower-third</span>
         <span className="ml-auto text-[9px] text-purple-300">stays until CLEAR</span>
       </button>
 

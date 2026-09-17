@@ -516,7 +516,7 @@ function ConfigField({ field, value, onChange }) {
               value={val || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder={field.placeholder || ''}
-              className="flex-1 px-2 py-1.5 bg-gray-800/80 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-600"
+              className="flex-1 px-2 py-1.5 bg-gray-800/80 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-500"
             />
             {isMediaField && (
               <button
@@ -569,7 +569,7 @@ function CollapsibleSection({ title, icon, defaultOpen = true, children }) {
 }
 
 // ─── Context menu ───────────────────────────────────────────────────────────
-function ContextMenu({ x, y, onRename, onDuplicate, onDelete, onClose }) {
+function ContextMenu({ x, y, onRename, onDuplicate, onDelete, onClose, presetOn, onTogglePreset }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -603,6 +603,17 @@ function ContextMenu({ x, y, onRename, onDuplicate, onDelete, onClose }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
         Duplicate
+      </button>
+      <div className="border-t border-gray-800 my-1" />
+      <button
+        onClick={onTogglePreset}
+        className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-300 hover:bg-blue-600/20 hover:text-white transition-colors"
+        title="Controls whether this layout appears in the NAR intranet Screens 'Apply' dropdown"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        {presetOn ? 'Hide from intranet' : 'Show on intranet'}
       </button>
       <div className="border-t border-gray-800 my-1" />
       <button
@@ -807,6 +818,22 @@ export default function Layouts() {
     }
   }
 
+  // Toggle whether this layout is exposed to the NAR intranet Screens dropdown.
+  async function handleToggleIntranet(id) {
+    const layout = layouts.find(l => l.id === id);
+    if (!layout) return;
+    const next = layout.intranet_preset ? 0 : 1;
+    // Optimistic — the list reads intranet_preset for the badge + menu label.
+    setLayouts(prev => prev.map(l => l.id === id ? { ...l, intranet_preset: next } : l));
+    try {
+      await api.put(`/layouts/${id}`, { intranet_preset: next });
+      toast?.(next ? `"${layout.name}" now shows on the intranet` : `"${layout.name}" hidden from the intranet`, 'success');
+    } catch (err) {
+      setLayouts(prev => prev.map(l => l.id === id ? { ...l, intranet_preset: layout.intranet_preset } : l));
+      toast?.(`Could not update: ${err.message}`, 'error');
+    }
+  }
+
   async function handleDuplicateLayout(id) {
     const layout = layouts.find(l => l.id === id);
     if (!layout) return;
@@ -968,7 +995,7 @@ export default function Layouts() {
         {/* Search */}
         <div className="px-3 pt-2 pb-1">
           <div className="relative">
-            <svg className="w-3.5 h-3.5 text-gray-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
             </svg>
             <input
@@ -977,7 +1004,7 @@ export default function Layouts() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
               placeholder={`Search ${layouts.length} layouts…`}
-              className="w-full pl-8 pr-7 py-1.5 bg-gray-800/60 border border-gray-700/60 rounded-lg text-white text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-600"
+              className="w-full pl-8 pr-7 py-1.5 bg-gray-800/60 border border-gray-700/60 rounded-lg text-white text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-500"
             />
             {searchQuery && (
               <button
@@ -995,7 +1022,7 @@ export default function Layouts() {
             <div className="flex flex-col items-center justify-center py-10 text-center px-3">
               <div className="w-10 h-10 rounded-xl bg-gray-800/60 flex items-center justify-center mb-3 text-xl">⬛</div>
               <p className="text-gray-500 text-xs">No layouts yet</p>
-              <p className="text-gray-600 text-xs mt-1">Click <strong className="text-gray-500">New</strong> to get started</p>
+              <p className="text-gray-400 text-xs mt-1">Click <strong className="text-gray-500">New</strong> to get started</p>
             </div>
           )}
 
@@ -1089,7 +1116,7 @@ export default function Layouts() {
                                     {layout.name || 'Untitled'}
                                   </p>
                                 )}
-                                <p className="text-[10px] text-gray-600 mt-0.5">
+                                <p className="text-[10px] text-gray-400 mt-0.5">
                                   {layout.grid_cols || '?'}×{layout.grid_rows || '?'} grid
                                 </p>
                               </div>
@@ -1123,7 +1150,7 @@ export default function Layouts() {
 
         {/* Footer hint */}
         <div className="px-4 py-3 border-t border-gray-800/60">
-          <p className="text-[10px] text-gray-700">Double-click to rename · Right-click for options</p>
+          <p className="text-[10px] text-gray-400">Double-click to rename · Right-click for options</p>
         </div>
       </div>
 
@@ -1346,7 +1373,7 @@ export default function Layouts() {
                             )}
                           </div>
                           {/* Module count badge */}
-                          <span className="text-[9px] text-gray-600 shrink-0">{modCount}</span>
+                          <span className="text-[9px] text-gray-400 shrink-0">{modCount}</span>
                           {/* Delete layer */}
                           <button
                             onClick={async (e) => {
@@ -1376,7 +1403,7 @@ export default function Layouts() {
                         {isActive && (
                           <div className="mt-1.5 space-y-1 pl-1">
                             <div className="flex items-center gap-1.5">
-                              <label className="text-[9px] text-gray-600 w-10 shrink-0">Opacity</label>
+                              <label className="text-[9px] text-gray-400 w-10 shrink-0">Opacity</label>
                               <input
                                 type="range" min="0" max="100" step="1"
                                 value={Math.round((layer.opacity ?? 1) * 100)}
@@ -1387,7 +1414,7 @@ export default function Layouts() {
                               <span className="text-[9px] text-gray-500 w-7 text-right">{Math.round((layer.opacity ?? 1) * 100)}%</span>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <label className="text-[9px] text-gray-600 w-10 shrink-0">Blend</label>
+                              <label className="text-[9px] text-gray-400 w-10 shrink-0">Blend</label>
                               <select
                                 value={layer.blendMode || 'normal'}
                                 onChange={(e) => { e.stopPropagation(); updateLayers(layers.map(l => l.id === layer.id ? { ...l, blendMode: e.target.value } : l)); }}
@@ -1456,7 +1483,7 @@ export default function Layouts() {
 
               {/* Grid preview area */}
               <div className="flex-1 p-4 overflow-hidden flex flex-col">
-                <p className="text-xs text-gray-600 mb-2 shrink-0">
+                <p className="text-xs text-gray-400 mb-2 shrink-0">
                   Click an empty cell to place a module · Click a module to configure it
                 </p>
                 <div className="flex-1 min-h-0 flex items-center justify-center" ref={previewContainerRef}>
@@ -1587,7 +1614,7 @@ export default function Layouts() {
                           <h3 className="text-sm font-bold text-white capitalize leading-tight">
                             {modType?.replace(/_/g, ' ')}
                           </h3>
-                          <p className="text-[10px] text-gray-600">Module #{selectedModule + 1}</p>
+                          <p className="text-[10px] text-gray-400">Module #{selectedModule + 1}</p>
                         </div>
                       </div>
                       <button
@@ -1606,7 +1633,7 @@ export default function Layouts() {
                       {/* Layer controls */}
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         <div>
-                          <label className="text-[10px] text-gray-600 block mb-1">Layer (z-order)</label>
+                          <label className="text-[10px] text-gray-400 block mb-1">Layer (z-order)</label>
                           <input
                             type="number" min={0}
                             value={selectedMod.layer || 0}
@@ -1640,7 +1667,7 @@ export default function Layouts() {
                             { field: 'h', label: 'H' },
                           ].map(({ field, label }) => (
                             <div key={field}>
-                              <label className="text-[10px] text-gray-600 block mb-1 text-center">{label}</label>
+                              <label className="text-[10px] text-gray-400 block mb-1 text-center">{label}</label>
                               <input
                                 type="number" min={field === 'w' || field === 'h' ? 1 : 0}
                                 value={selectedMod[field] || (field === 'w' || field === 'h' ? 1 : 0)}
@@ -1652,7 +1679,7 @@ export default function Layouts() {
                         </div>
                       )}
                       {selectedMod.fullscreen && (
-                        <p className="text-[10px] text-gray-600 italic">Grid position disabled — module fills entire screen</p>
+                        <p className="text-[10px] text-gray-400 italic">Grid position disabled — module fills entire screen</p>
                       )}
                     </CollapsibleSection>
 
@@ -1757,6 +1784,11 @@ export default function Layouts() {
           }}
           onDelete={() => {
             handleDeleteLayout(contextMenu.layoutId);
+            setContextMenu(null);
+          }}
+          presetOn={!!layouts.find(l => l.id === contextMenu.layoutId)?.intranet_preset}
+          onTogglePreset={() => {
+            handleToggleIntranet(contextMenu.layoutId);
             setContextMenu(null);
           }}
           onClose={() => setContextMenu(null)}

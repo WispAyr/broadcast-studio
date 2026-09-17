@@ -8,30 +8,8 @@ import LiveMode from './LiveMode';
 import NuroStatusBadge from '../../components/NuroStatusBadge';
 import AppStatusBar from '../../components/AppStatusBar';
 import CommandPalette from '../../components/CommandPalette';
+import { NAV_GROUPS } from '../../lib/nav';
 
-const navItems = [
-  { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
-  { path: 'console', label: 'Console', icon: 'console' },
-  { path: 'deck', label: 'Deck', icon: 'grid' },
-  { path: 'scenes', label: 'Scenes', icon: 'layout' },
-  { path: 'content', label: 'Content', icon: 'media' },
-  { path: 'workgroups', label: 'Workgroups', icon: 'console' },
-  { path: 'shows', label: 'Shows', icon: 'film' },
-  { path: 'layouts', label: 'Layouts', icon: 'layout' },
-  { path: 'screens', label: 'Screens', icon: 'monitor' },
-  { path: 'displays', label: 'Displays', icon: 'monitor' },
-  { path: 'media', label: 'Media', icon: 'media' },
-  { path: 'timeline', label: 'Timeline', icon: 'clock' },
-  { path: 'schedule', label: 'Schedule', icon: 'clock' },
-  { path: 'templates', label: 'Templates', icon: 'templates' },
-  { path: 'shaders', label: 'Shader Studio', icon: 'shader' },
-  { path: 'studio', label: 'NAR Studio', icon: 'clock' },
-  { path: 'variables', label: 'Variables', icon: 'variables' },
-  { path: 'settings', label: 'Settings', icon: 'settings' },
-  { path: 'egpk', label: 'EGPK Live', icon: 'plane' },
-  { path: 'autocue', label: 'Autocue', icon: 'autocue' },
-  { path: 'kiltwalk', label: 'Kiltwalk Ops', icon: 'plane' }
-];
 
 const iconMap = {
   grid: (
@@ -108,6 +86,18 @@ const iconMap = {
   )
 };
 
+// Which items of a nav group to show. Regular groups: all of them. A PACK group
+// (customer/event surfaces) is gated to the studio's config.enabled_packs — but a
+// super_admin sees every pack, and an unconfigured studio (no enabled_packs) sees all
+// of them too, so nothing silently disappears until someone deliberately scopes it.
+function visibleItems(group, user, studio) {
+  if (!group.pack) return group.items;
+  if (user?.role === 'super_admin') return group.items;
+  const enabled = studio?.config?.enabled_packs;
+  if (!Array.isArray(enabled)) return group.items;
+  return group.items.filter((i) => enabled.includes(i.path));
+}
+
 export default function ControlLayout() {
   return (
     <WorkspaceProvider>
@@ -122,6 +112,7 @@ function ControlLayoutInner() {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [studioName, setStudioName] = useState('');
+  const [studio, setStudio] = useState(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const socketStatus = useSocketStatus();
   const { mode, toggleMode } = useWorkspaceContext();
@@ -131,6 +122,7 @@ function ControlLayoutInner() {
       .then((data) => {
         setUser(data.user || data);
         setStudioName(data.studio?.name || data.studioName || 'Studio');
+        setStudio(data.studio || null);
       })
       .catch(() => {
         localStorage.removeItem('broadcast_token');
@@ -200,35 +192,44 @@ function ControlLayoutInner() {
           {/* Mode toggle */}
           <button
             onClick={toggleMode}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-900/20 border border-red-800/30 text-red-400 hover:bg-red-900/40 hover:text-red-300 transition-all text-xs font-bold uppercase tracking-wider"
+            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-800/60 border border-gray-700/60 text-gray-300 hover:bg-gray-800 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
             title="Switch to Live mode (Ctrl+L)"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-            </span>
-            Go Live
+            {/* This is a VIEW switch, not the tally. It used to wear a pulsing red dot —
+                the strongest "we are live" signal in the app — for an action that puts
+                nothing to air. Pulsing red is reserved for actual on-air state. */}
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.6v6.8a1 1 0 01-1.45.88L15 14M5 6h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" /></svg>
+            Live Mode
           </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`
-              }
-            >
-              {iconMap[item.icon]}
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
+          {NAV_GROUPS.map((group) => {
+            const items = visibleItems(group, user, studio);
+            if (!items.length) return null;
+            return (
+            <div key={group.title} className="space-y-0.5">
+              <p className="px-3 pt-1 pb-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">{group.title}</p>
+              {items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    }`
+                  }
+                >
+                  {iconMap[item.icon]}
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+            );
+          })}
           {user?.role === 'super_admin' && (
             <>
               <div className="mt-4 mb-2 px-4">

@@ -38,6 +38,7 @@ const FALLBACK_MODULES = [
   { id: 'countdown', name: 'countdown', category: 'time', description: 'Countdown timer' },
   { id: 'image', name: 'image', category: 'media', description: 'Image display' },
   { id: 'video', name: 'video', category: 'media', description: 'Video player' },
+  { id: 'playout', name: 'playout', category: 'broadcast', description: 'Playout deck — driven by a playout channel' },
   { id: 'text', name: 'text', category: 'data', description: 'Text display' },
   { id: 'ticker', name: 'ticker', category: 'data', description: 'Scrolling ticker' },
   { id: 'iframe', name: 'iframe', category: 'media', description: 'Embedded webpage' },

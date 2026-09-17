@@ -89,8 +89,8 @@ function DisplayPreview({ profile }) {
           Sample Content
         </div>
       </div>
-      <p className="text-xs text-gray-600 mt-2 font-mono break-all">filter: {filter}</p>
-      <p className="text-xs text-gray-600 font-mono break-all">transform: {transform}</p>
+      <p className="text-xs text-gray-400 mt-2 font-mono break-all">filter: {filter}</p>
+      <p className="text-xs text-gray-400 font-mono break-all">transform: {transform}</p>
     </div>
   );
 }
@@ -520,7 +520,7 @@ export default function Screens() {
                   <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${screen.is_online ? 'bg-green-400 shadow-sm shadow-green-400/40' : 'bg-gray-600'}`} />
                   <div>
                     <p className="text-white text-sm font-medium">{screen.name}</p>
-                    <p className="text-gray-600 text-xs">#{screen.screen_number}{screen.group_id ? ` · ${groups.find(g => g.id === screen.group_id)?.name || 'Group'}` : ''}</p>
+                    <p className="text-gray-400 text-xs">#{screen.screen_number}{screen.group_id ? ` · ${groups.find(g => g.id === screen.group_id)?.name || 'Group'}` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

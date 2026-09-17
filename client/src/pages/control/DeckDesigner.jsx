@@ -15,14 +15,32 @@ import { connectSocket } from '../../lib/socket';
 const ACTIONS = {
   take_layout:    { label: 'Take Layout',    color: '#2563eb', needsLayout: true, needsTarget: true },
   apply_scene:    { label: 'Apply Scene',    color: '#7c3aed', needsScene: true },
+  apply_look:     { label: 'Apply Look',     color: '#0891b2', needsLook: true, needsTarget: true },
+  clear_look:     { label: 'Clear Look',     color: '#4b5563', needsTarget: true },
   blackout:       { label: 'Blackout',       color: '#dc2626', needsTarget: true, guard: true },
   reload_screens: { label: 'Reload Screens', color: '#d97706', guard: true },
   clear_overlays: { label: 'Clear Overlays', color: '#4b5563' },
+  // Playout — the cart wall. `play_media` inserts the clip into the log at NOW and cues
+  // it; the operator still takes it. Amber, because on this estate amber means armed.
+  play_media:     { label: 'Cart',            color: '#d97706', needsMedia: true },
+  playout_take:   { label: 'Playout TAKE',    color: '#e11d48' },
+  playout_mode:   { label: 'Playout AUTO/MAN',color: '#0891b2' },
 };
+
+// Never index ACTIONS directly. An unknown action_type used to be an undefined lookup,
+// and React unmounts the entire page on the resulting TypeError — a blank deck with no
+// clue why. Unknown now renders grey and inert, which an operator can at least SEE.
+const UNKNOWN_ACTION = { label: 'Unknown action', color: '#4b5563' };
+const act = (t) => ACTIONS[t] || UNKNOWN_ACTION;
 
 const LIBRARY = [
   { action_type: 'take_layout', label: 'Take', icon: '🎬' },
+  { action_type: 'play_media', label: 'Cart', icon: '📼' },
+  { action_type: 'playout_take', label: 'TAKE', icon: '⏵' },
+  { action_type: 'playout_mode', label: 'Auto/Man', icon: '⇄' },
   { action_type: 'apply_scene', label: 'Scene', icon: '🎭' },
+  { action_type: 'apply_look', label: 'Look', icon: '🎨' },
+  { action_type: 'clear_look', label: 'Clear Look', icon: '🚫' },
   { action_type: 'blackout', label: 'Blackout', icon: '🌑', confirm: true },
   { action_type: 'reload_screens', label: 'Reload', icon: '🔄', confirm: true },
   { action_type: 'clear_overlays', label: 'Clear GFX', icon: '🧹' },
@@ -52,6 +70,8 @@ export default function DeckDesigner() {
   const [buttons, setButtons] = useState([]);
   const [selId, setSelId] = useState(null);
   const [scenes, setScenes] = useState([]);
+  const [looks, setLooks] = useState([]);
+  const [media, setMedia] = useState([]);
   const [groups, setGroups] = useState([]);
   const [screens, setScreens] = useState([]);
   const [variables, setVariables] = useState([]);   // studio number/etc variables (for control binding)
@@ -96,6 +116,10 @@ export default function DeckDesigner() {
   useEffect(() => {
     if (!studioId) return;
     api.get(`/scenes?studio_id=${studioId}`).then(s => setScenes(s || [])).catch(() => setScenes([]));
+    api.get('/looks').then(l => setLooks(l || [])).catch(() => setLooks([]));
+    // Only assets that can actually air. Offering a clip with no house master would make
+    // a button that looks armed and fails at the moment it is hit.
+    api.get('/media?ready=1').then(d => setMedia((d?.media || []).filter(m => m.master_path))).catch(() => setMedia([]));
     api.get(`/screen-groups?studio_id=${studioId}`).then(r => setGroups((r?.groups || []).filter(g => !g.studio_id || g.studio_id === studioId))).catch(() => setGroups([]));
     api.get('/screens').then(r => setScreens((r?.screens || r || []).filter(s => s.studio_id === studioId))).catch(() => setScreens([]));
     api.get(`/studios/${studioId}/variables`).then(vs => {
@@ -317,7 +341,7 @@ export default function DeckDesigner() {
           x, y, w: preset.control_kind === 'slider' ? 2 : 1, h: 1, target: null,
         };
       } else {
-        const a = ACTIONS[preset.action_type];
+        const a = act(preset.action_type);
         body = {
           studio_id: studioId, deck_id: deck.id,
           label: preset.label, icon: preset.icon || '', color: a.color,
@@ -363,7 +387,7 @@ export default function DeckDesigner() {
 
   // Rebuild a button's action from the inspector, writing action_type + payload + target defaults.
   function setAction(id, action_type) {
-    const a = ACTIONS[action_type];
+    const a = act(action_type);
     patchButton(id, {
       action_type,
       action_payload: {},
@@ -467,7 +491,7 @@ export default function DeckDesigner() {
               <div key={p.action_type} draggable
                 onDragStart={e => { e.dataTransfer.setData('preset', p.action_type); setDragId(null); }}
                 className="flex items-center gap-2 px-2 py-2 mb-1.5 bg-gray-800/70 hover:bg-gray-700 rounded-lg cursor-grab active:cursor-grabbing text-sm"
-                style={{ borderLeft: `3px solid ${ACTIONS[p.action_type].color}` }}>
+                style={{ borderLeft: `3px solid ${act(p.action_type).color}` }}>
                 <span>{p.icon}</span><span className="text-gray-200 text-xs font-medium">{p.label}</span>
               </div>
             ))}
@@ -512,7 +536,7 @@ export default function DeckDesigner() {
                 }))}
                 {/* Placed buttons */}
                 {buttons.map(b => {
-                  const a = ACTIONS[b.action_type] || {};
+                  const a = act(b.action_type);
                   const isSel = b.id === selId;
                   const isMode = b.mode === 'toggle' || b.mode === 'multi';
                   const seq = !isMode ? (b.steps || []).length : 0;
@@ -575,7 +599,7 @@ export default function DeckDesigner() {
                         boxShadow: lit ? '0 0 0 1px rgba(52,211,153,.6), 0 0 22px rgba(52,211,153,.45)' : undefined,
                       }}
                       className={`relative rounded-lg flex flex-col items-center justify-center gap-1 p-2 text-center shadow-lg select-none ${mode === 'live' ? 'cursor-pointer active:scale-95 transition-transform' : 'cursor-grab active:cursor-grabbing'}`}>
-                      {lit && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
+                      {lit && <span className="absolute top-1 right-1.5 text-[10px] font-mono font-bold text-emerald-300 tracking-wider">● LIVE</span>}
                       {isMode && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-white/70 bg-black/25 rounded px-1">{disp.badge}</span>}
                       {!isMode && seq > 0 && <span className="absolute top-1 right-1.5 text-[8px] font-mono font-bold text-white/70 bg-black/25 rounded px-1">⋯{seq}</span>}
                       {b.shortcut && <span className="absolute top-1 left-1.5 text-[9px] font-mono font-bold text-white/70 bg-black/30 rounded px-1 leading-tight">{b.shortcut}</span>}
@@ -584,6 +608,11 @@ export default function DeckDesigner() {
                       {!isMode && b.action_type === 'take_layout' && b.action_payload?.layout_id && (
                         <span className="text-white/70 text-[10px] leading-tight truncate max-w-full">
                           {layouts.find(l => l.id === b.action_payload.layout_id)?.name || 'layout'}
+                        </span>
+                      )}
+                      {!isMode && b.action_type === 'apply_look' && b.action_payload?.look_id && (
+                        <span className="text-white/70 text-[10px] leading-tight truncate max-w-full">
+                          {looks.find(l => l.id === b.action_payload.look_id)?.name || 'look'}
                         </span>
                       )}
                       {!isMode && a.needsTarget && <span className="text-white/60 text-[9px] font-mono">{targetLabel(b.target)}</span>}
@@ -696,6 +725,12 @@ export default function DeckDesigner() {
                                 {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                               </select>
                             )}
+                            {ACTIONS[st.action_type]?.needsLook && (
+                              <select value={st.action_payload?.look_id || ''} onChange={e => updateStep(sel.id, i, { action_payload: { look_id: e.target.value } })} className={inp}>
+                                <option value="">— look —</option>
+                                {looks.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                              </select>
+                            )}
                             {ACTIONS[st.action_type]?.needsTarget && (
                               <select value={st.target || 'all'} onChange={e => updateStep(sel.id, i, { target: e.target.value })} className={inp}>
                                 <option value="all">All screens</option>
@@ -735,6 +770,43 @@ export default function DeckDesigner() {
                           </select>
                         </Field>
                       )}
+                      {ACTIONS[sel.action_type]?.needsLook && (
+                        <Field label="Look">
+                          <select value={sel.action_payload?.look_id || ''} onChange={e => setPayload(sel.id, { look_id: e.target.value })} className={inp}>
+                            <option value="">— pick look —</option>
+                            {looks.map(l => <option key={l.id} value={l.id}>{l.name}{l.global ? ' · house' : ''}</option>)}
+                          </select>
+                        </Field>
+                      )}
+                      {ACTIONS[sel.action_type]?.needsMedia && (
+                        <>
+                          <Field label="Clip">
+                            <select value={sel.action_payload?.media_id || ''} onChange={e => setPayload(sel.id, { media_id: e.target.value })} className={inp}>
+                              <option value="">— pick clip —</option>
+                              {media.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {m.name} · {m.kind}{m.effective_duration_s ? ` · ${m.effective_duration_s.toFixed(1)}s` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                          <label className="flex items-start gap-2 text-[11px] text-gray-400 mt-1">
+                            <input
+                              type="checkbox"
+                              checked={!!sel.action_payload?.auto_take}
+                              onChange={e => setPayload(sel.id, { auto_take: e.target.checked })}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              Fire straight to air
+                              <span className="block text-gray-600">
+                                Off (recommended): the cart CUES the clip and the operator takes it.
+                                On: one click puts video on air — no second chance.
+                              </span>
+                            </span>
+                          </label>
+                        </>
+                      )}
                       <button onClick={() => convertToSequence(sel.id)} className="w-full text-[11px] text-blue-400 hover:text-blue-300 py-1 border border-dashed border-gray-700 rounded-lg mt-1">＋ Run several actions in sequence</button>
                     </>
                     )
@@ -768,6 +840,12 @@ export default function DeckDesigner() {
                             <select value={st.action_payload?.scene_id || ''} onChange={e => updateState(sel.id, i, { action_payload: { scene_id: e.target.value } })} className={inp}>
                               <option value="">— scene —</option>
                               {scenes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                          )}
+                          {ACTIONS[st.action_type]?.needsLook && (
+                            <select value={st.action_payload?.look_id || ''} onChange={e => updateState(sel.id, i, { action_payload: { look_id: e.target.value } })} className={inp}>
+                              <option value="">— look —</option>
+                              {looks.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                             </select>
                           )}
                           {ACTIONS[st.action_type]?.needsTarget && (

@@ -7,6 +7,7 @@ const railItems = [
   { path: 'shows', icon: '🎬', label: 'Shows' },
   { path: 'layouts', icon: '🔲', label: 'Layouts' },
   { path: 'screens', icon: '🖥️', label: 'Screens' },
+  { path: 'bingo', icon: '🎱', label: 'Bingo' },
   { path: 'media', icon: '🖼️', label: 'Media' },
   { path: 'timeline', icon: '⏱️', label: 'Timeline' },
   { path: 'settings', icon: '⚙️', label: 'Settings' },

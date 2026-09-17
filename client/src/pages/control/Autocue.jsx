@@ -224,7 +224,7 @@ export default function Autocue() {
           {showSave && (
             <div className="flex gap-2 mb-3">
               <input type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Document title" className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm" />
-              <button onClick={handleSaveDocument} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg">Save</button>
+              <button onClick={handleSaveDocument} className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">Save</button>
             </div>
           )}
 

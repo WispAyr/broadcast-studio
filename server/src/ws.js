@@ -55,7 +55,7 @@ function setupWebSocket(server) {
     console.log(`Socket connected: ${socket.id} (auth: ${socket.user ? socket.user.username : 'none'})`);
 
     // Screen registration
-    socket.on('register_screen', ({ screenId, studioId }) => {
+    socket.on('register_screen', ({ screenId, studioId, caps }) => {
       // Look up the screen's actual studio from DB
       const screen = db.prepare('SELECT studio_id FROM screens WHERE id = ?').get(screenId);
       const resolvedStudio = (screen && screen.studio_id) || studioId || 'default';
@@ -69,6 +69,21 @@ function setupWebSocket(server) {
 
       // Mark screen online
       db.prepare("UPDATE screens SET is_online = 1, last_seen = datetime('now') WHERE id = ?").run(screenId);
+
+      // Playout capabilities. The screen tells US what it can do — we never assume.
+      // A Studio Display will decode two 1080p streams and crossfade them; a phone
+      // will not, and guessing wrong there means a black frame on air. Absence of a
+      // capability means "can't", never "probably".
+      if (caps && typeof caps === 'object') {
+        try {
+          const row = db.prepare('SELECT config FROM screens WHERE id = ?').get(screenId);
+          const cfg = JSON.parse(row?.config || '{}');
+          cfg.caps = caps;
+          db.prepare('UPDATE screens SET config = ? WHERE id = ?').run(JSON.stringify(cfg), screenId);
+        } catch (e) {
+          console.warn('screen caps persist failed:', e.message);
+        }
+      }
 
       // Notify studio room
       io.to(`studio:${studioId}`).emit('screen_status', {
@@ -113,6 +128,29 @@ function setupWebSocket(server) {
         });
       }
       console.log(`VT ended on screen ${screenId} — returned to layout "${layout.name}"`);
+    });
+
+    // ── playout deck callbacks ───────────────────────────────────────────
+    // The screen's player module reporting on itself. screenId comes from the
+    // socket, never from the payload, so a client can only speak for itself.
+    const playout = require('./playout/engine');
+
+    socket.on('playout_ready', ({ channel_id, item_id }) => {
+      if (!socket.screenId || !channel_id || !item_id) return;
+      playout.onReady(channel_id, item_id);
+    });
+
+    socket.on('playout_ended', ({ channel_id, item_id }) => {
+      if (!socket.screenId || !channel_id || !item_id) return;
+      // The file is the authority on its own length. Our clock is an estimate;
+      // this is the fact.
+      playout.onEnded(channel_id, item_id);
+    });
+
+    socket.on('playout_error', ({ channel_id, item_id, message }) => {
+      if (!socket.screenId || !channel_id || !item_id) return;
+      console.warn(`[playout] screen ${socket.screenId} failed item ${item_id}: ${message}`);
+      playout.onError(channel_id, item_id, message || 'client error');
     });
 
     // Control actions from producers (auth required)

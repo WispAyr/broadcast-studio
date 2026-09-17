@@ -81,7 +81,7 @@ export default function LiveScreenGrid({ screens, layouts, onPushLayout, fetchDa
                     <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
                   )}
                 </button>
-                <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider backdrop-blur-sm ${
+                <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider backdrop-blur-sm ${
                   isOnline ? 'bg-green-500/15 text-green-400 ring-1 ring-green-500/20' : 'bg-gray-800/80 text-gray-500 ring-1 ring-gray-700/30'
                 }`}>
                   <span className={`w-1 h-1 rounded-full ${isOnline ? 'bg-green-400' : 'bg-gray-600'}`} />

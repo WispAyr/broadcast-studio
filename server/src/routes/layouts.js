@@ -8,6 +8,21 @@ const { accessibleResourceIds } = require('./content-fabric');
 
 const router = express.Router();
 
+// ── Intranet presets (2026-07-17) ───────────────────────────────────────────
+// `intranet_preset` flags which layouts the NAR intranet exposes in its Screens-tab
+// "Apply" dropdown — the "assign a template to the intranet from within BS" control.
+// Backfill EXISTING layouts to 1 so today's intranet list is unchanged on first
+// deploy; NEW layouts default to 0, so freshly-built layouts stay out of the presenter
+// dropdown until an operator explicitly flags them here. The intranet reads this field
+// off /api/layouts (SELECT *), so no new endpoint is needed for it to consume.
+(function migrateIntranetPreset() {
+  const cols = db.prepare('PRAGMA table_info(layouts)').all().map(c => c.name);
+  if (!cols.includes('intranet_preset')) {
+    db.exec('ALTER TABLE layouts ADD COLUMN intranet_preset INTEGER DEFAULT 0');
+    db.exec('UPDATE layouts SET intranet_preset = 1');   // preserve the current list
+  }
+})();
+
 // Owned layouts ∪ shared/granted layouts accessible to this studio (CF-3).
 // Additive: with nothing shared, this returns exactly the owned set.
 function layoutsForStudio(studioId) {
@@ -92,11 +107,12 @@ router.put('/:id', authenticate, (req, res) => {
       return res.status(404).json({ error: 'Layout not found' });
     }
 
-    const { name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe, project } = req.body;
+    const { name, grid_cols, grid_rows, modules, orientation, resolution_w, resolution_h, background, public_safe, project, intranet_preset } = req.body;
     const modulesJson = modules ? JSON.stringify(modules) : null;
     const ps = public_safe === undefined ? null : (public_safe ? 1 : 0);
     // project: undefined → unchanged; '' → cleared (Ungrouped); string → set.
     const proj = project === undefined ? null : (project || '');
+    const ip = intranet_preset === undefined ? null : (intranet_preset ? 1 : 0);
 
     db.prepare(`
       UPDATE layouts SET
@@ -110,9 +126,10 @@ router.put('/:id', authenticate, (req, res) => {
         background = COALESCE(?, background),
         public_safe = COALESCE(?, public_safe),
         project = COALESCE(?, project),
+        intranet_preset = COALESCE(?, intranet_preset),
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name || null, grid_cols || null, grid_rows || null, modulesJson, orientation || null, resolution_w || null, resolution_h || null, background || null, ps, proj, req.params.id);
+    `).run(name || null, grid_cols || null, grid_rows || null, modulesJson, orientation || null, resolution_w || null, resolution_h || null, background || null, ps, proj, ip, req.params.id);
 
     const updated = getLayoutById(req.params.id);
     try { updated.modules = typeof updated.modules === 'string' ? JSON.parse(updated.modules) : updated.modules; } catch { updated.modules = []; }

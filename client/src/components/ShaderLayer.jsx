@@ -20,8 +20,12 @@ import {
   PulsingBorder,
   ColorPanels,
   Water,
+  LiquidMetal,
+  GemSmoke,
 } from '@paper-design/shaders-react';
 import { useAudioData, visualizeAudio } from '@remotion/media-utils';
+import { GLSLShader } from './glsl/GLSLShader';
+import { GLSL_LIBRARY, GLSL_SHADERS, isGLSLShader, glslParamVec } from './glsl/library';
 
 /**
  * Reusable, frame-driven Paper Design shader renderer.
@@ -37,12 +41,20 @@ import { useAudioData, visualizeAudio } from '@remotion/media-utils';
  * backdrops, and the ShaderStudio control panel.
  */
 
-export const SHADERS = [
+// Custom broadcast-grade GLSL shaders (rendered by our own WebGL2 engine) lead
+// the list; the Paper Design component shaders follow. Everything downstream —
+// the Studio grid and every composition's `shaderBg` selector — reads this.
+export const PAPER_SHADERS = [
   'simplex-noise', 'mesh-gradient', 'warp', 'waves', 'swirl',
   'metaballs', 'voronoi', 'dot-orbit', 'grain-gradient', 'neuro-noise',
   'smoke-ring', 'perlin-noise', 'dot-grid', 'god-rays', 'spiral',
   'dithering', 'pulsing-border', 'color-panels', 'water',
+  'liquid-metal', 'gem-smoke',
 ];
+
+export { GLSL_SHADERS };
+
+export const SHADERS = [...GLSL_SHADERS, ...PAPER_SHADERS];
 
 export const DEFAULT_PALETTE = ['#ff006a', '#8b5cf6', '#06b6d4', '#f59e0b'];
 
@@ -92,10 +104,36 @@ export function ShaderView({
   softness = 0.6,
   distortion = 0.8,
   rotation = 0,
+  intensity = 1,
+  audio = 0,
+  glslParams = null,
+  spectrum = null,
   timeMs = 0,
   style,
 }) {
   const colorList = parseColors(colors);
+
+  // Our own WebGL2 GLSL shaders — deterministic, palette-, control- and audio-driven.
+  if (isGLSLShader(shader)) {
+    return (
+      <GLSLShader
+        frag={GLSL_LIBRARY[shader].frag}
+        colors={colorList}
+        background={background}
+        scale={scale}
+        softness={softness}
+        distortion={distortion}
+        rotation={rotation}
+        intensity={intensity}
+        audio={audio}
+        params={glslParamVec(shader, glslParams)}
+        spectrum={spectrum}
+        timeMs={timeMs}
+        style={style || FILL}
+      />
+    );
+  }
+
   const motion = { speed: 0, frame: timeMs, style: style || FILL };
 
   switch (shader) {
@@ -136,6 +174,38 @@ export function ShaderView({
       return <ColorPanels {...motion} colors={colorList} colorBack={background} scale={scale} />;
     case 'water':
       return <Water {...motion} colorBack={background} colorHighlight={colorList[0]} scale={scale} />;
+    case 'liquid-metal':
+      // Flowing chrome/mercury. Generic knobs map to the metal's own params:
+      // scale→repetition (ripple density), softness/distortion shape the sheen,
+      // rotation→flow angle, first colour tints the metal.
+      return (
+        <LiquidMetal
+          {...motion}
+          colorBack={background}
+          colorTint={colorList[0]}
+          repetition={Math.max(1, scale * 3)}
+          softness={softness}
+          distortion={distortion}
+          angle={rotation}
+          scale={scale}
+        />
+      );
+    case 'gem-smoke':
+      // Volumetric coloured smoke. Palette drives the gas; distortion feeds the
+      // inner/outer turbulence, softness the glow, rotation the drift angle.
+      return (
+        <GemSmoke
+          {...motion}
+          colors={colorList}
+          colorBack={background}
+          innerGlow={0.5 + softness * 0.5}
+          outerGlow={0.4 + softness * 0.4}
+          innerDistortion={distortion}
+          outerDistortion={distortion * 0.7}
+          angle={rotation}
+          scale={scale}
+        />
+      );
     case 'simplex-noise':
     default:
       return <SimplexNoise {...motion} colors={colorList} softness={softness} scale={scale} rotation={rotation} />;
@@ -152,7 +222,7 @@ function StaticShaderLayer(p) {
       <ShaderView
         shader={p.shader} colors={p.colors} background={p.background}
         scale={p.scale} softness={p.softness} distortion={p.distortion}
-        rotation={p.rotation} timeMs={timeMs}
+        rotation={p.rotation} intensity={p.intensity} glslParams={p.glslParams} timeMs={timeMs}
       />
     </div>
   );
@@ -169,9 +239,12 @@ function AudioReactiveShaderLayer(p) {
   const timeMs = (frame / fps) * 1000 * p.speed * p.timeScale;
 
   let amp = 0;
+  let spectrum = null;
   if (audioData) {
-    const spectrum = visualizeAudio({ fps, frame, audioData, numberOfSamples: 16, optimizeFor: 'accuracy' });
-    amp = bandAmplitude(spectrum, p.audioBand);
+    const spec = visualizeAudio({ fps, frame, audioData, numberOfSamples: 16, optimizeFor: 'accuracy' });
+    amp = bandAmplitude(spec, p.audioBand);
+    // Pass the full 16-band spectrum to GLSL shaders (e.g. spectrum-bars).
+    spectrum = spec instanceof Float32Array ? spec : Float32Array.from(spec);
   }
   const pulse = 1 + amp * p.audioReactivity;
 
@@ -180,7 +253,8 @@ function AudioReactiveShaderLayer(p) {
       <ShaderView
         shader={p.shader} colors={p.colors} background={p.background}
         scale={p.scale * pulse} softness={p.softness} distortion={p.distortion}
-        rotation={p.rotation} timeMs={timeMs}
+        rotation={p.rotation} intensity={p.intensity} audio={amp}
+        glslParams={p.glslParams} spectrum={spectrum} timeMs={timeMs}
       />
     </div>
   );
@@ -197,7 +271,7 @@ export function ShaderLayer(props) {
   const p = {
     shader: 'simplex-noise', colors: undefined, background: '#000000',
     scale: 1, speed: 1, softness: 0.6, distortion: 0.8, rotation: 0,
-    absolute: false, opacity: 1, timeScale: 1,
+    intensity: 1, glslParams: null, absolute: false, opacity: 1, timeScale: 1,
     audioSrc: '', audioReactivity: 1, audioBand: 'bass',
     ...props,
   };

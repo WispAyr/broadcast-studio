@@ -173,7 +173,21 @@ router.get('/me', authenticate, (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+    // Attach the user's studio, including its config. The nav uses config.enabled_packs
+    // to decide which customer/event packs (EGPK, Kiltwalk, NAR Studio) this studio
+    // sees — so a Pavilion operator isn't shown Kiltwalk Ops. Unset = show all (safe
+    // default: a studio that hasn't been configured loses nothing).
+    let studio = null;
+    if (user.studio_id) {
+      const s = db.prepare('SELECT id, name, slug, config FROM studios WHERE id = ?').get(user.studio_id);
+      if (s) {
+        try { s.config = JSON.parse(s.config || '{}'); } catch { s.config = {}; }
+        studio = s;
+      }
+    }
+    // Spread user at the top level too, so existing callers that read the flat user
+    // shape keep working; `studio` is additive.
+    res.json({ ...user, studio });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

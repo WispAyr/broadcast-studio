@@ -17,9 +17,12 @@ function ToastIcon({ type }) {
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = useCallback((message, type = 'info', duration = 3000) => {
+  const addToast = useCallback((message, type = 'info', duration) => {
+    // A failed-take message that self-destructs in 3s is a message the operator misses.
+    // Errors and warnings linger; success/info stay brief so they don't pile up mid-show.
+    if (duration == null) duration = (type === 'error' || type === 'warning') ? 9000 : 3000;
     const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts(prev => [...prev, { id, message, type, duration }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, duration);
@@ -32,14 +35,14 @@ export function ToastProvider({ children }) {
         {toasts.map(toast => (
           <div
             key={toast.id}
-            role="status"
+            role={toast.type === 'error' || toast.type === 'warning' ? 'alert' : 'status'}
             className={`pointer-events-auto px-3.5 py-2.5 rounded-lg shadow-xl text-sm font-medium animate-slide-in-right backdrop-blur-sm border flex items-center gap-2.5 min-w-[220px] max-w-md ${
               toast.type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
               toast.type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
               toast.type === 'warning' ? 'bg-amber-900/90 border-amber-700 text-amber-100' :
               'bg-gray-900/90 border-gray-700 text-gray-100'
             }`}
-            style={{ animation: 'slideInRight 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards' }}
+            style={{ animation: `slideInRight 0.3s ease-out, fadeOut 0.3s ease-in ${(toast.duration || 3000) / 1000 - 0.3}s forwards` }}
           >
             <ToastIcon type={toast.type} />
             <span className="flex-1 leading-snug">{toast.message}</span>

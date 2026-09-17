@@ -24,10 +24,14 @@ export default function ConfirmDialog({
   onCancel,
 }) {
   const confirmRef = useRef(null);
+  const cancelRef = useRef(null);
 
   useEffect(() => {
-    if (open) confirmRef.current?.focus();
-  }, [open]);
+    // For a destructive action, focus CANCEL — the dialog exists to add a beat of friction,
+    // and a reflexive Enter (operator was mid-typing) must cancel, not black out the wall.
+    // Non-destructive dialogs keep confirm-focus so Enter is the fast happy path.
+    if (open) (variant === 'danger' ? cancelRef : confirmRef).current?.focus();
+  }, [open, variant]);
 
   // Escape to cancel
   useEffect(() => {
@@ -80,8 +84,9 @@ export default function ConfirmDialog({
         </div>
         <div className="flex gap-3 justify-end mt-6">
           <button
+            ref={cancelRef}
             onClick={onCancel}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
           >
             {cancelLabel}
           </button>

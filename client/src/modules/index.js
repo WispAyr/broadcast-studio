@@ -1,13 +1,17 @@
 import ClockModule from './ClockModule';
+import BingoModule from './BingoModule';
 import PavilionNowNextModule from './PavilionNowNextModule';
 import PavilionTimelineModule from './PavilionTimelineModule';
 import PavilionNext90Module from './PavilionNext90Module';
 import PavilionWelcomeModule from './PavilionWelcomeModule';
 import PavilionSafetyModule from './PavilionSafetyModule';
 import PavilionSponsorModule from './PavilionSponsorModule';
+import PavilionWhatsOnModule from './PavilionWhatsOnModule';
+import PavilionCalendarTimelineModule from './PavilionCalendarTimelineModule';
 import CountdownModule from './CountdownModule';
 import ImageModule from './ImageModule';
 import VideoModule from './VideoModule';
+import PlayoutModule from './PlayoutModule';
 import TextModule from './TextModule';
 import TickerModule from './TickerModule';
 import IframeModule from './IframeModule';
@@ -79,6 +83,10 @@ import NARSidelinersModule from './NARSidelinersModule';
 
 const moduleRegistry = {
   clock: ClockModule,
+  // The playout deck. Unlike `video` (one file, one URL), this one is DRIVEN — the
+  // playout engine cues and takes it over the socket, and it lives in a layout slot
+  // so branding composes on top of what's on air.
+  playout: PlayoutModule,
   countdown: CountdownModule,
   image: ImageModule,
   video: VideoModule,
@@ -180,6 +188,8 @@ const moduleRegistry = {
   pavilion_welcome: PavilionWelcomeModule,
   pavilion_safety: PavilionSafetyModule,
   pavilion_sponsor: PavilionSponsorModule,
+  pavilion_whats_on: PavilionWhatsOnModule,
+  pavilion_calendar_timeline: PavilionCalendarTimelineModule,
   // NAR Travel — embedded studio view
   traffic_ayrshire: TrafficAyrshireModule,
   // NAR live now-playing (broadcast.radio station 7719) — spinning vinyl + history
@@ -215,6 +225,7 @@ const moduleRegistry = {
   match_stats: MatchStatsModule,
   // Scotland branding hero — animated saltire + tartan (high impact)
   scotland_hero: ScotlandHero,
+  bingo: BingoModule,
   tartan_bg: ScotlandHero,
 };
 

@@ -59,22 +59,33 @@ export default function LiveMode() {
       if (layout) setProgramLayout(layout);
       toast?.('All screens synced', 'success');
       fetchData();
-    } catch (err) { console.error('Push failed:', err); }
+    } catch (err) {
+      // A failed take to the wall is the worst silent failure in the app — in LIVE mode
+      // the operator believes the layout went up. Say so, loudly and persistently.
+      console.error('Push failed:', err);
+      toast?.(err?.message || 'Take to screens FAILED — the wall did not change', 'error');
+    }
   }, [layouts, fetchData, toast]);
 
   const handleBlackout = useCallback(async () => {
-    const blackoutLayout = layouts.find(l => l.name?.includes('Blackout'));
-    if (!blackoutLayout) return;
-    if (blackoutActive) {
-      const restore = layouts.find(l => !l.name?.includes('Blackout'));
-      if (restore) await handleHotbarPush(restore.id);
-      setBlackoutActive(false);
-    } else {
-      await handleHotbarPush(blackoutLayout.id);
-      setBlackoutActive(true);
+    // Server-owned blackout: captures each screen's layout, restores it exactly, and
+    // always fires (synthetic black if no blackout layout). No name-matching, no
+    // "restore lands on an arbitrary layout", no silent no-op if nothing is named.
+    try {
+      if (blackoutActive) {
+        const r = await api.post('/screens/restore', {});
+        setBlackoutActive(false);
+        toast?.(`Restored ${r?.restored ?? ''} screens`.replace('  ', ' ').trim(), 'success');
+      } else {
+        const r = await api.post('/screens/blackout', {});
+        setBlackoutActive(true);
+        toast?.(r?.synthetic ? 'Blackout (pushed black — no blackout layout)' : 'Blackout', r?.synthetic ? 'warning' : 'success');
+      }
+    } catch (err) {
+      toast?.(err?.message || 'Blackout failed', 'error');
     }
     setBlackoutConfirmOpen(false);
-  }, [layouts, blackoutActive, handleHotbarPush]);
+  }, [blackoutActive, toast]);
 
   const handleQuickText = useCallback(() => {
     if (!quickText.trim()) return;

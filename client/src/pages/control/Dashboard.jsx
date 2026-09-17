@@ -132,7 +132,7 @@ export default function Dashboard() {
       setBlackoutActive(false);
       toast?.('Layout pushed', 'success');
       fetchData();
-    } catch (err) { alert('Failed to push layout: ' + err.message); }
+    } catch (err) { toast?.('Failed to push layout: ' + err.message, 'error'); }
   }
 
   async function handleHotbarPush(layoutId) {
@@ -163,15 +163,24 @@ export default function Dashboard() {
   }
 
   async function handleBlackout() {
-    const blackoutLayout = layouts.find(l => l.name?.includes('Blackout'));
-    if (!blackoutLayout) { alert('No Blackout layout found.'); return; }
-    if (blackoutActive) {
-      const restore = layouts.find(l => !l.name?.includes('Blackout'));
-      if (restore) await handleHotbarPush(restore.id);
-      setBlackoutActive(false);
-    } else {
-      await handleHotbarPush(blackoutLayout.id);
-      setBlackoutActive(true);
+    // The server owns blackout now: it captures each screen's real layout and, on
+    // restore, returns each to EXACTLY what it was showing — not an arbitrary layout.
+    // It also always fires (synthetic black if the studio has no blackout layout), so
+    // there is no "no layout found" dead-end.
+    try {
+      const q = studioId ? `?studio_id=${encodeURIComponent(studioId)}` : '';
+      if (blackoutActive) {
+        const r = await api.post(`/screens/restore${q}`, {});
+        setBlackoutActive(false);
+        toast?.(`Restored ${r?.restored ?? ''} screen${r?.restored === 1 ? '' : 's'}`.trim(), 'success');
+      } else {
+        const r = await api.post(`/screens/blackout${q}`, {});
+        setBlackoutActive(true);
+        toast?.(r?.synthetic ? 'Blackout (no blackout layout — pushed black)' : `Blackout — ${r?.blacked ?? 'all'} screens`, r?.synthetic ? 'warning' : 'success');
+      }
+      fetchData();
+    } catch (err) {
+      toast?.(err.message || 'Blackout failed', 'error');
     }
     setBlackoutConfirmOpen(false);
   }
@@ -268,7 +277,7 @@ export default function Dashboard() {
                 </>
               )}
               <span className="text-gray-700">·</span>
-              <span className={`inline-flex items-center gap-1.5 text-sm ${screens.filter(s => s.is_online).length > 0 ? 'text-green-400' : 'text-gray-600'}`}>
+              <span className={`inline-flex items-center gap-1.5 text-sm ${screens.filter(s => s.is_online).length > 0 ? 'text-green-400' : 'text-gray-400'}`}>
                 {screens.filter(s => s.is_online).length > 0 && (
                   <span className="relative flex h-1.5 w-1.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -346,15 +355,15 @@ export default function Dashboard() {
               {!nuroAvailable ? (
                 <div className="px-5 py-6 text-center">
                   <p className="text-amber-400 text-sm font-medium">Nuro hub unavailable</p>
-                  <p className="text-gray-600 text-xs mt-1">
+                  <p className="text-gray-400 text-xs mt-1">
                     Can&apos;t reach <code className="font-mono">/api/nuro/alerts</code>.
                     The hub may be offline — inbound alerts from Dispatch/Prism won&apos;t appear until it returns.
                   </p>
                 </div>
               ) : nuroAlerts.length === 0 ? (
                 <div className="px-5 py-6 text-center">
-                  <p className="text-gray-600 text-sm">No inbound Nuro alerts yet</p>
-                  <p className="text-gray-700 text-xs mt-1">Alerts from Dispatch or Prism will appear here</p>
+                  <p className="text-gray-400 text-sm">No inbound Nuro alerts yet</p>
+                  <p className="text-gray-400 text-xs mt-1">Alerts from Dispatch or Prism will appear here</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-800/40 max-h-52 overflow-y-auto">
@@ -373,7 +382,7 @@ export default function Dashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-200 font-medium">{alert.title}</p>
                           {alert.body && <p className="text-xs text-gray-500 mt-0.5 truncate">{alert.body}</p>}
-                          <p className="text-[10px] text-gray-600 mt-1">
+                          <p className="text-[10px] text-gray-400 mt-1">
                             {alert.source} · {new Date(alert.received_at).toLocaleTimeString()}
                           </p>
                         </div>
@@ -418,7 +427,7 @@ export default function Dashboard() {
                       <svg className="w-8 h-8 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-gray-700 text-xs font-mono">NO LAYOUT</p>
+                      <p className="text-gray-400 text-xs font-mono">NO LAYOUT</p>
                     </div>
                   )}
                   <div className="absolute top-2 right-2">
@@ -475,7 +484,7 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <p className="text-gray-500 font-medium">No screens registered</p>
-            <p className="text-gray-700 text-sm mt-1">Add screens from the Screens page to get started</p>
+            <p className="text-gray-400 text-sm mt-1">Add screens from the Screens page to get started</p>
           </div>
         )}
       </div>

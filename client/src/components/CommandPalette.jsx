@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { connectSocket } from '../lib/socket';
 import LayoutThumb from './LayoutThumb';
 import { useToast } from './Toast';
+import { NAV_ITEMS } from '../lib/nav';
 
 // CommandPalette — ⌘K / Ctrl+K everywhere in the control app.
 //
@@ -17,12 +18,9 @@ import { useToast } from './Toast';
 // Results are fuzzy-filtered, keyboard-first (↑↓ Enter Esc), and layouts show
 // their real thumbnails so a take is never a guess.
 
-const PAGES = [
-  ['dashboard', 'Dashboard'], ['console', 'Console'], ['shows', 'Shows'], ['layouts', 'Layouts'],
-  ['screens', 'Screens'], ['displays', 'Displays'], ['media', 'Media'], ['timeline', 'Timeline'],
-  ['schedule', 'Schedule'], ['templates', 'Templates'], ['variables', 'Variables'],
-  ['settings', 'Settings'], ['egpk', 'EGPK Live'], ['autocue', 'Autocue'], ['kiltwalk', 'Kiltwalk Ops'],
-];
+// Every page in the sidebar, reachable by ⌘K — derived from the one shared nav source
+// so the palette can never again silently omit a page the operator needs.
+const PAGES = NAV_ITEMS.map((i) => [i.path, i.label]);
 
 // Operator verbs. `danger` tints the row; `prompt` switches the palette into
 // text-entry mode and passes the typed text to run().
@@ -112,10 +110,11 @@ export default function CommandPalette({ open, onClose }) {
         await api.delete('/broadcast/incident');
         toast?.('Banner cleared', 'success');
       } else if (action.id === 'blackout') {
-        const bl = layouts.find(l => (l.name || '').toLowerCase().includes('blackout'));
-        if (!bl) throw new Error('No Blackout layout in this studio');
-        const res = await api.post('/screens/sync', { layout_id: bl.id });
-        toast?.(`Blackout on ${res?.pushed ?? 'all'} screens`, 'success');
+        // Server captures each screen's layout and always fires (synthetic black if
+        // the studio has no blackout layout) — never a "no layout" dead-end on the
+        // one control an operator hits in a panic.
+        const res = await api.post('/screens/blackout', {});
+        toast?.(res?.synthetic ? 'Blackout — pushed black (no blackout layout)' : `Blackout on ${res?.blacked ?? 'all'} screens`, res?.synthetic ? 'warning' : 'success');
       } else if (action.id === 'resume_daypart') {
         await api.post('/card-wall/resume', {});
         toast?.('Card wall back on the daypart schedule', 'success');

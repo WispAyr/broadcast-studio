@@ -33,6 +33,13 @@ const server = http.createServer(app);
 // Setup WebSocket
 setupWebSocket(server);
 
+// Cutaway stream signalling relay. MUST come after setupWebSocket: it takes
+// socket.io's upgrade listeners off, puts itself in front, and delegates anything
+// that is not /api/cutaway/stream straight back to them. (engine.io destroys
+// upgrades it does not recognise, so simply adding a second listener does not work
+// — see cutaway-stream-proxy.js.)
+require('./cutaway-stream-proxy').attach(server);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -44,11 +51,19 @@ app.use('/api/studios/:studioId/variables', variablesRouter);
 app.use('/api/studios/:studioId/api-keys', apiKeysRouter);
 app.use('/api/studios', require('./routes/studios'));
 app.use('/api/screens', require('./routes/screens'));
+app.use('/api/bingo', require('./routes/bingo'));   // bingo game engine + caller control
 app.use('/api/screen-groups', require('./routes/screen-groups'));
+// MUST be mounted BEFORE /api/cutaway — Express matches in order and the cutaway
+// router would otherwise swallow /api/cutaway/stream/*.
+const cutawayStream = require('./cutaway-stream-proxy');
+app.use(cutawayStream.PREFIX, cutawayStream.router);
+app.use('/api/cutaway', require('./routes/cutaway'));   // trigger-driven temporary screen takeover
 app.use('/api/shows', require('./routes/shows'));
 app.use('/api/layouts', require('./routes/layouts'));
 app.use('/api/modules', require('./routes/modules'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/media', require('./routes/media'));   // playout media library (cue points, masters)
+app.use('/api/playout', require('./routes/playout'));  // playout engine: channels, logs, as-run
 app.use('/api/proxy', require('./routes/proxy'));
 app.use('/api/travel', require('./routes/travel'));
 app.use('/api/templates', require('./routes/templates'));
@@ -57,11 +72,13 @@ app.use('/api/autocue', require('./routes/autocue'));
 app.use('/api/autocue-scripts', require('./routes/autocue-scripts'));
 app.use("/api/obs", require("./routes/obs"));
 app.use("/api/egpk", require("./routes/egpk"));
+app.use("/api/channel", require("./routes/channel")); // pu2 engine control plane
 app.use('/api/nuro', require('./routes/nuro'));
 app.use('/api/display-nodes', require('./routes/display-nodes'));
 app.use('/api/scenes', require('./routes/scenes'));
 app.use('/api/console', require('./routes/console'));
 app.use('/api/decks', require('./routes/decks'));
+app.use('/api/looks', require('./routes/looks'));
 const contentFabric = require('./routes/content-fabric');
 app.use('/api/collections', contentFabric.collections);
 app.use('/api/customers', contentFabric.customers);
@@ -71,13 +88,24 @@ app.use('/api/workgroups', workgroupRoutes.workgroups);
 app.use('/api/me', workgroupRoutes.me);
 app.use('/api/card-wall', require('./routes/card-wall'));
 app.use('/api/livetv', require('./routes/livetv'));
+app.use('/api/web-sources', require('./routes/web-sources'));
 app.use('/api/pavilion-festival', require('./routes/pavilion-festival'));
+app.use('/api/pavilion-events', require('./routes/pavilion-events'));
 // Banner/emergency push + scheduled layout changes (Kiltwalk live-event ops).
 const broadcastRoutes = require('./routes/broadcast');
 app.use('/api/broadcast', broadcastRoutes.router);
 app.use('/api/broadcast/emergency/:studioId', broadcastRoutes.emergencyRouter);
 const scheduledRoutes = require('./routes/scheduled-layouts');
 app.use('/api/scheduled-layouts', scheduledRoutes.router);
+
+// ── Playout engine ──
+// Targets are registered here rather than inside the engine so the engine never
+// imports ws.js — that would be a require cycle (ws -> engine -> ws).
+const playout = require('./playout/engine');
+playout.registerTarget('screen', require('./playout/targets/screen'));
+playout.registerTarget('screen_group', require('./playout/targets/screen'));
+playout.registerTarget('obs', require('./playout/targets/obs'));   // pu2 storm channel -> YouTube
+playout.start();
 
 // ── Health endpoint — required by Nuro hub coherence sweeps ──
 app.get('/api/health', (req, res) => {
@@ -90,7 +118,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Authoritative time for the Studio clock (/clock). Host is NTP-locked; the
+// clock offsets its local clock to this instead of flaky third-party time APIs.
+app.get('/api/time', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ now: Date.now() });
+});
+
 // Serve uploaded files
+// Signed delivery for private (sponsor/ad) media. Mounted BEFORE the public static
+// mount so it is never shadowed by it.
+app.use('/media', require('./routes/media-stream').router);
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
 app.use('/assets', express.static(path.join(__dirname, '..', 'public', 'assets')));
 app.use('/player', express.static(path.join(__dirname, '..', 'public', 'player')));
@@ -330,7 +368,12 @@ app.get('/api/nuro', (req, res) => {
   res.json(getNuroManifest());
 });
 
-app.use(express.static(clientDist));
+app.use(express.static(clientDist, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
+    else if (filePath.includes(path.sep + "assets" + path.sep)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  },
+}));
 
 // Static pages from server/public that aren't part of the React SPA.
 // `/emergency.html` is the van / field-tablet one-tap red-banner page —
@@ -355,8 +398,15 @@ server.listen(PORT, () => {
   startNuro();
   // Layout scheduler — 15s worker that fires due scheduled pushes.
   scheduledRoutes.startScheduler();
+  // Screen claims — 2s sweep that expires temporary takeovers (Cutaway) and puts
+  // screens back. Must run: without it a cutaway never ends. Also sweeps at boot,
+  // so a restart mid-hold does not strand a screen on the door camera.
+  require('./screen-claims').start();
   // Now-playing poller for NAR (broadcast.radio station 7719).
   require('./nowplaying').startNarNowPlaying();
   // Card wall — daypart "now on air" graphic on the main screen wall.
   require('./card-wall').start();
+  // Web sources — re-resolve expiring manifest URLs before they die, and keep
+  // a last-known-good still for each so a wall never goes black.
+  require('./lib/web-source-refresher').start({ relayBase: process.env.WEB_SOURCE_RELAY_BASE });
 });

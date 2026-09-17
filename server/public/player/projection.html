@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NAR Projection</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden;cursor:none}
+  body{display:flex;align-items:center;justify-content:center}
+  img{width:100%;height:100%;object-fit:contain;display:block}
+</style>
+</head>
+<body>
+<img id="slide" alt="">
+<script>
+  // Whitelisted slide names only — everything lives in /brand/projection/.
+  var SLIDES = {
+    'stacked-white-glow': 'nar-stacked-white-glow.png',
+    'qr':                 'nar-qr-website.png',
+    'stacked-white':      'nar-stacked-white.png',
+    'stacked-reverse':    'nar-stacked-reverse.png',
+    'stacked-amber':      'nar-stacked-amber.png',
+    'stacked-outline':    'nar-stacked-outline.png',
+    'long-white-glow':    'nar-long-white-glow.png',
+    'feeling-white-glow': 'nar-feeling-white-glow.png'
+  };
+  var v = new URLSearchParams(location.search).get('v') || 'stacked-white-glow';
+  document.getElementById('slide').src =
+    'projection/' + (SLIDES[v] || SLIDES['stacked-white-glow']);
+</script>
+</body>
+</html>

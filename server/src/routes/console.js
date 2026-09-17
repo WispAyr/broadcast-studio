@@ -149,9 +149,16 @@ async function dispatchAction(studioId, button, io, userId, { targetScreenIds = 
       return { type, ...takeLayout(studioId, p.layout_id, io, { screenIds: targetScreenIds }) };
     }
     case 'blackout': {
-      const bl = db.prepare("SELECT id FROM layouts WHERE studio_id = ? AND name LIKE '%Blackout%' LIMIT 1").get(studioId)
-        || db.prepare("SELECT id FROM layouts WHERE name LIKE '%Blackout%' LIMIT 1").get();
-      if (!bl) throw new Error('no Blackout layout found');
+      // Use the explicit is_blackout flag (fall back to the legacy name match), and
+      // CAPTURE each screen's current layout first so a later restore — from the
+      // Dashboard, the palette, anywhere — brings back exactly what was up, not an
+      // arbitrary layout. Mirrors POST /api/screens/blackout.
+      const bl = db.prepare('SELECT id FROM layouts WHERE studio_id = ? AND is_blackout = 1 LIMIT 1').get(studioId)
+        || db.prepare("SELECT id FROM layouts WHERE studio_id = ? AND name LIKE '%Blackout%' LIMIT 1").get(studioId)
+        || db.prepare('SELECT id FROM layouts WHERE is_blackout = 1 LIMIT 1').get();
+      if (!bl) throw new Error('no blackout layout in this studio');
+      const cap = db.prepare('UPDATE screens SET pre_blackout_layout_id = current_layout_id WHERE studio_id = ? AND pre_blackout_layout_id IS NULL');
+      cap.run(studioId);
       return { type, ...takeLayout(studioId, bl.id, io, { screenIds: targetScreenIds }) };
     }
     case 'apply_scene': {
@@ -177,6 +184,85 @@ async function dispatchAction(studioId, button, io, userId, { targetScreenIds = 
       }
       return { type, applied, locked };
     }
+    case 'apply_look': {
+      // Push a saved shader "look" as a live backdrop to targeted screens.
+      if (!p.look_id) throw new Error('look_id required');
+      const look = db.prepare('SELECT * FROM looks WHERE id = ?').get(p.look_id);
+      if (!look) throw new Error('look not found');
+      const payload = {
+        id: look.id,
+        name: look.name,
+        shader: look.shader,
+        colors: safeParse(look.colors, []),
+        background: look.background,
+        params: safeParse(look.params, {}),
+        glslParams: safeParse(look.glsl_params, {}),
+        finishing: look.finishing ? safeParse(look.finishing, null) : null,
+      };
+      let screens = db.prepare('SELECT id, accepts_broadcasts FROM screens WHERE studio_id = ?').all(studioId);
+      if (Array.isArray(targetScreenIds) && targetScreenIds.length) {
+        screens = screens.filter(s => targetScreenIds.includes(s.id));
+      }
+      let applied = 0, locked = 0;
+      for (const screen of screens) {
+        if (!screen.accepts_broadcasts) { locked++; continue; }
+        io.to(`screen:${screen.id}`).emit('set_look', { look: payload });
+        applied++;
+      }
+      io.to(`studio:${studioId}`).emit('look_applied', { look_id: look.id, name: look.name, screens: applied });
+      return { type, look_id: look.id, applied, locked };
+    }
+    case 'clear_look': {
+      // Remove the live backdrop from targeted screens (or all).
+      let screens = db.prepare('SELECT id FROM screens WHERE studio_id = ?').all(studioId);
+      if (Array.isArray(targetScreenIds) && targetScreenIds.length) {
+        screens = screens.filter(s => targetScreenIds.includes(s.id));
+      }
+      for (const screen of screens) io.to(`screen:${screen.id}`).emit('clear_look', {});
+      io.to(`studio:${studioId}`).emit('look_applied', { look_id: null, screens: screens.length });
+      return { type, cleared: screens.length };
+    }
+    // ── cart wall ────────────────────────────────────────────────────────
+    // A cart hit does NOT bypass the log — it inserts an item at NOW and lets the
+    // engine cue and take it like anything else. That is the only reason the as-run
+    // can be trusted as proof of play: there is no second path to air.
+    case 'play_media': {
+      if (!p.media_id) throw new Error('media_id required');
+      const playout = require('../playout/engine');
+      const channelId = p.channel_id
+        || db.prepare('SELECT id FROM playout_channels WHERE studio_id = ? ORDER BY created_at LIMIT 1').get(studioId)?.id;
+      if (!channelId) throw new Error('no playout channel for this studio');
+      const itemId = playout.insertNow(channelId, p.media_id, { title: p.title });
+      // MAN is deliberate: the cart cues, the operator takes. A button that puts
+      // video straight to air is one mis-click from an incident on a public screen.
+      // Set auto_take on the button only where that is genuinely wanted.
+      if (p.auto_take) {
+        // Give the deck a beat to load; if it isn't ready the take is refused and
+        // says so, rather than cutting to a deck that hasn't buffered.
+        await new Promise(r => setTimeout(r, 1200));
+        try { playout.operatorTake(channelId); }
+        catch (e) { return { type, item_id: itemId, cued: true, taken: false, reason: e.message }; }
+        return { type, item_id: itemId, cued: true, taken: true };
+      }
+      return { type, item_id: itemId, cued: true, taken: false };
+    }
+
+    case 'playout_take': {
+      const playout = require('../playout/engine');
+      const channelId = p.channel_id
+        || db.prepare('SELECT id FROM playout_channels WHERE studio_id = ? ORDER BY created_at LIMIT 1').get(studioId)?.id;
+      if (!channelId) throw new Error('no playout channel for this studio');
+      return { type, state: playout.operatorTake(channelId) };
+    }
+
+    case 'playout_mode': {
+      const playout = require('../playout/engine');
+      const channelId = p.channel_id
+        || db.prepare('SELECT id FROM playout_channels WHERE studio_id = ? ORDER BY created_at LIMIT 1').get(studioId)?.id;
+      if (!channelId) throw new Error('no playout channel for this studio');
+      return { type, mode: playout.setMode(channelId, p.mode === 'AUTO' ? 'AUTO' : 'MAN') };
+    }
+
     case 'resume_schedule': {
       const show = db.prepare('SELECT * FROM shows WHERE studio_id = ? AND active = 1').get(studioId);
       if (!show) throw new Error('no active show to resume');

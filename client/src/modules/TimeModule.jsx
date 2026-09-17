@@ -19,7 +19,7 @@ import React, { useMemo } from 'react';
  *   workMinutes   - Pomodoro work period in minutes (default: 25)
  *   breakMinutes  - Pomodoro break period in minutes (default: 5)
  *   background    - Container background color
- *   baseUrl       - Override base URL (default: https://time.local-connect.uk)
+ *   baseUrl       - Override base URL (default: https://broadcast.studio.wispayr.online/clock)
  */
 
 const MODES = [
@@ -86,7 +86,7 @@ export default function TimeModule({ config = {} }) {
     workMinutes,
     breakMinutes,
     background = '#000000',
-    baseUrl = 'https://time.local-connect.uk',
+    baseUrl = 'https://broadcast.studio.wispayr.online/clock',
   } = config;
 
   const url = useMemo(() => {

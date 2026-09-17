@@ -4,6 +4,7 @@ const { db, getScreensByStudio, getScreenById, getLayoutById } = require('../db'
 const { authenticate, optionalAuthenticate, requireRole } = require('../middleware/auth');
 const { getIO } = require('../ws');
 const { enrichLayout } = require('../lib/enrich-layout');
+const claims = require('../screen-claims');
 
 // Shared broadcast-safety helpers.
 //
@@ -28,6 +29,53 @@ function rejectIfPublicOnlyUnsafe(studioId, layout) {
 }
 
 const router = express.Router();
+
+// ── Blackout, done properly (2026-07-15) ────────────────────────────────────
+// The old blackout string-matched a layout whose NAME contained "Blackout", and
+// "restore" pushed whatever layout happened to sit first in the list — so it lied
+// about bringing the previous look back, and if nobody had named a layout right,
+// the panic button silently did nothing. Two fixes:
+//   1. `layouts.is_blackout` — an explicit flag, not a name substring.
+//   2. `screens.pre_blackout_layout_id` — captured at cut time, so restore returns
+//      each screen to EXACTLY what it was showing, per screen.
+// A blackout must always be able to fire, so if no is_blackout layout exists we push
+// a synthetic black frame directly rather than refusing — a panic control you can
+// disable by forgetting to name a layout is a worse design than one that always works.
+//
+// SUPERSEDED (2026-07-17) — blackout is now a CLAIM at layer 900 (screen-claims.js).
+// (1) still holds. (2) is gone: a save slot serves exactly ONE takeover, and the
+// moment a second one (Cutaway) existed they corrupted each other — a cutaway
+// expiring under a blackout would put the programme back ON AIR mid-blackout. The
+// claim stack never overwrites `current_layout_id`, so the programme IS the save and
+// restore is just "drop the claim and re-resolve". `pre_blackout_layout_id` is left
+// in place, unread, as a rollback path — do not build on it.
+(function migrateBlackout() {
+  const layoutCols = db.prepare('PRAGMA table_info(layouts)').all().map(c => c.name);
+  if (!layoutCols.includes('is_blackout')) {
+    db.exec('ALTER TABLE layouts ADD COLUMN is_blackout INTEGER DEFAULT 0');
+    // Backfill: anything already named like a blackout becomes a flagged one, so the
+    // existing system layout keeps working the moment this ships.
+    db.exec("UPDATE layouts SET is_blackout = 1 WHERE name LIKE '%Blackout%'");
+  }
+  const screenCols = db.prepare('PRAGMA table_info(screens)').all().map(c => c.name);
+  if (!screenCols.includes('pre_blackout_layout_id')) {
+    db.exec('ALTER TABLE screens ADD COLUMN pre_blackout_layout_id TEXT');
+  }
+})();
+
+// The studio's designated blackout layout, or null. Explicit flag first; fall back to
+// the legacy name match so a studio that hasn't been re-flagged still works.
+function blackoutLayoutFor(studioId) {
+  return db.prepare('SELECT * FROM layouts WHERE studio_id = ? AND is_blackout = 1 LIMIT 1').get(studioId)
+      || db.prepare("SELECT * FROM layouts WHERE studio_id = ? AND name LIKE '%Blackout%' LIMIT 1").get(studioId)
+      || db.prepare('SELECT * FROM layouts WHERE is_blackout = 1 LIMIT 1').get();
+}
+
+// A synthetic all-black layout — the guaranteed floor when a studio has no blackout
+// layout of its own. Never persisted; it exists only to be pushed.
+const SYNTHETIC_BLACK = { id: '__black__', name: '⬛ Blackout', grid_cols: 1, grid_rows: 1, modules: [], background: '#000000' };
+
+
 
 // GET /deploy - public screen list for venue deploy page (no auth required)
 // Only returns safe, minimal fields — no config or sensitive data
@@ -307,6 +355,86 @@ router.post('/sync', authenticate, (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// POST /blackout — capture every screen's current layout, then cut to black.
+// Idempotent: a second blackout while already black does not overwrite the captured
+// layouts (or you'd lose the real look and "restore" would bring back black).
+router.post('/blackout', authenticate, (req, res) => {
+  try {
+    let studioId = req.body?.studio_id || req.user.studio_id;
+    if (!studioId) { const first = db.prepare('SELECT id FROM studios LIMIT 1').get(); if (first) studioId = first.id; }
+    if (!studioId) return res.status(400).json({ error: 'studio_id is required' });
+
+    const bl = blackoutLayoutFor(studioId);
+    const layout = bl || SYNTHETIC_BLACK;
+    const synthetic = !bl;
+
+    // Blackout ignores the padlock — it is the override-everything safety cut, same
+    // stance as /emergency. A locked screen is still capable of showing a wrong frame.
+    const targets = getBroadcastTargets(studioId);
+
+    // A blackout is now a CLAIM at layer 900, not a layout swap + save slot. The
+    // screen's programme (`current_layout_id`) is left ALONE, so it is still there
+    // to fall back to on restore and nothing else can capture black as "the look
+    // to come back to". See server/src/screen-claims.js for why the old
+    // pre_blackout_layout_id design could not survive a second takeover.
+    for (const scr of targets) {
+      claims.claim({
+        screenId: scr.id,
+        layer: 'blackout',
+        layoutId: synthetic ? claims.SYNTHETIC_BLACK_ID : layout.id,
+        source: 'blackout',
+        ttlMs: null,          // a safety cut never times out — released explicitly
+      });
+      claims.applyScreen(scr.id);
+    }
+
+    res.json({ message: synthetic ? 'Blackout (synthetic — no blackout layout in this studio)' : 'Blackout', studio_id: studioId, blacked: targets.length, synthetic });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /restore — drop the blackout claim; each screen falls back to whatever it
+// should be showing underneath. That is still "EXACTLY the layout it was showing",
+// per screen, because a blackout never overwrote the programme in the first place —
+// it just outranked it. If a cutaway happens to be live and unexpired underneath,
+// the screen correctly returns to THAT and times out to programme on its own.
+router.post('/restore', authenticate, (req, res) => {
+  try {
+    let studioId = req.body?.studio_id || req.user.studio_id;
+    if (!studioId) { const first = db.prepare('SELECT id FROM studios LIMIT 1').get(); if (first) studioId = first.id; }
+    if (!studioId) return res.status(400).json({ error: 'studio_id is required' });
+
+    const blacked = db.prepare(`
+      SELECT sc.screen_id FROM screen_claims sc
+        JOIN screens s ON s.id = sc.screen_id
+       WHERE s.studio_id = ? AND sc.layer = 'blackout'`).all(studioId);
+    if (!blacked.length) return res.json({ message: 'Nothing to restore — no blackout is held', restored: 0 });
+
+    let restored = 0;
+    for (const row of blacked) {
+      claims.release(row.screen_id, 'blackout');
+      claims.applyScreen(row.screen_id);
+      restored++;
+    }
+    res.json({ message: 'Restored', studio_id: studioId, restored });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /blackout/state — is this studio currently blacked out, and does it have a
+// designated blackout layout? Lets the UI show the right label without guessing.
+router.get('/blackout/state', authenticate, (req, res) => {
+  const studioId = req.query.studio_id || req.user.studio_id;
+  if (!studioId) return res.json({ blacked: false, has_layout: false });
+  const blacked = db.prepare(`
+    SELECT COUNT(*) n FROM screen_claims sc
+      JOIN screens s ON s.id = sc.screen_id
+     WHERE s.studio_id = ? AND sc.layer = 'blackout'`).get(studioId).n;
+  res.json({ blacked: blacked > 0, blacked_count: blacked, has_layout: !!blackoutLayoutFor(studioId) });
 });
 
 // POST /emergency - emergency override all screens

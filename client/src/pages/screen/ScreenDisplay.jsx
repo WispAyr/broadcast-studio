@@ -9,6 +9,7 @@ import ChromaFilter from '../../components/ChromaFilter';
 import PlayerProfileCard from '../../components/PlayerProfileCard';
 import NowPlayingL3 from '../../components/NowPlayingL3';
 import GoalGraphic, { GoalAudio } from '../../components/GoalGraphic';
+import { LookBackdrop } from '../../components/LookBackdrop';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
@@ -309,8 +310,67 @@ function DoonfestOverlay({ overlay }) {
   return null;
 }
 
+// Cutaway PIP — a live camera in the corner while the programme stays up.
+// Pushed by the claim stack as type `claim_cutaway` (server/src/screen-claims.js).
+//
+// The stream is WebRTC-only: the source camera is HEVC and Chromium cannot carry
+// HEVC over WebRTC, so go2rtc transcodes and serves H.264. We embed go2rtc's own
+// player in an iframe rather than a <video src> because CameraFeedModule speaks
+// HLS/MP4 and HLS costs 3-6s of latency — useless for "who just walked in".
+//
+// Deliberately silent: `muted` is not configurable here. A live door mic in a
+// radio studio is an on-air hazard, not a feature.
+function CutawayCamOverlay({ overlay }) {
+  const pos = overlay.position || 'top-right';
+  const size = overlay.size || '26%';
+  const edge = '2.5%';
+  const corner = {
+    'top-right':    { top: edge, right: edge },
+    'top-left':     { top: edge, left: edge },
+    'bottom-right': { bottom: edge, right: edge },
+    'bottom-left':  { bottom: edge, left: edge },
+  }[pos] || { top: edge, right: edge };
+
+  return (
+    <div style={{
+      position: 'absolute', ...corner, width: size, aspectRatio: '16 / 9',
+      borderRadius: 10, overflow: 'hidden', background: '#000',
+      border: '2px solid rgba(255,255,255,0.85)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      animation: 'overlayIn 0.4s ease-out', zIndex: 40,
+    }}>
+      {overlay.src ? (
+        <iframe
+          src={overlay.src}
+          title={overlay.label || 'Cutaway camera'}
+          style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+          allow="autoplay"
+        />
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', color: '#666', fontSize: 13 }}>
+          No stream configured
+        </div>
+      )}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+        padding: '10px 8px 5px', display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+        <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, letterSpacing: '0.02em' }}>
+          {overlay.label || 'Camera'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
+
+  if (overlay.type === 'claim_cutaway') {
+    return <CutawayCamOverlay overlay={overlay} />;
+  }
 
   if (typeof overlay.type === 'string' && overlay.type.startsWith('df_')) {
     return <DoonfestOverlay overlay={overlay} />;
@@ -457,6 +517,24 @@ function CountdownOverlay({ targetTime }) {
   );
 }
 
+
+// What this machine can honestly claim about itself. The playout engine reads this
+// to decide whether it may crossfade two 1080p decks or must hard-cut a single one.
+// Every unknown resolves to "can't": a screen that guesses wrong here doesn't degrade
+// gracefully, it drops frames on air. The Studio Displays and the Main Wall will
+// claim it; a phone won't; anything we can't identify won't either.
+function detectCaps() {
+  const cores = navigator.hardwareConcurrency || 2;
+  const mem = navigator.deviceMemory;          // undefined on Safari — treat as unknown, not as low
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return {
+    dualDeck: !mobile && cores >= 4 && (mem === undefined || mem >= 4),
+    cores,
+    memory_gb: mem ?? null,
+    max_height: window.screen?.height ?? null,
+  };
+}
+
 export default function ScreenDisplay() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -493,6 +571,7 @@ export default function ScreenDisplay() {
   const [prevLayout, setPrevLayout] = useState(null);
   const [reconnectCount, setReconnectCount] = useState(0);
   const [overlays, setOverlays] = useState([]);
+  const [look, setLook] = useState(null);
   const [identifyFlash, setIdentifyFlash] = useState(false);
   const [displayProfile, setDisplayProfile] = useState(null);
   const [transitionDurationMs, setTransitionDurationMs] = useState(600);
@@ -692,7 +771,7 @@ export default function ScreenDisplay() {
     socket.on('connect', () => {
       setConnected(true);
       setReconnectCount(0);
-      if (!previewMode) socket.emit('register_screen', { screenId: id });
+      if (!previewMode) socket.emit('register_screen', { screenId: id, caps: detectCaps() });
       // Re-fetch layout + display profile on RECONNECT only. The mount effect
       // already fetched on first load, so re-fetching here would re-apply the
       // layout a second time and visibly reload all media (loads twice).
@@ -817,6 +896,14 @@ export default function ScreenDisplay() {
       setOverlays([]);
     });
 
+    // Live shader "look" backdrop — applied/cleared from the Deck or console.
+    socket.on('set_look', (data) => {
+      if (data && data.look) setLook(data.look);
+    });
+    socket.on('clear_look', () => {
+      setLook(null);
+    });
+
     socket.on('identify_screen', () => {
       setIdentifyFlash(true);
       setTimeout(() => setIdentifyFlash(false), 2000);
@@ -865,6 +952,8 @@ export default function ScreenDisplay() {
       socket.off('push_overlay');
       socket.off('remove_overlay');
       socket.off('clear_overlays');
+      socket.off('set_look');
+      socket.off('clear_look');
       socket.off('identify_screen');
       socket.off('reload_screen');
       socket.off('update_display_profile');
@@ -1046,6 +1135,10 @@ export default function ScreenDisplay() {
         @keyframes overlayIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes overlaySlideUp { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
+
+      {/* Live shader "look" backdrop — sits behind the layout; shows through
+          transparent layouts, harmless behind opaque ones. Applied from Deck. */}
+      {look && !projectionActive && <LookBackdrop look={look} style={{ zIndex: 0 }} />}
 
       {/* Previous layout (transitioning out) */}
       {transitioning && prevLayout && prevModules.length > 0 && (

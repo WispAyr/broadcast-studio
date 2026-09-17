@@ -13,8 +13,12 @@ const Landing = React.lazy(() => import('./pages/Landing'));
 const GodView = React.lazy(() => import('./pages/GodView'));
 const ScreenDisplay = React.lazy(() => import('./pages/screen/ScreenDisplay'));
 const Shows = React.lazy(() => import('./pages/control/Shows'));
+const Playout = React.lazy(() => import('./pages/control/Playout'));
+const Library = React.lazy(() => import('./pages/control/Library'));
+const Clocks = React.lazy(() => import('./pages/control/Clocks'));
 const Layouts = React.lazy(() => import('./pages/control/Layouts'));
 const Screens = React.lazy(() => import('./pages/control/Screens'));
+const Cutaway = React.lazy(() => import('./pages/control/Cutaway'));
 const Timeline = React.lazy(() => import('./pages/control/Timeline'));
 const Media = React.lazy(() => import('./pages/control/Media'));
 const Settings = React.lazy(() => import('./pages/control/Settings'));
@@ -37,6 +41,10 @@ const DeckSurface = React.lazy(() => import('./pages/DeckSurface'));
 const SceneDesigner = React.lazy(() => import('./pages/control/SceneDesigner'));
 const Workgroups = React.lazy(() => import('./pages/control/Workgroups'));
 const ContentManager = React.lazy(() => import('./pages/control/ContentManager'));
+const Gallery = React.lazy(() => import('./pages/control/Gallery'));
+const Rundown = React.lazy(() => import('./pages/control/Rundown'));
+const MusicLibrary = React.lazy(() => import('./pages/control/MusicLibrary'));
+const Bingo = React.lazy(() => import('./pages/control/Bingo'));
 
 // Minimal loading fallback
 function LoadingFallback() {
@@ -76,10 +84,19 @@ export default function App() {
       >
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="gallery" element={<Gallery />} />
+        <Route path="channel" element={<Gallery />} />
+        <Route path="rundown" element={<Rundown />} />
+        <Route path="playout" element={<Playout />} />
+        <Route path="library" element={<Library />} />
+        <Route path="clocks" element={<Clocks />} />
+        <Route path="music" element={<MusicLibrary />} />
         <Route path="shows" element={<Shows />} />
         <Route path="layouts" element={<Layouts />} />
         <Route path="screens" element={<Screens />} />
-        <Route path="media" element={<Media />} />
+        <Route path="cutaway" element={<Cutaway />} />
+        {/* Media retired 2026-07-15 (near-dead vs Library). Redirect any bookmark/muscle-memory. */}
+        <Route path="media" element={<Navigate to="/control/library" replace />} />
         <Route path="timeline" element={<Timeline />} />
         <Route path="schedule" element={<Schedule />} />
         <Route path="templates" element={<Templates />} />
@@ -98,6 +115,7 @@ export default function App() {
         <Route path="scenes" element={<SceneDesigner />} />
         <Route path="workgroups" element={<Workgroups />} />
         <Route path="content" element={<ContentManager />} />
+        <Route path="bingo" element={<Bingo />} />
       </Route>
       <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />
       <Route path="/screen/:id" element={<ScreenDisplay />} />

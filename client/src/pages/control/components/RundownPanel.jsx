@@ -44,7 +44,7 @@ export default function RundownPanel({ studioId, layouts = [], screens = [], onP
           <div key={c.id} className={`rounded-md px-2 py-1.5 ${i === 0 ? 'bg-purple-900/30 ring-1 ring-purple-600/40' : 'bg-gray-800/40'}`}>
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] text-amber-300 w-12 shrink-0">T-{t}</span>
-              <span className="flex-1 min-w-0 text-[12px] text-white font-medium truncate">{name(c)}</span>
+              <span className="flex-1 min-w-0 text-xs text-white font-medium truncate">{name(c)}</span>
               <span className="text-[9px] text-gray-500">{tgt(c)}</span>
             </div>
             <div className="flex gap-1 mt-1">

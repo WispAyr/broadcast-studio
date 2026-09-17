@@ -78,7 +78,7 @@ export default function SquadsPanel({ studioId, screens = [], inShell }) {
               {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover" style={{ objectPosition: 'top center' }} /> : (p.number ?? ini(p.name))}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] text-white font-medium truncate leading-tight">{p.name}</div>
+              <div className="text-xs text-white font-medium truncate leading-tight">{p.name}</div>
               <div className="text-[10px] text-gray-500 truncate">{p.pos} · {p.club}{p.role ? ` · ${p.role}` : ''}</div>
             </div>
             <button onClick={() => fire(p, 'player_profile')} title="Show profile"

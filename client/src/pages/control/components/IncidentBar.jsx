@@ -102,7 +102,7 @@ export default function IncidentBar({ studioId }) {
           onChange={e => setMessage(e.target.value)}
           placeholder="e.g. Race delayed 15min — shelter in place"
           maxLength={200}
-          className="flex-1 min-w-0 bg-gray-900/60 border border-gray-800/60 rounded-lg px-3 py-1.5 text-[12px] text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
+          className="flex-1 min-w-0 bg-gray-900/60 border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-gray-600"
         />
 
         {/* Auto-clear (seconds). Blank = sticky until cleared. */}
