@@ -83,7 +83,12 @@ const iconMap = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 8h2v2H8V8zm6 0h2v2h-2V8zM8 14h2v2H8v-2zm6 0h2v2h-2v-2z" />
     </svg>
-  )
+  ),
+  websource: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0c2.5-2.4 3.8-5.4 3.8-9S14.5 5.4 12 3M12 21c-2.5-2.4-3.8-5.4-3.8-9S9.5 5.4 12 3M3.6 9h16.8M3.6 15h16.8" />
+    </svg>
+  ),
 };
 
 // Which items of a nav group to show. Regular groups: all of them. A PACK group

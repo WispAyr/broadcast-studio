@@ -41,6 +41,7 @@ const DeckSurface = React.lazy(() => import('./pages/DeckSurface'));
 const SceneDesigner = React.lazy(() => import('./pages/control/SceneDesigner'));
 const Workgroups = React.lazy(() => import('./pages/control/Workgroups'));
 const ContentManager = React.lazy(() => import('./pages/control/ContentManager'));
+const WebSources = React.lazy(() => import('./pages/control/WebSources'));
 const Gallery = React.lazy(() => import('./pages/control/Gallery'));
 const Rundown = React.lazy(() => import('./pages/control/Rundown'));
 const MusicLibrary = React.lazy(() => import('./pages/control/MusicLibrary'));
@@ -115,6 +116,7 @@ export default function App() {
         <Route path="scenes" element={<SceneDesigner />} />
         <Route path="workgroups" element={<Workgroups />} />
         <Route path="content" element={<ContentManager />} />
+        <Route path="web-sources" element={<WebSources />} />
         <Route path="bingo" element={<Bingo />} />
       </Route>
       <Route path="/console" element={<ProtectedRoute><Console /></ProtectedRoute>} />

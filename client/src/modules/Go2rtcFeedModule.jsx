@@ -8,6 +8,21 @@ import React, { useEffect, useRef, useState } from 'react';
 //   webrtc (default) — lowest latency, uses /api/webrtc offer/answer
 //   mse              — fMP4 over WebSocket /api/ws?src=<name> into MediaSource
 //   mp4              — HTTP fMP4 fallback at /api/stream.mp4?src=<name>
+// No frames for this long and we stop believing the feed is live. Long enough
+// to ride out a keyframe gap or a brief network hiccup, short enough that an
+// operator is not looking at a black tile labelled ON AIR.
+const STALL_MS = 6000;
+
+// Coarse on purpose: an operator needs "is this seconds or hours old", not
+// precision. Rounds DOWN so it never overstates how fresh the frame is.
+function formatAge(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
 export default function Go2rtcFeedModule({ config = {} }) {
   const host = (config.host || 'http://localhost:1984').replace(/\/+$/, '');
   const stream = config.stream || config.src || '';
@@ -20,6 +35,74 @@ export default function Go2rtcFeedModule({ config = {} }) {
   const videoRef = useRef(null);
   const [status, setStatus] = useState('idle');
   const [err, setErr] = useState('');
+
+  // ─── "Never dark" fallback ────────────────────────────────────────────────
+  // When the feed drops, show the last frame captured while it was healthy
+  // rather than a black card. Zero config for web sources: a stream named
+  // `web-<key>` has its still at /api/web-sources/<key>/snapshot.jpg.
+  //
+  // 🚨 The still is ALWAYS badged with its age, and the live dot goes amber.
+  // A frozen frame that looks live is worse than a black screen, because an
+  // operator will believe it.
+  const fallbackKey = config.fallbackKey
+    || (typeof stream === 'string' && stream.startsWith('web-') ? stream.slice(4) : null);
+  const [snapshot, setSnapshot] = useState(null); // { url, ageMs }
+
+  // ─── Stall detection ──────────────────────────────────────────────────────
+  // A dead feed does NOT reliably raise an error. Pull the stream out from
+  // under a connected WebRTC player and the peer connection sits there quite
+  // happily while the picture goes black — status stays 'live' and the tile
+  // claims to be on air over a black rectangle. Watching for an error is not
+  // enough; the only honest signal is whether frames are still arriving.
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    let lastTime = -1;
+    let lastAdvance = Date.now();
+    const id = setInterval(() => {
+      const t = video.currentTime;
+      if (t !== lastTime) {
+        lastTime = t;
+        lastAdvance = Date.now();
+        setStalled((was) => (was ? false : was));
+      } else if (Date.now() - lastAdvance > STALL_MS) {
+        setStalled((was) => (was ? was : true));
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [host, stream, mode]);
+
+  const down = status === 'error' || status === 'closed' || stalled;
+
+  useEffect(() => {
+    if (!down || !fallbackKey || config.fallback === false) { setSnapshot(null); return undefined; }
+    let dead = false;
+    const path = `/api/web-sources/${encodeURIComponent(fallbackKey)}/snapshot.jpg`;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${path}?_=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(String(r.status));
+        const ageMs = Number(r.headers.get('X-Snapshot-Age-Ms') || 0);
+        const blob = await r.blob();
+        if (dead) return;
+        setSnapshot((prev) => {
+          if (prev?.url) URL.revokeObjectURL(prev.url);
+          return { url: URL.createObjectURL(blob), ageMs };
+        });
+      } catch {
+        if (!dead) setSnapshot(null);
+      }
+    };
+    poll();
+    // Keep the age honest while we sit in fallback, and pick up a newer still
+    // if the source recovers behind our back.
+    const t = setInterval(poll, 30_000);
+    return () => { dead = true; clearInterval(t); };
+  }, [down, fallbackKey, config.fallback]);
+
+  // Release the object URL on unmount so a long-running kiosk does not leak.
+  useEffect(() => () => { if (snapshot?.url) URL.revokeObjectURL(snapshot.url); }, [snapshot?.url]);
 
   useEffect(() => {
     if (!stream) { setStatus('idle'); return; }
@@ -154,10 +237,29 @@ export default function Go2rtcFeedModule({ config = {} }) {
         playsInline
         className="w-full h-full object-cover"
       />
+      {/* Last-known-good frame, shown only while the feed is down. Sits under
+          the label bar so the badge and title stay readable. */}
+      {down && snapshot && (
+        <img
+          src={snapshot.url}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+
       {showLabel && label && (
         <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-1 flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          {/* Red means live. While we are showing a still it must NOT be red —
+              the dot is the glance-level truth claim for this tile. */}
+          <span
+            className={`inline-block w-2 h-2 rounded-full ${down ? 'bg-amber-500' : 'bg-red-500 animate-pulse'}`}
+          />
           <span className="text-white text-xs font-medium truncate">{label}</span>
+          {down && (
+            <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wide whitespace-nowrap">
+              {snapshot ? `Last frame · ${formatAge(snapshot.ageMs)}` : 'No signal'}
+            </span>
+          )}
           <span className="ml-auto text-[10px] text-gray-400 uppercase tracking-wide">{mode}</span>
         </div>
       )}
@@ -166,11 +268,25 @@ export default function Go2rtcFeedModule({ config = {} }) {
           <span className="text-gray-300 text-sm animate-pulse">Connecting to {host}…</span>
         </div>
       )}
-      {status === 'error' && (
+      {/* Without a still we have nothing to show, so say so plainly. With one,
+          the frame speaks and the badge carries the caveat — do not black it
+          out with an error card. */}
+      {status === 'error' && !(down && snapshot) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 pointer-events-none">
           <span className="text-red-400 text-sm font-medium">go2rtc feed unavailable</span>
           <span className="text-gray-500 text-xs mt-1 max-w-[90%] truncate">{label || stream}</span>
           {err && <span className="text-gray-600 text-[10px] mt-1 max-w-[90%] truncate">{err}</span>}
+        </div>
+      )}
+
+      {/* The age caveat must survive even when the label bar is off — a bare
+          still with no marking is the one thing this feature must never do. */}
+      {down && snapshot && !(showLabel && label) && (
+        <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 flex items-center gap-1.5 pointer-events-none">
+          <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+          <span className="text-amber-400 text-[10px] font-semibold uppercase tracking-wide">
+            Last frame · {formatAge(snapshot.ageMs)}
+          </span>
         </div>
       )}
     </div>

@@ -39,6 +39,8 @@ export const NAV_GROUPS = [
       { path: 'library', label: 'Library', icon: 'media' },
       { path: 'music', label: 'Music', icon: 'media' },
       { path: 'content', label: 'Content', icon: 'media' },
+      // web pages pulled in as playable sources (docs/WEB-SOURCES.md)
+      { path: 'web-sources', label: 'Web Sources', icon: 'websource' },
     ],
   },
   {
