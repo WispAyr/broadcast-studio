@@ -669,6 +669,12 @@ export default function Layouts() {
   const [contextMenu, setContextMenu] = useState(null); // { x, y, layoutId }
   const [collapsedProjects, setCollapsedProjects] = useState(() => new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  // idle | saving | saved | error
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendScreens, setSendScreens] = useState([]);
+  const [sendScreenId, setSendScreenId] = useState('');
+  const [sendLoading, setSendLoading] = useState(false);
 
   const saveTimer = useRef(null);
 
@@ -712,6 +718,7 @@ export default function Layouts() {
   const autoSave = useCallback(
     (layoutData) => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
+      setSaveStatus('saving');
       saveTimer.current = setTimeout(async () => {
         if (!selectedId) return;
         try {
@@ -721,13 +728,44 @@ export default function Layouts() {
             delete payload.grid_columns;
           }
           await api.put(`/layouts/${selectedId}`, payload);
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)), 2000);
         } catch (err) {
           console.error('Auto-save failed:', err);
+          setSaveStatus('error');
+          toast?.(`Auto-save failed: ${err.message}`, 'error');
         }
       }, 800);
     },
-    [selectedId]
+    [selectedId, toast]
   );
+
+  async function openSendToScreen() {
+    if (!selectedId) return;
+    setSendOpen(true);
+    try {
+      const data = await api.get('/screens');
+      const arr = Array.isArray(data) ? data : Array.isArray(data?.screens) ? data.screens : [];
+      setSendScreens(arr);
+      setSendScreenId(arr[0]?.id || '');
+    } catch (err) {
+      toast?.(`Failed to load screens: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleSendToScreen() {
+    if (!selectedId || !sendScreenId) return;
+    setSendLoading(true);
+    try {
+      await api.post(`/screens/${sendScreenId}/layout`, { layout_id: selectedId });
+      toast?.('Layout pushed to screen', 'success');
+      setSendOpen(false);
+    } catch (err) {
+      toast?.(`Send failed: ${err.message}`, 'error');
+    } finally {
+      setSendLoading(false);
+    }
+  }
 
   function updateLayout(updates) {
     const updated = { ...selectedLayout, ...updates };
@@ -1147,7 +1185,29 @@ export default function Layouts() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 </div>
+                <span
+                  className={`text-[11px] font-medium shrink-0 px-2 py-1 rounded-md ${
+                    saveStatus === 'saving' ? 'text-amber-400 bg-amber-900/20' :
+                    saveStatus === 'saved' ? 'text-green-400 bg-green-900/20' :
+                    saveStatus === 'error' ? 'text-red-400 bg-red-900/20' :
+                    'text-gray-500'
+                  }`}
+                  aria-live="polite"
+                >
+                  {saveStatus === 'saving' ? 'Saving…' :
+                    saveStatus === 'saved' ? 'Saved' :
+                    saveStatus === 'error' ? 'Save failed' : 'Auto-save'}
+                </span>
                 <button
+                  type="button"
+                  onClick={openSendToScreen}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-all shrink-0"
+                  title="Push this layout to a screen"
+                >
+                  Send to screen…
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDeleteLayout()}
                   className="px-3 py-1.5 bg-red-600/10 hover:bg-red-600/25 text-red-400 hover:text-red-300 text-sm rounded-lg transition-all border border-red-900/30 shrink-0"
                 >
@@ -1769,6 +1829,59 @@ export default function Layouts() {
           onSelect={handleModuleSelect}
           onClose={() => { setShowModulePicker(false); setPlacingCell(null); }}
         />
+      )}
+
+      {/* Send layout to a screen (same live path as Dashboard push) */}
+      {sendOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="send-layout-title"
+          onClick={() => setSendOpen(false)}
+        >
+          <div
+            className="bg-gray-900 rounded-xl border border-gray-700 p-6 w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="send-layout-title" className="text-lg font-semibold text-white mb-1">Send to screen</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Push <span className="text-white font-medium">{selectedLayout?.name || 'this layout'}</span> live via the same path as Dashboard.
+            </p>
+            {sendScreens.length === 0 ? (
+              <p className="text-gray-500 text-sm mb-4">No screens registered. Create one under Screens first.</p>
+            ) : (
+              <select
+                value={sendScreenId}
+                onChange={(e) => setSendScreenId(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm mb-4 focus:outline-none focus:border-blue-500"
+              >
+                {sendScreens.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.is_online ? ' · online' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setSendOpen(false)}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!sendScreenId || sendLoading}
+                onClick={handleSendToScreen}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-900 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg"
+              >
+                {sendLoading ? 'Pushing…' : 'Push live'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

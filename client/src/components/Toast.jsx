@@ -32,7 +32,7 @@ export function ToastProvider({ children }) {
         {toasts.map(toast => (
           <div
             key={toast.id}
-            role="status"
+            role={toast.type === 'error' ? 'alert' : 'status'}
             className={`pointer-events-auto px-3.5 py-2.5 rounded-lg shadow-xl text-sm font-medium animate-slide-in-right backdrop-blur-sm border flex items-center gap-2.5 min-w-[220px] max-w-md ${
               toast.type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
               toast.type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
@@ -43,12 +43,23 @@ export function ToastProvider({ children }) {
           >
             <ToastIcon type={toast.type} />
             <span className="flex-1 leading-snug">{toast.message}</span>
+            <button
+              type="button"
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="shrink-0 opacity-60 hover:opacity-100 text-current"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
       <style>{`
         @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-slide-in-right { animation: none !important; }
+        }
       `}</style>
     </ToastContext.Provider>
   );

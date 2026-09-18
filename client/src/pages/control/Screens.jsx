@@ -445,10 +445,17 @@ export default function Screens() {
   }
 
   async function handleSetLayout(screenId, layoutId) {
-    const nextId = layoutId ? layoutId : null;
+    const nextId = layoutId || null;
     try {
-      await api.put(`/screens/${screenId}`, { current_layout_id: nextId });
+      // Use the same live path as Dashboard push: POST sets + emits set_layout.
+      // Clear via PUT with explicit empty current_layout_id (server handles clear + WS).
+      if (nextId) {
+        await api.post(`/screens/${screenId}/layout`, { layout_id: nextId });
+      } else {
+        await api.put(`/screens/${screenId}`, { current_layout_id: '' });
+      }
       setScreens(prev => prev.map(s => s.id === screenId ? { ...s, current_layout_id: nextId } : s));
+      toast?.(nextId ? 'Layout pushed to screen' : 'Layout cleared', 'success');
       fetchScreens();
     } catch (err) { toast?.(`Layout change failed: ${err.message}`, 'error'); }
   }

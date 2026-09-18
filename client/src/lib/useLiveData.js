@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Live-data hooks for NAR broadcast compositions.
+ * Live-data hooks for the NAR broadcast surfaces.
+ *
+ * NB: distinct from `hooks/useLiveData.js`, which is an unrelated hook for
+ * studio/layout control state. This one is the NAR now-playing/weather/news
+ * feed layer, and its only consumer is components/NARStudioDashboard.jsx
+ * (reached on screens via modules/NARStudioModule.jsx).
  *
  * These let a Remotion composition show REAL current data (now-playing track,
  * on-air show, weather, news) instead of frozen hand-typed values, while

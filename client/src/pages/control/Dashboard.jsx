@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../lib/api';
 import { connectSocket, getSocket } from '../../lib/socket';
 import { useAudioBroadcast } from '../../lib/useAudioBroadcast';
@@ -25,6 +26,8 @@ export default function Dashboard() {
   const [quickTextSubtitle, setQuickTextSubtitle] = useState('');
   const [quickTextScreen, setQuickTextScreen] = useState('all');
   const [selectedScreens, setSelectedScreens] = useState(new Set());
+  // Per-screen layout snapshot before blackout for true restore
+  const preBlackoutRef = useRef(null);
 
   // Nuro integration state
   const [nuroAlerts, setNuroAlerts] = useState([]);
@@ -164,14 +167,37 @@ export default function Dashboard() {
 
   async function handleBlackout() {
     const blackoutLayout = layouts.find(l => l.name?.includes('Blackout'));
-    if (!blackoutLayout) { alert('No Blackout layout found.'); return; }
-    if (blackoutActive) {
-      const restore = layouts.find(l => !l.name?.includes('Blackout'));
-      if (restore) await handleHotbarPush(restore.id);
-      setBlackoutActive(false);
-    } else {
-      await handleHotbarPush(blackoutLayout.id);
-      setBlackoutActive(true);
+    if (!blackoutLayout) {
+      toast?.('No Blackout layout found.', 'error');
+      setBlackoutConfirmOpen(false);
+      return;
+    }
+    try {
+      if (blackoutActive) {
+        const snap = preBlackoutRef.current;
+        if (snap && Object.keys(snap).length) {
+          await Promise.all(
+            Object.entries(snap).map(([sid, lid]) =>
+              lid ? api.post(`/screens/${sid}/layout`, { layout_id: lid }).catch(() => null) : Promise.resolve()
+            )
+          );
+          toast?.('Screens restored from pre-blackout', 'success');
+        } else {
+          const restore = layouts.find(l => !l.name?.includes('Blackout'));
+          if (restore) await handleHotbarPush(restore.id);
+        }
+        preBlackoutRef.current = null;
+        setBlackoutActive(false);
+        fetchData();
+      } else {
+        const snap = {};
+        screens.forEach(s => { snap[s.id] = s.current_layout_id || null; });
+        preBlackoutRef.current = snap;
+        await handleHotbarPush(blackoutLayout.id);
+        setBlackoutActive(true);
+      }
+    } catch (err) {
+      toast?.(`Blackout failed: ${err.message}`, 'error');
     }
     setBlackoutConfirmOpen(false);
   }
@@ -470,12 +496,47 @@ export default function Dashboard() {
         </div>
 
         {screens.length === 0 && (
-          <div className="text-center py-20">
-            <svg className="w-12 h-12 text-gray-800 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            <p className="text-gray-500 font-medium">No screens registered</p>
-            <p className="text-gray-700 text-sm mt-1">Add screens from the Screens page to get started</p>
+          <div className="max-w-lg mx-auto py-16 px-4">
+            <div className="text-center mb-8">
+              <svg className="w-12 h-12 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <p className="text-gray-300 font-semibold text-lg">Get something on a wall</p>
+              <p className="text-gray-400 text-sm mt-1">Three steps — screen, layout, push.</p>
+            </div>
+            <ol className="space-y-3">
+              <li className="flex items-start gap-3 p-4 rounded-xl bg-gray-900/80 border border-gray-800">
+                <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">1</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium">Register a screen</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Create a screen, then open its URL on the TV or browser.</p>
+                  <Link to="/control/screens" className="inline-flex mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg">
+                    Add screen
+                  </Link>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 p-4 rounded-xl bg-gray-900/80 border border-gray-800">
+                <span className={`w-7 h-7 rounded-full text-sm font-bold flex items-center justify-center shrink-0 ${layouts.length ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}>2</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium">Build a layout</p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    {layouts.length
+                      ? `${layouts.length} layout${layouts.length !== 1 ? 's' : ''} ready — or design another.`
+                      : 'Design the grid of modules that will fill the screen.'}
+                  </p>
+                  <Link to="/control/layouts" className="inline-flex mt-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold rounded-lg border border-gray-700">
+                    {layouts.length ? 'Open layouts' : 'Create layout'}
+                  </Link>
+                </div>
+              </li>
+              <li className="flex items-start gap-3 p-4 rounded-xl bg-gray-900/80 border border-gray-800 opacity-80">
+                <span className="w-7 h-7 rounded-full bg-gray-700 text-gray-300 text-sm font-bold flex items-center justify-center shrink-0">3</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-medium">Push to the wall</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Come back here and use <strong className="text-gray-300">Push Layout</strong> or the hotbar once screens are online.</p>
+                </div>
+              </li>
+            </ol>
           </div>
         )}
       </div>
@@ -617,7 +678,7 @@ export default function Dashboard() {
         open={blackoutConfirmOpen}
         title={blackoutActive ? 'Restore Screens' : 'Blackout All Screens'}
         message={blackoutActive
-          ? 'This will restore all screens to their previous layout.'
+          ? 'Restore each screen to the layout it had immediately before blackout.'
           : `This will immediately blackout all ${screens.filter(s => s.is_online).length} online screen${screens.filter(s => s.is_online).length !== 1 ? 's' : ''}. Are you sure?`}
         confirmLabel={blackoutActive ? 'Restore' : 'Blackout'}
         variant={blackoutActive ? 'warning' : 'danger'}

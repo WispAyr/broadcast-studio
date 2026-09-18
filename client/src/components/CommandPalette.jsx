@@ -18,10 +18,12 @@ import { useToast } from './Toast';
 // their real thumbnails so a take is never a guess.
 
 const PAGES = [
-  ['dashboard', 'Dashboard'], ['console', 'Console'], ['shows', 'Shows'], ['layouts', 'Layouts'],
+  ['dashboard', 'Dashboard'], ['console', 'Console'], ['deck', 'Deck'], ['scenes', 'Scenes'],
+  ['content', 'Content'], ['workgroups', 'Workgroups'], ['shows', 'Shows'], ['layouts', 'Layouts'],
   ['screens', 'Screens'], ['displays', 'Displays'], ['media', 'Media'], ['timeline', 'Timeline'],
-  ['schedule', 'Schedule'], ['templates', 'Templates'], ['variables', 'Variables'],
-  ['settings', 'Settings'], ['egpk', 'EGPK Live'], ['autocue', 'Autocue'], ['kiltwalk', 'Kiltwalk Ops'],
+  ['schedule', 'Schedule'], ['templates', 'Templates'], ['shaders', 'Shader Studio'],
+  ['studio', 'NAR Studio'], ['variables', 'Variables'], ['settings', 'Settings'],
+  ['egpk', 'EGPK Live'], ['autocue', 'Autocue'], ['kiltwalk', 'Kiltwalk Ops'],
 ];
 
 // Operator verbs. `danger` tints the row; `prompt` switches the palette into
@@ -60,13 +62,15 @@ export default function CommandPalette({ open, onClose }) {
   const [screens, setScreens] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [prompt, setPrompt] = useState(null); // an ACTIONS entry awaiting text input
+  // Second step for danger verbs (blackout / reload) — avoids one-shot fat-finger takes
+  const [confirmAction, setConfirmAction] = useState(null);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
   // Load searchable data when the palette opens (cheap, cached by the browser)
   useEffect(() => {
     if (!open) return;
-    setQuery(''); setSel(0); setPrompt(null);
+    setQuery(''); setSel(0); setPrompt(null); setConfirmAction(null);
     setTimeout(() => inputRef.current?.focus(), 30);
     api.get('/layouts').then(d => setLayouts(Array.isArray(d) ? d : [])).catch(() => {});
     api.get('/screens').then(d => setScreens(Array.isArray(d) ? d : [])).catch(() => {});
@@ -136,6 +140,13 @@ export default function CommandPalette({ open, onClose }) {
     if (!item) return;
     if (item.kind === 'action') {
       if (item.action.prompt) { setPrompt(item.action); setQuery(''); setTimeout(() => inputRef.current?.focus(), 10); return; }
+      // Require a second Enter for blackout / reload — mid-show safety
+      if (item.action.danger && !item.action.prompt) {
+        setConfirmAction(item.action);
+        setQuery('');
+        setTimeout(() => inputRef.current?.focus(), 10);
+        return;
+      }
       runAction(item.action); return;
     }
     if (item.kind === 'page') { navigate(`/control/${item.path}`); onClose(); return; }
@@ -158,7 +169,11 @@ export default function CommandPalette({ open, onClose }) {
     function onKey(e) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (prompt) { setPrompt(null); setQuery(''); } else onClose();
+        if (confirmAction) { setConfirmAction(null); setQuery(''); }
+        else if (prompt) { setPrompt(null); setQuery(''); }
+        else onClose();
+      } else if (confirmAction) {
+        if (e.key === 'Enter') { e.preventDefault(); runAction(confirmAction); setConfirmAction(null); }
       } else if (prompt) {
         if (e.key === 'Enter') { e.preventDefault(); if (query.trim()) runAction(prompt, query.trim()); }
       } else if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, items.length - 1)); }
@@ -167,7 +182,7 @@ export default function CommandPalette({ open, onClose }) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, items, sel, run, onClose, prompt, query, runAction]);
+  }, [open, items, sel, run, onClose, prompt, query, runAction, confirmAction]);
 
   // keep selection in view
   useEffect(() => {
@@ -182,38 +197,59 @@ export default function CommandPalette({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[90] flex items-start justify-center pt-[12vh] px-4"
+      role="dialog" aria-modal="true" aria-label="Command palette"
       style={{ background: 'rgba(3,6,12,0.62)', backdropFilter: 'blur(6px)', animation: 'cpFade 0.12s ease-out' }}
       onMouseDown={onClose}>
       <style>{`
         @keyframes cpFade { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cpPop { from { opacity: 0; transform: translateY(-12px) scale(0.985); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="cpFade"], [style*="cpPop"] { animation: none !important; }
+        }
       `}</style>
       <div className="w-full max-w-xl bg-gray-900 border border-gray-700/70 rounded-2xl shadow-2xl overflow-hidden"
-        style={{ animation: 'cpPop 0.16s cubic-bezier(.2,.9,.3,1)', borderColor: prompt ? '#ef444488' : undefined }}
+        style={{ animation: 'cpPop 0.16s cubic-bezier(.2,.9,.3,1)', borderColor: (prompt || confirmAction) ? '#ef444488' : undefined }}
         onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
-          {prompt ? (
+          {confirmAction ? (
+            <span className="shrink-0 text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded" style={{ background: '#ef444422', color: '#ef4444' }}>CONFIRM</span>
+          ) : prompt ? (
             <span className="shrink-0 text-[9px] font-black tracking-wider px-1.5 py-0.5 rounded" style={{ background: '#ef444422', color: '#ef4444' }}>FIRE</span>
           ) : (
-            <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
             </svg>
           )}
           <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)}
-            placeholder={prompt ? prompt.prompt : 'Search actions, pages, layouts, screens…'}
-            className="flex-1 bg-transparent text-white text-sm placeholder-gray-600 focus:outline-none" />
-          <kbd className="text-[10px] text-gray-600 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">esc</kbd>
+            disabled={!!confirmAction}
+            placeholder={confirmAction ? `Press ↵ to confirm “${confirmAction.label}”` : prompt ? prompt.prompt : 'Search actions, pages, layouts, screens…'}
+            className="flex-1 bg-transparent text-white text-sm placeholder-gray-500 focus:outline-none disabled:opacity-80" />
+          <kbd className="text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">esc</kbd>
         </div>
-        {prompt ? (
+        {confirmAction ? (
+          <div className="px-4 py-5 text-sm text-gray-300">
+            <p className="text-red-300 font-semibold mb-1">{confirmAction.label}</p>
+            <p className="text-gray-400 text-xs leading-relaxed">
+              This runs immediately on air. Press <kbd className="text-[10px] bg-gray-800 border border-gray-700 rounded px-1">↵</kbd> to confirm
+              or <kbd className="text-[10px] bg-gray-800 border border-gray-700 rounded px-1">esc</kbd> to cancel.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setConfirmAction(null)}
+                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium rounded-lg">Cancel</button>
+              <button type="button" onClick={() => { runAction(confirmAction); setConfirmAction(null); }}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg">Confirm</button>
+            </div>
+          </div>
+        ) : prompt ? (
           <div className="px-4 py-4 text-sm text-gray-400">
             {query.trim()
               ? <>Push <span className="text-white font-semibold">“{query.trim()}”</span> as a critical banner to your studio — <kbd className="text-[10px] bg-gray-800 border border-gray-700 rounded px-1">↵</kbd> to fire</>
-              : <span className="text-gray-600">Type the banner text…</span>}
+              : <span className="text-gray-500">Type the banner text…</span>}
           </div>
         ) : (
         <div ref={listRef} className="max-h-[46vh] overflow-y-auto py-1">
           {items.length === 0 && (
-            <div className="px-4 py-8 text-center text-gray-600 text-sm">No matches</div>
+            <div className="px-4 py-8 text-center text-gray-500 text-sm">No matches</div>
           )}
           {items.map((it, i) => {
             const [badge, color] = it.kind === 'action' ? [it.action.badge, it.action.color] : KIND_BADGE[it.kind];
@@ -226,17 +262,21 @@ export default function CommandPalette({ open, onClose }) {
                   ? <LayoutThumb layout={it.layout} className="w-12 h-7" />
                   : <span className="w-12 h-7 flex items-center justify-center rounded border border-gray-800 bg-gray-950 text-[9px] font-bold tracking-wider" style={{ color }}>{badge}</span>}
                 <span className="flex-1 min-w-0 truncate text-sm text-gray-200">{it.label}</span>
-                <span className="text-[10px] text-gray-600 shrink-0">{it.hint}</span>
-                {i === sel && <kbd className="text-[10px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 shrink-0">↵</kbd>}
+                <span className="text-[10px] text-gray-500 shrink-0">{it.hint}</span>
+                {i === sel && <kbd className="text-[10px] text-gray-400 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 shrink-0">↵</kbd>}
               </button>
             );
           })}
         </div>
         )}
-        <div className="flex items-center gap-3 px-4 py-2 border-t border-gray-800 text-[10px] text-gray-600">
+        <div className="flex items-center gap-3 px-4 py-2 border-t border-gray-800 text-[10px] text-gray-500">
           <span><kbd className="bg-gray-800 border border-gray-700 rounded px-1">↑↓</kbd> navigate</span>
           <span><kbd className="bg-gray-800 border border-gray-700 rounded px-1">↵</kbd> run</span>
-          <span className="ml-auto text-gray-700">{prompt ? 'esc backs out without firing' : 'Layouts take to every unlocked screen'}</span>
+          <span className="ml-auto text-gray-500">
+            {confirmAction ? 'Second step required for dangerous actions'
+              : prompt ? 'esc backs out without firing'
+              : 'Layouts take to every unlocked screen'}
+          </span>
         </div>
       </div>
     </div>

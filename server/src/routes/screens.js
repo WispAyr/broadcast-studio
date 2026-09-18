@@ -144,11 +144,28 @@ router.put('/:id', authenticate, (req, res) => {
     // touch". Use an integer for SQLite.
     const ab = accepts_broadcasts === undefined ? null : (accepts_broadcasts ? 1 : 0);
 
+    // Layout assignment: distinguish "not provided" from "explicit clear".
+    // Empty string / null clears current_layout_id; a real id sets it.
+    // COALESCE(?, current_layout_id) cannot clear, so handle layout separately.
+    const layoutProvided = Object.prototype.hasOwnProperty.call(req.body, 'current_layout_id');
+    const clearingLayout = layoutProvided && (current_layout_id === '' || current_layout_id === null);
+    const settingLayout = layoutProvided && !clearingLayout && !!current_layout_id;
+    let newLayoutId = screen.current_layout_id;
+    if (clearingLayout) newLayoutId = null;
+    else if (settingLayout) newLayoutId = current_layout_id;
+
+    if (settingLayout) {
+      const layout = getLayoutById(current_layout_id);
+      if (!layout) return res.status(404).json({ error: 'Layout not found' });
+      const reject = rejectIfPublicOnlyUnsafe(screen.studio_id, layout);
+      if (reject) return res.status(403).json({ error: reject });
+    }
+
     db.prepare(`
       UPDATE screens SET
         name = COALESCE(?, name),
         screen_number = COALESCE(?, screen_number),
-        current_layout_id = COALESCE(?, current_layout_id),
+        current_layout_id = ${layoutProvided ? '?' : 'current_layout_id'},
         orientation = COALESCE(?, orientation),
         width = COALESCE(?, width),
         height = COALESCE(?, height),
@@ -158,7 +175,8 @@ router.put('/:id', authenticate, (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
-      name || null, screen_number || null, current_layout_id || null,
+      name || null, screen_number || null,
+      ...(layoutProvided ? [newLayoutId] : []),
       orientation || null, width || null, height || null, configStr || null,
       ab,
       ...(group_id !== undefined ? [group_id || null] : []),
@@ -172,6 +190,38 @@ router.put('/:id', authenticate, (req, res) => {
       screenId: req.params.id,
       config: config || JSON.parse(updated.config || '{}'),
     });
+
+    // When layout actually changed, emit set_layout so connected screens update
+    // (mirrors POST /:id/layout). Without this, PUT only wrote the DB.
+    if (layoutProvided && newLayoutId !== screen.current_layout_id) {
+      if (newLayoutId) {
+        const layout = getLayoutById(newLayoutId);
+        if (layout) {
+          const parsedLayout = enrichLayout({ ...layout, modules: JSON.parse(layout.modules) }, req.params.id);
+          getIO().to(`screen:${req.params.id}`).emit('set_layout', {
+            layoutId: newLayoutId,
+            layout: parsedLayout,
+          });
+          getIO().to(`studio:${updated.studio_id}`).emit('screen_preview', {
+            screenId: req.params.id,
+            layoutId: newLayoutId,
+            layout: parsedLayout,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else {
+        getIO().to(`screen:${req.params.id}`).emit('set_layout', {
+          layoutId: null,
+          layout: null,
+        });
+        getIO().to(`studio:${updated.studio_id}`).emit('screen_preview', {
+          screenId: req.params.id,
+          layoutId: null,
+          layout: null,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
 
     res.json(updated);
   } catch (err) {

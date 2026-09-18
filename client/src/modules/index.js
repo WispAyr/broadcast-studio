@@ -5,6 +5,8 @@ import PavilionNext90Module from './PavilionNext90Module';
 import PavilionWelcomeModule from './PavilionWelcomeModule';
 import PavilionSafetyModule from './PavilionSafetyModule';
 import PavilionSponsorModule from './PavilionSponsorModule';
+import PavilionWhatsOnModule from './PavilionWhatsOnModule';
+import PavilionCalendarTimelineModule from './PavilionCalendarTimelineModule';
 import CountdownModule from './CountdownModule';
 import ImageModule from './ImageModule';
 import VideoModule from './VideoModule';
@@ -180,6 +182,8 @@ const moduleRegistry = {
   pavilion_welcome: PavilionWelcomeModule,
   pavilion_safety: PavilionSafetyModule,
   pavilion_sponsor: PavilionSponsorModule,
+  pavilion_whats_on: PavilionWhatsOnModule,
+  pavilion_calendar_timeline: PavilionCalendarTimelineModule,
   // NAR Travel — embedded studio view
   traffic_ayrshire: TrafficAyrshireModule,
   // NAR live now-playing (broadcast.radio station 7719) — spinning vinyl + history
