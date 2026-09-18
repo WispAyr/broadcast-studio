@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Screens | Ayr Pavilion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#16121B;--panel:#1d1722;--panel2:#2a2230;--line:rgba(201,165,92,.18);--gold:#C9A55C;--gold2:#E7CD8C;--cream:#F3ECDF;--muted:#b3a99b;--dim:#8a8174;--ok:#5fb3a1;--bad:#d9534f}
+*{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+html,body{margin:0;background:var(--ink);color:var(--cream);min-height:100%}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;letter-spacing:-.01em;margin:0}
+a{color:var(--gold2)}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 60px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.top h1{font-size:28px}
+.top .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.btn{background:var(--gold);color:#241a08;border:none;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer;font-size:14px}
+.btn:hover{background:var(--gold2)}.btn:disabled{opacity:.5;cursor:default}
+.btn-sec{background:var(--panel2);border:1px solid #3a323f;color:var(--cream)}.btn-sec:hover{background:#3a323f}
+.btn-danger{background:#7f1d1d;color:#fff}.btn-danger:hover{background:#991b1b}
+.btn-sm{padding:6px 12px;font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+input{background:var(--panel);border:1px solid rgba(201,165,92,.25);border-radius:8px;padding:9px 11px;color:#fff;width:100%;font-size:14px}
+input:focus{outline:none;border-color:var(--gold)}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+.scr{padding:16px;display:flex;flex-direction:column;gap:14px}
+.scr-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.scr-head h2{font-size:19px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--dim);box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.dot.on{background:var(--ok);box-shadow:0 0 10px rgba(95,179,161,.8)}
+.badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;text-transform:uppercase;letter-spacing:.06em;background:rgba(255,255,255,.06);color:var(--muted)}
+.badge.on{background:rgba(95,179,161,.18);color:#7fd1bb}
+.thumb{position:relative;width:100%;aspect-ratio:9/16;max-height:420px;background:#070b18;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}
+.thumb iframe{position:absolute;top:0;left:0;width:1080px;height:1920px;border:0;transform-origin:0 0;pointer-events:none}
+.thumb .off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px;text-align:center;padding:20px;background:rgba(0,0,0,.35);backdrop-filter:blur(2px)}
+.showing{font-size:13px;color:var(--muted)}.showing b{color:var(--cream);font-weight:600}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.preset{background:var(--panel2);border:1px solid #3a323f;border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--cream)}
+.preset:hover{border-color:var(--gold)}.preset.cur{border-color:var(--gold);background:rgba(201,165,92,.12)}
+.preset .t{font-weight:600;font-size:13px}.preset .b{font-size:11px;color:var(--muted);margin-top:2px}
+.preset.cur .t::after{content:" · live";color:var(--gold2);font-size:11px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select{background:var(--panel2);border:1px solid #3a323f;border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;flex:1}
+.msg{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2a2230;border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-size:14px;display:none;z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.msg.ok{border-color:rgba(95,179,161,.5)}.msg.err{border-color:rgba(217,83,79,.6)}
+.hidden{display:none!important}
+.note{font-size:12px;color:var(--dim);margin-top:18px;line-height:1.5}
+#confirm{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+#confirm .card{max-width:420px;width:100%;padding:22px}
+#confirm p{color:var(--muted);font-size:14px;line-height:1.5}
+.login{max-width:360px;margin:80px auto 0;padding:26px}
+</style>
+</head>
+<body>
+<div id="login" class="card login">
+  <h1 style="font-size:24px">Venue screens</h1>
+  <p style="color:var(--muted);font-size:13px;margin:6px 0 18px">Sign in with your Ayr Pavilion admin login.</p>
+  <label>Username</label><input id="u" autocomplete="username">
+  <div style="height:10px"></div>
+  <label>Password</label><input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <p id="login-err" style="color:#f28b82;font-size:13px" class="hidden"></p>
+  <div style="margin-top:16px"><button class="btn" onclick="doLogin()">Sign in</button></div>
+</div>
+
+<div id="app" class="wrap hidden">
+  <div class="top">
+    <div>
+      <h1>Venue screens</h1>
+      <div class="sub">The two What's On screens at the Pavilion. Pick a look and it changes on the wall within a second or two.</div>
+    </div>
+    <div class="row">
+      <span id="poll" class="badge">live</span>
+      <button class="btn btn-sec btn-sm" onclick="load(true)">Refresh</button>
+      <button class="btn btn-sec btn-sm" onclick="logout()">Sign out</button>
+    </div>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div id="unavail" class="card hidden" style="padding:22px;color:var(--muted)"></div>
+  <p class="note">Screens go <b>online</b> when the kiosk PC at the venue is on the Wi-Fi and showing its Broadcast Studio page. Pushes go through Broadcast Studio; "Blank" is the recover-from-a-wrong-push button.</p>
+</div>
+
+<div id="confirm"><div class="card"><h2 id="c-title" style="font-size:20px;margin-bottom:8px"></h2><p id="c-msg"></p><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn btn-sec" id="c-no">Cancel</button><button class="btn" id="c-yes">Yes</button></div></div></div>
+<div id="msg" class="msg"></div>
+
+<script>
+const API='/api/pav-screens';
+let TOKEN=localStorage.getItem('pav_admin_token')||'';
+let STATE=null, timer=null, busy=false;
+
+function H(){return {'Content-Type':'application/json','Authorization':'Bearer '+TOKEN};}
+async function api(path,opts={}){
+  const r=await fetch(API+path,{...opts,headers:{...H(),...(opts.headers||{})}});
+  if(r.status===401){logout();throw new Error('Session expired — sign in again');}
+  if(!r.ok){let t='';try{t=(await r.json()).detail||'';}catch{};throw new Error(t||('HTTP '+r.status));}
+  return r.json();
+}
+function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+function flash(t,ok=true){const m=document.getElementById('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err');m.style.display='block';clearTimeout(flash._t);flash._t=setTimeout(()=>m.style.display='none',3200);}
+function confirmBox(title,msg,{danger=false,ok='Yes'}={}){
+  return new Promise(res=>{
+    const c=document.getElementById('confirm');document.getElementById('c-title').textContent=title;document.getElementById('c-msg').textContent=msg;
+    const y=document.getElementById('c-yes'),n=document.getElementById('c-no');y.textContent=ok;y.className='btn'+(danger?' btn-danger':'');
+    c.style.display='flex';const done=v=>{c.style.display='none';y.onclick=n.onclick=null;res(v);};y.onclick=()=>done(true);n.onclick=()=>done(false);
+  });
+}
+
+async function doLogin(){
+  const u=document.getElementById('u').value,p=document.getElementById('p').value;
+  const err=document.getElementById('login-err');err.classList.add('hidden');
+  try{
+    const r=await fetch('/api/pav-admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    if(!r.ok)throw new Error('Invalid username or password');
+    const d=await r.json();TOKEN=d.access_token||d.token;if(!TOKEN)throw new Error('No token returned');
+    localStorage.setItem('pav_admin_token',TOKEN);start();
+  }catch(e){err.textContent=e.message;err.classList.remove('hidden');}
+}
+function logout(){clearInterval(timer);TOKEN='';localStorage.removeItem('pav_admin_token');document.getElementById('app').classList.add('hidden');document.getElementById('login').classList.remove('hidden');}
+
+async function start(){
+  document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');
+  await load(true);clearInterval(timer);timer=setInterval(()=>load(false),10000);
+}
+
+function ago(iso){if(!iso)return 'never';const t=new Date(iso.replace(' ','T')+(iso.endsWith('Z')?'':'Z'));const s=Math.round((Date.now()-t)/1000);if(s<90)return s+'s ago';if(s<5400)return Math.round(s/60)+' min ago';if(s<172800)return Math.round(s/3600)+' h ago';return Math.round(s/86400)+' days ago';}
+
+async function load(full){
+  let st;
+  try{st=await api('/state');}catch(e){if(full){document.getElementById('unavail').textContent='Screens unavailable: '+e.message;document.getElementById('unavail').classList.remove('hidden');}return;}
+  document.getElementById('unavail').classList.add('hidden');
+  const sameSet=STATE&&STATE.screens.map(s=>s.id).join()===st.screens.map(s=>s.id).join();
+  STATE=st;
+  if(full||!sameSet)render();else patch();
+  const p=document.getElementById('poll');p.textContent='live · '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function presetButtons(s){
+  return STATE.presets.map(p=>`<button class="preset ${p.name===s.showing?'cur':''}" data-l="${p.id}" onclick="push('${s.id}','${p.id}','${esc(p.label)}')"><div class="t">${esc(p.label)}</div><div class="b">${esc(p.blurb)}</div></button>`).join('');
+}
+function render(){
+  const g=document.getElementById('grid');
+  if(!STATE.screens.length){g.innerHTML='<div class="card" style="padding:22px;color:var(--muted)">No Ayr Pavilion screens are registered in Broadcast Studio.</div>';return;}
+  g.innerHTML=STATE.screens.map(s=>`
+    <div class="card scr" id="scr-${s.id}">
+      <div class="scr-head"><h2>${esc(s.name)}</h2><span class="badge ${s.online?'on':''}" id="badge-${s.id}"><span class="dot ${s.online?'on':''}" id="dot-${s.id}"></span>&nbsp; ${s.online?'Online':'Offline'}</span></div>
+      <div class="thumb" id="thumb-${s.id}">
+        <iframe src="${esc(s.preview_url)}" loading="lazy" title="${esc(s.name)} preview"></iframe>
+        ${s.online?'':`<div class="off">Screen offline · last seen ${esc(ago(s.last_seen))}<br><small>Preview shows what it will display when it reconnects.</small></div>`}
+      </div>
+      <div class="showing" id="show-${s.id}">Showing: <b>${esc(s.showing||'—')}</b></div>
+      <div class="presets" id="presets-${s.id}">${presetButtons(s)}</div>
+      ${STATE.more.length?`<div class="row"><select id="more-${s.id}"><option value="">Other layouts…</option>${STATE.more.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('')}</select><button class="btn btn-sec btn-sm" onclick="pushMore('${s.id}')">Apply</button></div>`:''}
+      <div class="row" style="justify-content:space-between"><a href="${esc(s.display_url)}" target="_blank" rel="noopener" style="font-size:12px">Open screen page ↗</a><button class="btn btn-danger btn-sm" onclick="blank('${s.id}','${esc(s.name)}')">⬛ Blank screen</button></div>
+    </div>`).join('');
+  requestAnimationFrame(scaleThumbs);
+}
+function patch(){
+  for(const s of STATE.screens){
+    const b=document.getElementById('badge-'+s.id),d=document.getElementById('dot-'+s.id),sh=document.getElementById('show-'+s.id),pr=document.getElementById('presets-'+s.id);
+    if(b){b.className='badge '+(s.online?'on':'');b.innerHTML=`<span class="dot ${s.online?'on':''}" id="dot-${s.id}"></span>&nbsp; ${s.online?'Online':'Offline'}`;}
+    if(sh)sh.innerHTML='Showing: <b>'+esc(s.showing||'—')+'</b>';
+    if(pr)pr.innerHTML=presetButtons(s);
+    const th=document.getElementById('thumb-'+s.id);if(th){const off=th.querySelector('.off');if(s.online&&off)off.remove();if(!s.online&&!off){const o=document.createElement('div');o.className='off';o.innerHTML='Screen offline · last seen '+esc(ago(s.last_seen));th.appendChild(o);}}
+  }
+}
+function scaleThumbs(){document.querySelectorAll('.thumb').forEach(t=>{const w=t.clientWidth,h=t.clientHeight,f=t.querySelector('iframe');if(!f)return;const k=Math.min(w/1080,h/1920);f.style.transform='scale('+k+')';f.style.left=((w-1080*k)/2)+'px';});}
+window.addEventListener('resize',scaleThumbs);
+
+async function push(screenId,layoutId,label){
+  if(busy)return;const s=STATE.screens.find(x=>x.id===screenId);
+  if(!(await confirmBox('Change '+s.name+'?','Put "'+label+'" on this screen now.',{ok:'Change screen'})))return;
+  busy=true;try{await api('/'+screenId+'/layout',{method:'POST',body:JSON.stringify({layout_id:layoutId})});flash(s.name+' → '+label);setTimeout(()=>load(false),1500);}catch(e){flash(e.message,false);}finally{busy=false;}
+}
+async function pushMore(screenId){const sel=document.getElementById('more-'+screenId);if(!sel.value)return;const label=sel.options[sel.selectedIndex].text;await push(screenId,sel.value,label);}
+async function blank(screenId,name){
+  if(busy)return;
+  if(!(await confirmBox('Blank '+name+'?','The screen goes black until you pick a look again.',{danger:true,ok:'Blank it'})))return;
+  busy=true;try{await api('/'+screenId+'/blank',{method:'POST'});flash(name+' blanked');setTimeout(()=>load(false),1500);}catch(e){flash(e.message,false);}finally{busy=false;}
+}
+
+if(TOKEN)start();
+</script>
+</body>
+</html>
