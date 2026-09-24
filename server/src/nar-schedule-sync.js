@@ -49,14 +49,52 @@ async function fetchWeek() {
   const posts = Array.isArray(d && d.posts) ? d.posts : [];
   const days = [];
   for (const p of posts) {
-    const dow = DAY_DOW[String(p.post_name || '').toLowerCase()];
+    // WP de-dupes slugs, so a day post can be "saturday-2": strip the numeric suffix.
+    const dow = DAY_DOW[String(p.post_name || '').toLowerCase().replace(/-\d+$/, '')];
     if (dow === undefined) continue;
     const slots = (p.shows || [])
       .map((s) => ({ start: String(s.show_time || '').slice(0, 5), id: unwrapId(s.show_id) }))
       .filter((s) => /^\d\d:\d\d$/.test(s.start) && s.id);
     days.push({ dow, slots });
   }
-  return days;
+  return normaliseOvernights(days);
+}
+
+// ProRadio's day posts straddle midnight both ways:
+//  - the previous night's overnight show is listed FIRST (22:00-06:00 at the top of
+//    Tuesday). It is on air from midnight on this day, so it starts at 00:00 here;
+//    left at 22:00 it duplicates the day's real 22:00 slot.
+//  - after-midnight shows are listed LAST (Saturday ends with "00:00 DJ Mash", which
+//    is Saturday night, i.e. Sunday 00:00). Once the times go backwards, the rest of
+//    the list belongs to the next day.
+function normaliseOvernights(days) {
+  const byDow = new Map(days.map((d) => [d.dow, []]));
+  for (const { dow, slots } of days) {
+    let rolled = false;
+    slots.forEach((slot, i) => {
+      if (i === 0) {
+        const next = slots[1];
+        byDow.get(dow).push(next && slot.start > next.start ? { ...slot, start: '00:00' } : slot);
+        return;
+      }
+      // i >= 2: slot 0 -> 1 is the carry-in drop handled above, not a rollover.
+      if (i >= 2 && slot.start < slots[i - 1].start) rolled = true;
+      if (rolled) {
+        const nd = (dow + 1) % 7;
+        if (byDow.has(nd)) byDow.get(nd).push(slot);
+        return;
+      }
+      byDow.get(dow).push(slot);
+    });
+  }
+  // Sort each day by start and keep the first entry for any repeated start time.
+  return days.map(({ dow }) => {
+    const seen = new Set();
+    const slots = byDow.get(dow)
+      .sort((x, y) => x.start.localeCompare(y.start))
+      .filter((s) => (seen.has(s.start) ? false : seen.add(s.start)));
+    return { dow, slots };
+  });
 }
 
 // Batch-resolve show ids -> { id: name } via WP REST.
@@ -96,8 +134,12 @@ function cardIndex(studioId) {
 function matchCard(showName, cards) {
   const q = norm(showName);
   if (!q) return null;
-  const hit = cards.find((c) => c.n === q) || cards.find((c) => c.n.startsWith(q + ' '));
-  return hit ? hit.id : null;
+  const exact = cards.find((c) => c.n === q);
+  if (exact) return exact.id;
+  // Prefix match ("Now Dance" -> "Now Dance — Colin McArdle"): take the SHORTEST, so
+  // "Now Dance" never lands on "Now Dance: The After Party ...".
+  const hits = cards.filter((c) => c.n.startsWith(q + ' ')).sort((x, y) => x.n.length - y.n.length);
+  return hits.length ? hits[0].id : null;
 }
 
 async function syncOnce() {
