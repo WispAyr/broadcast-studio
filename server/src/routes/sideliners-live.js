@@ -10,7 +10,8 @@
 // The public reads are football facts the station airs anyway, served from
 // BS's own snapshot, so hitting them costs no upstream quota.
 const express = require('express');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuthenticate } = require('../middleware/auth');
+const { authenticateApiKey } = require('../middleware/apiKey');
 const feeds = require('../datafeeds');
 const director = require('../sl-director');
 
@@ -37,13 +38,26 @@ datafeeds.get('/:source/events', authenticate, (req, res) => {
 });
 
 const dir = express.Router({ mergeParams: true });
-dir.use(authenticate);
-// A studio's director is operated by that studio's users (super_admin: any).
+// Two ways in: a BS login (that studio's users, or super_admin), or a studio API
+// key carrying the 'sl-director' scope. The key is how the NAR intranet drives
+// the director for presenters who have no BS account; it names the person
+// acting in X-Actor, which goes into the director's log.
+dir.use((req, res, next) => {
+  const key = authenticateApiKey(req);
+  if (key) {
+    if (!(key.scopes || []).includes('sl-director')) return res.status(403).json({ error: 'key lacks sl-director scope' });
+    req.apiKey = key; return next();
+  }
+  optionalAuthenticate(req, res, () => req.user ? next() : res.status(401).json({ error: 'authentication required' }));
+});
 dir.param('studioId', (req, res, next, id) => {
-  if (req.user && (req.user.role === 'super_admin' || req.user.studio_id === id)) return next();
+  if (req.apiKey) return req.apiKey.studio_id === id ? next() : res.status(403).json({ error: 'key not valid for this studio' });
+  if (req.user.role === 'super_admin' || req.user.studio_id === id) return next();
   res.status(403).json({ error: 'not your studio' });
 });
-const who = req => (req.user && (req.user.username || req.user.name || req.user.email)) || 'operator';
+const who = req => req.apiKey
+  ? `${String(req.headers['x-actor'] || 'unknown').replace(/[^\w .@-]/g, '').slice(0, 40)} (${req.apiKey.name})`
+  : (req.user && (req.user.username || req.user.name || req.user.email)) || 'operator';
 const wrap = fn => async (req, res) => { try { res.json(await fn(req)); } catch (e) { res.status(400).json({ error: e.message }); } };
 
 dir.get('/:studioId', wrap(req => director.state(req.params.studioId)));
