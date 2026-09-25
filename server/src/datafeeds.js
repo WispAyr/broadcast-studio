@@ -27,7 +27,8 @@ const SOURCES = {
     interval: snap => (snap && snap.engine && snap.engine.window ? 8_000 : 60_000),
   },
 };
-const STALE_MS = 90_000;
+// Stale = missed about two polls: 25 s on a matchday (8 s polls), 150 s otherwise (60 s polls).
+const staleMs = snap => (snap && snap.engine && snap.engine.window ? 25_000 : 150_000);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS datafeed_cursor (source TEXT PRIMARY KEY, seq INTEGER NOT NULL, updated_at TEXT DEFAULT (datetime('now')));
@@ -90,9 +91,9 @@ function start() {
 
 function health(id) {
   const st = state[id] || {}; const snap = st.snapshot;
-  const age = st.okAt ? Date.now() - st.okAt : null;
+  const age = st.okAt ? Date.now() - st.okAt : null, lim = staleMs(snap);
   return {
-    id, name: SOURCES[id].name, ok: !!st.okAt && age < STALE_MS, stale: !st.okAt || age >= STALE_MS,
+    id, name: SOURCES[id].name, ok: !!st.okAt && age < lim, stale: !st.okAt || age >= lim,
     ageSec: age == null ? null : Math.round(age / 1000), error: st.error, polls: st.polls || 0, fails: st.fails || 0,
     cursor: getCursor(id), upstream: snap ? { generated: snap.generated, engine: snap.engine, quota: snap.quota } : null,
     counts: snap ? { live: (snap.live || []).length, results: (snap.results || []).length, upcoming: (snap.upcoming || []).length } : null,
