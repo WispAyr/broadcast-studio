@@ -347,6 +347,16 @@ async function dispatchAction(studioId, button, io, userId, { targetScreenIds = 
       const s = p.minute !== undefined ? scoreboard.apply(studioId, { minute: p.minute }) : scoreboard.adjustMinute(studioId, p.delta ?? 1);
       return { type, minute: s.minute };
     }
+    // SideLiners director — Stream Deck surface (see sl-director.js).
+    case 'sl_take_next': return { type, ...require('../sl-director').takeNext(studioId, userId || 'deck') };
+    case 'sl_dismiss_next': return { type, ...require('../sl-director').dismiss(studioId, null, userId || 'deck') };
+    case 'sl_pull': return { type, ...require('../sl-director').pull(studioId, userId || 'deck') };
+    case 'sl_mode': {
+      const d = require('../sl-director');
+      if (p.mode === 'auto') d.arm(studioId, p.hours); else d.saveCfg(studioId, { mode: p.mode || 'assist', armedUntil: 0 });
+      return { type, mode: d.state(studioId).mode, armed: d.state(studioId).armed };
+    }
+    case 'sl_gfx': return { type, ...(await require('../sl-director').manual(studioId, { ...p, air: p.air !== false }, userId || 'deck')) };
     case 'score_show': { const s = scoreboard.apply(studioId, { visible: 1 }); return { type, visible: !!s.visible }; }
     case 'score_hide': { scoreboard.apply(studioId, { visible: 0 }); return { type, visible: false }; }
     case 'score_reset': { const s = scoreboard.apply(studioId, { home_goals: 0, away_goals: 0, minute: '' }); return { type, ...s }; }
