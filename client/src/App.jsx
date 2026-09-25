@@ -19,6 +19,7 @@ const Clocks = React.lazy(() => import('./pages/control/Clocks'));
 const Layouts = React.lazy(() => import('./pages/control/Layouts'));
 const Screens = React.lazy(() => import('./pages/control/Screens'));
 const Cutaway = React.lazy(() => import('./pages/control/Cutaway'));
+const SidelinersDirector = React.lazy(() => import('./pages/control/SidelinersDirector'));
 const Timeline = React.lazy(() => import('./pages/control/Timeline'));
 const Media = React.lazy(() => import('./pages/control/Media'));
 const Settings = React.lazy(() => import('./pages/control/Settings'));
@@ -96,6 +97,7 @@ export default function App() {
         <Route path="layouts" element={<Layouts />} />
         <Route path="screens" element={<Screens />} />
         <Route path="cutaway" element={<Cutaway />} />
+        <Route path="sideliners" element={<SidelinersDirector />} />
         {/* Media retired 2026-07-15 (near-dead vs Library). Redirect any bookmark/muscle-memory. */}
         <Route path="media" element={<Navigate to="/control/library" replace />} />
         <Route path="timeline" element={<Timeline />} />

@@ -17,6 +17,7 @@ export const NAV_GROUPS = [
       { path: 'gallery', label: 'Channel', icon: 'film' },    // the storm → YouTube broadcast channel
       { path: 'dashboard', label: 'Dashboard', icon: 'grid' },
       { path: 'console', label: 'Console', icon: 'console' },
+      { path: 'sideliners', label: 'SideLiners Director', icon: 'film' }, // live football data → graphics; cue queue, ASSIST/AUTO
     ],
   },
   {
