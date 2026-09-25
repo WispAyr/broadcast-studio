@@ -31,6 +31,14 @@ datafeeds.get('/sideliners/table/:league', pub, async (req, res) => {
     res.json(t);
   } catch (e) { res.status(502).json({ ok: false, error: e.message }); }
 });
+datafeeds.get('/sideliners/day/:d', pub, async (req, res) => {
+  try { const r = await feeds.day('sideliners', req.params.d); if (!r) return res.status(400).json({ ok: false, error: 'day must be today|yesterday|tomorrow|YYYY-MM-DD' }); res.json(r); }
+  catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+});
+datafeeds.get('/sideliners/week', pub, async (req, res) => {
+  try { res.json(await feeds.week('sideliners', req.query.days)); }
+  catch (e) { res.status(502).json({ ok: false, error: e.message }); }
+});
 datafeeds.get('/', authenticate, (req, res) => res.json({ sources: feeds.sources().map(feeds.health) }));
 datafeeds.get('/:source/events', authenticate, (req, res) => {
   if (!feeds.sources().includes(req.params.source)) return res.status(404).json({ error: 'unknown source' });

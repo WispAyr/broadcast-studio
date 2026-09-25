@@ -23,6 +23,8 @@ const SOURCES = {
     name: 'SideLiners football (API-Football via NAR intranet)',
     url: INTRANET + '/broadcast',
     tableUrl: id => `${INTRANET}/table/${Number(id)}`,
+    dayUrl: d => `${INTRANET}/day/${encodeURIComponent(d)}`,
+    weekUrl: n => `${INTRANET}/week?days=${Number(n) || 7}`,
     // fast while a watched match is on (the intranet says so), slow otherwise
     interval: snap => (snap && snap.engine && snap.engine.window ? 8_000 : 60_000),
   },
@@ -128,7 +130,33 @@ async function table(id, leagueId) {
   return data;
 }
 
+// Other days (yesterday's / this week's results, tomorrow's fixtures) — the intranet
+// owns the upstream caching; this just keeps screens from each re-pulling it.
+const dcache = new Map();
+async function cachedGet(k, url, ttl) {
+  const hit = dcache.get(k);
+  if (hit && Date.now() - hit.at < ttl) return hit.data;
+  try { const data = await getJSON(url); dcache.set(k, { at: Date.now(), data }); return data; }
+  catch (e) { if (hit) return { ...hit.data, stale: true }; throw e; }
+}
+const DAY_OK = /^(today|yesterday|tomorrow|\d{4}-\d{2}-\d{2})$/;
+async function day(id, d) {
+  const src = SOURCES[id]; if (!src || !src.dayUrl || !DAY_OK.test(String(d))) return null;
+  const today = d === 'today';
+  const r = await cachedGet(`${id}:day:${d}`, src.dayUrl(d), today ? 20_000 : 600_000);
+  if (!r || r.ok === false) return r;
+  // Today's live rows are only as fresh as the main feed; say so, like publicView does.
+  const h = health(id);
+  return { ...r, stale: !!r.stale || (today && h.stale), ageSec: today ? h.ageSec : null };
+}
+async function week(id, n) {
+  const src = SOURCES[id]; if (!src || !src.weekUrl) return null;
+  const days = Math.min(Math.max(Number(n) || 7, 1), 14);
+  return cachedGet(`${id}:week:${days}`, src.weekUrl(days), 600_000);
+}
+
 module.exports = {
+  day, week,
   start, poll, health, snapshot, publicView, fixture, table, recentEvents,
   sources: () => Object.keys(SOURCES),
   on: fn => listeners.push(fn),
