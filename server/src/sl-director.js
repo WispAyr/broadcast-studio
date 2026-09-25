@@ -38,6 +38,7 @@ const scoreboard = require('./scoreboard');
 const SRC = 'sideliners';
 const GFX = '/player/sideliners/';
 const TABLE_LEAGUES = new Set([179, 180, 183, 184, 39]);
+const LEAGUE_NAMES = { 179: 'Scottish Premiership', 180: 'Scottish Championship', 183: 'League One', 184: 'League Two', 39: 'Premier League' };
 
 const DEFAULT_SETTINGS = {
   minGapSec: 40,          // quiet time between director graphics
@@ -192,7 +193,7 @@ function onEvent(studioId, e, { late }) {
 }
 
 function tableCue(leagueId, leagueName, hl, priority = 40) {
-  return { kind: 'table', slot: 'gfx_side', duration: 14, priority, league: leagueId, title: `TABLE — ${leagueName || 'League ' + leagueId}`,
+  return { kind: 'table', slot: 'gfx_side', duration: 14, priority, league: leagueId, title: `TABLE — ${leagueName || LEAGUE_NAMES[leagueId] || 'League ' + leagueId}`,
     detail: hl ? `highlight ${hl}` : '', url: url('table.html', { league: leagueId, hl, rows: 12 }) };
 }
 function scoresCue(set, n, priority) {
