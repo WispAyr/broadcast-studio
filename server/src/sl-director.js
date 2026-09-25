@@ -204,7 +204,7 @@ function scoresCue(set, n, priority) {
 // ── airing ───────────────────────────────────────────────────────────────
 function screensFor(studioId, target) {
   let rows = db.prepare('SELECT id, accepts_broadcasts FROM screens WHERE studio_id = ?').all(studioId);
-  if (Array.isArray(target) && target.length) rows = rows.filter(s => target.includes(s.id));
+  if (Array.isArray(target)) rows = rows.filter(s => target.includes(s.id));   // [] = no screens, not all
   return { open: rows.filter(s => s.accepts_broadcasts).map(s => s.id), locked: rows.filter(s => !s.accepts_broadcasts).length };
 }
 
