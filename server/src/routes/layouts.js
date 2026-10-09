@@ -5,6 +5,7 @@ const { authenticate, optionalAuthenticate } = require('../middleware/auth');
 const { enrichLayout } = require('../lib/enrich-layout');
 const { getIO } = require('../ws');
 const { accessibleResourceIds } = require('./content-fabric');
+const { accessibleStudios } = require('./workgroups');
 
 const router = express.Router();
 
@@ -44,7 +45,19 @@ router.get('/', authenticate, (req, res) => {
     } else if (req.user.role === 'super_admin') {
       layouts = db.prepare('SELECT * FROM layouts').all();
     } else {
-      layouts = layoutsForStudio(req.user.studio_id);
+      // Home studio plus workgroup studios (see /api/me/access), so the Layouts
+      // and Screens pages show e.g. the NAR studio's layouts to an operator
+      // whose home studio is elsewhere. With no workgroups this is exactly the
+      // home studio's set, as before.
+      const ids = accessibleStudios(req.user).map(s => s.id);
+      if (req.user.studio_id && !ids.includes(req.user.studio_id)) ids.unshift(req.user.studio_id);
+      const seen = new Set();
+      layouts = [];
+      for (const id of ids) {
+        for (const l of layoutsForStudio(id)) {
+          if (!seen.has(l.id)) { seen.add(l.id); layouts.push(l); }
+        }
+      }
     }
     // Parse modules JSON string for each layout
     const parsed = layouts.map(l => {
