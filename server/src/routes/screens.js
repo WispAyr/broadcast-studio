@@ -5,6 +5,7 @@ const { authenticate, optionalAuthenticate, requireRole } = require('../middlewa
 const { getIO } = require('../ws');
 const { enrichLayout } = require('../lib/enrich-layout');
 const claims = require('../screen-claims');
+const { accessibleStudios } = require('./workgroups');
 
 // Shared broadcast-safety helpers.
 //
@@ -116,6 +117,14 @@ router.get('/', authenticate, (req, res) => {
         ORDER BY s.name, sc.screen_number
       `).all();
     } else {
+      // Every studio this user can reach: home studio plus any studio granted
+      // through a workgroup (same rule as /api/me/access and the Live picker).
+      // Before this, only the home studio's screens came back, so picking a
+      // workgroup studio in Live showed its layouts but no screens.
+      // ?studio_id= narrows to one studio, but only one the user can reach.
+      let ids = accessibleStudios(req.user).map(s => s.id);
+      if (req.query.studio_id) ids = ids.filter(id => id === req.query.studio_id);
+      if (ids.length === 0) return res.json([]);
       screens = db.prepare(`
         SELECT sc.*, s.name as studio_name, l.name as layout_name,
                sg.name as group_name, sg.profile as group_profile
@@ -123,9 +132,9 @@ router.get('/', authenticate, (req, res) => {
         LEFT JOIN studios s ON sc.studio_id = s.id
         LEFT JOIN layouts l ON sc.current_layout_id = l.id
         LEFT JOIN screen_groups sg ON sc.group_id = sg.id
-        WHERE sc.studio_id = ?
-        ORDER BY sc.screen_number
-      `).all(req.user.studio_id);
+        WHERE sc.studio_id IN (${ids.map(() => '?').join(',')})
+        ORDER BY s.name, sc.screen_number
+      `).all(...ids);
     }
     res.json(screens);
   } catch (err) {
