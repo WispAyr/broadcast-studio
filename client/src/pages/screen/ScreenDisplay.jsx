@@ -11,6 +11,7 @@ import NowPlayingL3 from '../../components/NowPlayingL3';
 import GoalGraphic, { GoalAudio } from '../../components/GoalGraphic';
 import { LookBackdrop } from '../../components/LookBackdrop';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
+import TallyOverlay, { TallyTakeoverCard } from './TallyOverlay';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
 // restores + removes itself when the media ends. `audioOutput` gates sound:
@@ -46,7 +47,7 @@ function StingOverlay({ overlay, audioOutput, onEnd }) {
   return (
     <div style={wrap}>
       <video ref={ref} src={overlay.url} muted={!wantsAudio} onEnded={done} preload="auto" playsInline
-        style={{ width: '100%', height: corner ? 'auto' : '100%', objectFit: fit, background: corner ? 'transparent' : '#000' }} />
+        style={{ width: '100%', height: corner ? 'auto' : '100%', objectFit: fit, background: (corner || overlay.transparent) ? 'transparent' : '#000' }} />
     </div>
   );
 }
@@ -365,11 +366,45 @@ function CutawayCamOverlay({ overlay }) {
   );
 }
 
+// ── HTML graphics overlay (gfx_*) ─────────────────────────────────────────
+// A self-contained graphics page (e.g. /player/sideliners/goal.html?…) shown
+// full-frame and transparent over whatever the screen carries. The same URL runs
+// unchanged as a web_source module or an OBS browser source: the page scales its
+// 1920x1080 stage to fit and animates itself in on load. On removal it gets
+// postMessage {sl:'out'} and stays mounted GFX_OUT_MS so it can animate away.
+// One slot per type (gfx_l3, gfx_full, gfx_side, gfx_corner, gfx_bug …).
+const GFX_OUT_MS = 650;
+function HtmlGfxOverlay({ overlay }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (overlay._leaving) {
+      try { ref.current?.contentWindow?.postMessage({ sl: 'out' }, '*'); } catch {}
+    }
+  }, [overlay._leaving]);
+  if (!overlay.url) return null;
+  return (
+    <iframe ref={ref} src={overlay.url} title={overlay.type}
+      allowtransparency="true" scrolling="no"
+      sandbox="allow-scripts allow-same-origin"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0,
+               background: 'transparent', colorScheme: 'normal', pointerEvents: 'none' }} />
+  );
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
 
+  if (typeof overlay.type === 'string' && overlay.type.startsWith('gfx_')) {
+    return <HtmlGfxOverlay overlay={overlay} />;
+  }
+
   if (overlay.type === 'claim_cutaway') {
     return <CutawayCamOverlay overlay={overlay} />;
+  }
+
+  // ON AIR / MIC LIVE full-screen card — claim layer `tally` (server/src/routes/tally.js).
+  if (overlay.type === 'claim_tally') {
+    return <TallyTakeoverCard overlay={overlay} />;
   }
 
   if (typeof overlay.type === 'string' && overlay.type.startsWith('df_')) {
@@ -870,26 +905,44 @@ export default function ScreenDisplay() {
     });
 
     // Overlay system
+    let pushSeq = 0;
     socket.on('push_overlay', (data) => {
       if (data.overlay) {
+        const stamp = Date.now() + (++pushSeq) / 1000;   // unique per push
         setOverlays(prev => {
           // Replace existing overlay of same type, or add new
           const filtered = prev.filter(o => o.type !== data.overlay.type);
-          return [...filtered, { ...data.overlay, _addedAt: Date.now() }];
+          return [...filtered, { ...data.overlay, _addedAt: stamp }];
         });
         // Auto-remove any overlay that carries a duration (announcements,
         // goalscorer/player-profile graphics, etc.) after `duration` seconds.
+        // Only remove the push this timer belongs to. A re-push of the same type
+        // (a claim being extended: cutaway re-trigger, tally refresh every 2 s)
+        // must not be taken down by the EARLIER push's timer.
         if (data.overlay.duration) {
           const t = data.overlay.type;
-          setTimeout(() => {
-            setOverlays(prev => prev.filter(o => o.type !== t));
-          }, data.overlay.duration * 1000);
+          const addedAt = stamp;
+          setTimeout(() => dismissOverlay(t, addedAt), data.overlay.duration * 1000);
         }
       }
     });
 
+    // Remove an overlay by type — or, with `addedAt`, only that exact push.
+    // gfx_* pages are told to animate out and stay mounted GFX_OUT_MS first; a
+    // fresh push of the same type replaces the leaving entry (no _leaving flag),
+    // so it survives the delayed filter.
+    const dismissOverlay = (t, addedAt) => {
+      const hit = o => o.type === t && (addedAt == null || o._addedAt === addedAt);
+      if (typeof t === 'string' && t.startsWith('gfx_')) {
+        setOverlays(prev => prev.map(o => hit(o) ? { ...o, _leaving: true } : o));
+        setTimeout(() => setOverlays(prev => prev.filter(o => !(o.type === t && o._leaving))), GFX_OUT_MS);
+      } else {
+        setOverlays(prev => prev.filter(o => !hit(o)));
+      }
+    };
+
     socket.on('remove_overlay', (data) => {
-      setOverlays(prev => prev.filter(o => o.type !== data.overlayType));
+      dismissOverlay(data.overlayType);
     });
 
     socket.on('clear_overlays', () => {
@@ -1280,11 +1333,14 @@ export default function ScreenDisplay() {
       {overlays.length > 0 && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
           {overlays.map(ov => (
-            <OverlayRenderer key={ov.type} overlay={ov} audioOutput={audioOutput}
+            <OverlayRenderer key={String(ov.type).startsWith('gfx_') ? `${ov.type}:${ov._addedAt}` : ov.type} overlay={ov} audioOutput={audioOutput}
               onStingEnd={() => setOverlays(prev => prev.filter(o => o.type !== 'sting'))} />
           ))}
         </div>
       )}
+
+      {/* ON AIR / MIC LIVE banner + TALLY LOST chip (takeover card is claim_tally above) */}
+      <TallyOverlay screenId={id} connected={connected} disabled={previewMode} />
 
       {/* Identify Flash */}
       {identifyFlash && (

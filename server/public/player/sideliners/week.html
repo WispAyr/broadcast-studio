@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — This week's results</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* This week's results. Full-frame, opaque (gfx_full). One page per day per competition, newest day first,
+     each headed with the day and the competition. Data: Broadcast Studio /api/datafeeds/sideliners/week. */
+  .bgfill { position: absolute; inset: 0; background: var(--hero); }
+  .bgfill::after { content: ''; position: absolute; left: -10%; right: 40%; top: 0; bottom: 0; background: rgba(21,20,53,.55); transform: skewX(-15deg); }
+
+  .board { position: absolute; left: 50%; top: 96px; bottom: 96px; width: 1480px; margin-left: -740px; display: flex; flex-direction: column; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 18px; border-bottom: 5px solid var(--amber); gap: 30px; }
+  .kick { --k: 12px; --pg: var(--amber); color: var(--navy); display: inline-block; padding: 9px 32px 11px 26px; margin-bottom: 16px;
+    font: 700 28px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+  #dayh { min-height: 84px; }
+  .head h1 { margin: 0; font: italic 700 84px/1 var(--display); white-space: nowrap; }
+  .head .hr { display: flex; align-items: flex-end; gap: 20px; padding-bottom: 6px; flex: none; }
+  .sample { padding: 5px 12px 7px; border: 2px solid var(--aqua); color: var(--aqua);
+    font: 700 20px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+  #comp { margin-top: 26px; min-height: 52px; }
+  .comp { --k: 12px; display: inline-flex; align-items: baseline; gap: 16px; padding: 10px 34px 12px 28px;
+    font: 700 32px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; }
+  .comp small { font-size: 22px; letter-spacing: .12em; opacity: .75; }
+  #rows { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--gap, 10px); padding: 10px 0 0; }
+  .row { display: grid; grid-template-columns: 1fr var(--cs) 176px var(--cs) 1fr 150px; align-items: center; column-gap: 20px;
+    height: var(--rh, 84px); background: var(--navy-glass); position: relative; padding: 0 18px 0 0; --cs: calc(var(--rh, 84px) * .66); }
+  .row.local { background: linear-gradient(90deg, rgba(250, 166, 26, .26), var(--navy-glass) 26%, var(--navy-glass) 74%, rgba(250, 166, 26, .26)); }
+  .row.local::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; background: var(--amber); }
+  .row .crest { box-shadow: 0 0 0 2px rgba(255,255,255,.14); }
+  .row .crest.mono { box-shadow: inset 0 0 0 3px rgba(255,255,255,.9); }
+  .row .crest.mono span { font-size: calc(var(--cs) * .27); letter-spacing: -.02em; }
+  .t { font: italic 700 var(--fs, 42px)/1.1 var(--display); white-space: nowrap; overflow: hidden; min-width: 0; padding: 2px 0 4px; }
+  .t.h { text-align: right; padding-left: 30px; } .t.a { text-align: left; }
+  .sc { justify-self: center; align-self: stretch; margin: 8px 0; width: 100%; background: #fff; color: var(--navy);
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    font: italic 700 calc(var(--fs, 42px) * 1.12)/1 var(--display); font-variant-numeric: tabular-nums; }
+  .sc i { font-style: normal; opacity: .35; }
+  .sc.v { background: transparent; box-shadow: inset 0 0 0 2px rgba(255,255,255,.42); color: rgba(255,255,255,.55); font-size: calc(var(--fs, 42px) * .8); }
+  .st { justify-self: end; min-width: 110px; text-align: center; padding: 8px 12px 10px; font: 700 calc(var(--fs, 42px) * .66)/1 var(--body);
+    letter-spacing: .06em; border: 2px solid rgba(255,255,255,.4); white-space: nowrap; }
+  .st.pp { border-color: var(--red); }
+  .msg { align-self: center; display: flex; align-items: center; gap: 18px; height: 80px; padding: 0 36px; background: var(--navy-glass); border-top: 5px solid var(--amber);
+    font: 700 32px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+  .msg.upd { border-top-color: var(--aqua); }
+  .msg .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--aqua); }
+  .in .msg .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .foot { display: flex; align-items: center; padding-top: 18px; gap: 26px; }
+  .foot img { height: 40px; }
+  .legend { font: 700 22px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); display: flex; align-items: center; gap: 12px; }
+  .pgn { margin-left: auto; display: flex; align-items: center; gap: 18px; font: 700 22px/1 var(--body); letter-spacing: .18em; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .bar { width: 220px; height: 5px; background: rgba(255,255,255,.2); }
+  .bar b { display: block; height: 100%; width: 0; background: var(--amber); }
+  .bar.run b { animation: prog var(--pt, 8s) linear forwards; }
+  @keyframes prog { to { width: 100%; } }
+  /* Page turn: the changing parts wipe off to the right, the next page wipes in from the left */
+  .gone .a { clip-path: inset(-20px -40px -20px 100%) !important; transition: clip-path .36s var(--ease-wipe) var(--od, 0s) !important; }
+  .pre .a { clip-path: inset(-20px 100% -20px -40px) !important; transition: none !important; }
+
+  /* ---- Portrait: fills the safe box; two-line rows (home over away), goals in a white column ---- */
+  .portrait .board { left: var(--sx); margin-left: 0; width: var(--sw); top: 290px; bottom: 480px; }
+  .portrait .bgfill::after { left: -40%; right: 30%; }
+  .portrait .head { flex-direction: column-reverse; align-items: flex-start; gap: 14px; padding-bottom: 20px; border-bottom-width: 6px; }
+  .portrait .head .hr { padding-bottom: 0; width: 100%; }
+  .portrait .head .hr #brand { margin-left: auto; }
+  .portrait .head .sample { margin: 0 0 12px 0; }
+  .portrait .kick { font-size: 30px; }
+  .portrait #dayh { min-height: 0; }
+  .portrait .head h1 { font-size: 76px; line-height: 1.02; white-space: normal; }
+  .portrait #comp { margin-top: 22px; }
+  .portrait .comp { font-size: 30px; }
+  .portrait #rows { justify-content: flex-start; gap: var(--gap, 8px); padding-top: 14px; }
+  .portrait #rows > :first-child { margin-top: auto; }
+  .portrait #rows > :last-child { margin-bottom: auto; }
+  .portrait .row { grid-template-columns: var(--cs) 1fr 84px 128px; grid-template-rows: auto auto; column-gap: 20px; row-gap: 0;
+    height: auto; padding: 0 0 0 30px; --cs: 54px; }
+  .portrait .row { --cs: calc(var(--fs, 44px) * 1.2); }
+  .portrait .row .crest.hc { grid-row: 1; grid-column: 1; margin-top: calc(var(--fs, 44px) * .2); }
+  .portrait .row .crest.ac { grid-row: 2; grid-column: 1; margin-bottom: calc(var(--fs, 44px) * .2); }
+  .portrait .t.h { grid-row: 1; grid-column: 2; text-align: left; padding: calc(var(--fs, 44px) * .28) 0 calc(var(--fs, 44px) * .06); }
+  .portrait .t.a { grid-row: 2; grid-column: 2; padding: calc(var(--fs, 44px) * .06) 0 calc(var(--fs, 44px) * .28); }
+  .portrait .sc { display: contents; }
+  .portrait .g { grid-column: 3; background: #fff; color: var(--navy); align-self: stretch; display: grid; place-items: center;
+    font: italic 700 calc(var(--fs, 44px) * 1.1)/1 var(--display); font-variant-numeric: tabular-nums; }
+  .portrait .g.h { grid-row: 1; padding-top: 6px; } .portrait .g.a { grid-row: 2; padding-bottom: 6px; }
+  .portrait .sc i { display: none; }
+  .portrait .sc.v .g { background: transparent; }
+  .portrait .st { grid-row: 1 / 3; grid-column: 4; justify-self: center; min-width: 100px; font-size: calc(var(--fs, 44px) * .66); }
+  .portrait .msg { font-size: 30px; height: 84px; padding: 0 30px; }
+  .portrait .foot { flex-wrap: wrap; row-gap: 14px; }
+  .portrait .foot img { height: 44px; margin-left: auto; }
+  .portrait .pgn { order: 3; flex-basis: 100%; margin-left: 0; }
+  .portrait .bar { flex: 1; }
+</style></head>
+<body>
+<div class="bgfill a fade"></div>
+<div class="board">
+  <div class="head a wipe" style="--d:.05s">
+    <div style="min-width:0"><div class="kick pg" id="kick"></div><div id="dayh"></div></div>
+    <div class="hr" id="hr"></div>
+  </div>
+  <div id="comp"></div>
+  <div id="rows"></div>
+  <div class="foot a fade" style="--d:.9s">
+    <span class="legend" id="legend"><span class="ayr">Ayrshire</span> Ayrshire clubs highlighted</span>
+    <span class="pgn" id="pgn"></span>
+    <img src="logo/nar-long-white.svg" alt="Now Ayrshire Radio">
+  </div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* Params
+     days=7   how far back (passed to the feed)      feed= JSON source (default /api/datafeeds/sideliners/week?days=<days>)
+     tier=    1,2 (default) filter on league.tier; tier=all for every tier      league= <id>[,<id>]
+     page=8   seconds per page      per= rows per page (landscape 8, portrait 6; a longer competition splits 1/2, 2/2)
+     title=   override the kicker ("This week's results")      demo=1 built-in sample week (marked SAMPLE DATA) · demo=empty
+   Finished and off fixtures only, exactly as the feed gives them: FT / AET / PENS with the score, P-P (OFF, ABND) without.
+   Ayrshire clubs are highlighted. Nothing is predicted. Refreshes every 10 min; the page loop carries on meanwhile. */
+  var PORT = SL.portrait, DEMO = SL.p('demo'), DAYS = SL.p('days', '7');
+  var FEED = SL.p('feed', '/api/datafeeds/sideliners/week?days=' + encodeURIComponent(DAYS));
+  var PER = Math.max(1, +SL.p('per', PORT ? 6 : 8) || 8), PAGE = Math.max(3, +SL.p('page', 8) || 8);
+  var TIERS = SL.p('tier', '1,2') === 'all' ? [] : SL.p('tier', '1,2').split(/\s*,\s*/).filter(Boolean).map(Number);
+  var LEAGUES = SL.list('league').map(String);
+  var DATA = null, pages = [], pi = 0, cycleT = 0, shown = '', last = {};
+  function el(id) { return document.getElementById(id); }
+
+  var WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MO = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function longDate(ymd) {
+    var p = String(ymd || '').split('-').map(Number); if (p.length !== 3 || !p[0]) return '';
+    var d = new Date(Date.UTC(p[0], p[1] - 1, p[2])); return WD[d.getUTCDay()] + ' ' + p[2] + ' ' + MO[p[1] - 1];
+  }
+  function isLocal(f) {
+    var h = f.home || {}, a = f.away || {};
+    return f.local === 'AYRSHIRE' || h.local === 'AYRSHIRE' || a.local === 'AYRSHIRE' || SL.isAyr(h.name) || SL.isAyr(a.name);
+  }
+  var FIN_ST = ['FT', 'AET', 'PEN'], OFF_ST = ['PST', 'CANC', 'ABD', 'AWD', 'WO'];
+  function keep(f) {
+    var L = f.league || {}, s = String(f.status || '').toUpperCase();
+    if (TIERS.length && TIERS.indexOf(+L.tier) === -1) return false;
+    if (LEAGUES.length && LEAGUES.indexOf(String(L.id)) === -1) return false;
+    // results only: anything not settled or called off is left out, whatever the feed carries
+    return f.finished === true || f.off === true || FIN_ST.indexOf(s) !== -1 || OFF_ST.indexOf(s) !== -1;
+  }
+  function cells(f) {
+    var s = String(f.status || '').toUpperCase(), h = f.home && f.home.goals, a = f.away && f.away.goals;
+    var off = !(f.finished === true || FIN_ST.indexOf(s) !== -1);
+    var g = !off && h != null && a != null;
+    var sc = PORT ? '<span class="sc' + (g ? '' : ' v') + '"><span class="g h">' + (g ? h : '') + '</span><span class="g a">' + (g ? a : '') + '</span></span>'
+                  : '<span class="sc' + (g ? '' : ' v') + '">' + (g ? h + '<i>–</i>' + a : 'v') + '</span>';
+    var st = off ? (s === 'CANC' ? 'OFF' : s === 'ABD' ? 'ABND' : s === 'AWD' || s === 'WO' ? 'AWD' : 'P-P') : s === 'AET' ? 'AET' : s === 'PEN' ? 'PENS' : 'FT';
+    return [sc, '<span class="st' + (off ? ' pp' : '') + '">' + st + '</span>'];
+  }
+  function paginate() {
+    var out = [];
+    ((DATA && DATA.days) || []).forEach(function (day) {
+      var groups = [], by = {};
+      (day.fixtures || []).filter(keep).forEach(function (f) {
+        var L = f.league || {}, key = L.id != null ? L.id : L.name;
+        if (!by[key]) { by[key] = { name: L.name || '', tier: L.tier == null ? 99 : +L.tier, items: [] }; groups.push(by[key]); }
+        by[key].items.push(f);
+      });
+      groups.sort(function (a, b) { return a.tier - b.tier || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+      groups.forEach(function (g) {
+        g.items.sort(function (a, b) { return (a.ts || 0) - (b.ts || 0) || String((a.home || {}).name).localeCompare(String((b.home || {}).name)); });
+        var n = Math.ceil(g.items.length / PER);
+        for (var p = 0; p < n; p++) out.push({ date: day.date, comp: g.name, part: n > 1 ? (p + 1) + '/' + n : '', items: g.items.slice(p * PER, (p + 1) * PER) });
+      });
+    });
+    return out;
+  }
+  function rowHtml(f, i) {
+    var h = f.home || {}, a = f.away || {}, c = cells(f);
+    var d = ' style="--d:' + (.14 + i * .06).toFixed(2) + 's;--od:' + (i * .03).toFixed(2) + 's"';
+    return '<div class="row a wipe' + (isLocal(f) ? ' local' : '') + '"' + d + '>' +
+      '<span class="t h">' + SL.esc(h.name) + '</span>' + SL.crest(h.logo, h.name).replace('class="crest', 'class="crest hc') + c[0] +
+      SL.crest(a.logo, a.name).replace('class="crest', 'class="crest ac') + '<span class="t a">' + SL.esc(a.name) + '</span>' + c[1] + '</div>';
+  }
+
+  el('kick').textContent = SL.p('title', "This week's results");
+  el('hr').innerHTML = (DEMO ? '<span class="sample a fade" style="--d:.5s">Sample data</span>' : '') + '<span id="brand">' + SL.wordmark(64) + '</span>';
+
+  function paint(anim) {
+    var dayh = '', comp = '', rows, pgn = '';
+    if (!DATA || DATA.ok === false) rows = '<div class="msg upd a wipe" style="--d:.15s"><span class="dot"></span>Results updating</div>';
+    else if (!pages.length) rows = '<div class="msg a wipe" style="--d:.15s">No results this week</div>';
+    else {
+      var pg = pages[pi % pages.length];
+      dayh = '<h1 class="a wipe" id="h1" style="--d:.12s">' + SL.esc(longDate(pg.date) || pg.date) + '</h1>';
+      comp = '<div class="comp pg a wipe" style="--d:.1s;--od:.04s">' + SL.esc(pg.comp) + (pg.part ? '<small>' + pg.part + '</small>' : '') + '</div>';
+      rows = pg.items.map(rowHtml).join('');
+      if (pages.length > 1) pgn = '<span>' + ((pi % pages.length) + 1) + ' / ' + pages.length + '</span><span class="bar" id="bar"><b></b></span>';
+    }
+    var key = dayh + comp + rows;
+    var parts = [['dayh', dayh], ['comp', comp], ['rows', rows]];
+    var targets = parts.filter(function (x) { return anim === 'pre' || last[x[0]] !== x[1]; }).map(function (x) { return el(x[0]); });
+    var apply = function () {
+      parts.forEach(function (x) { if (last[x[0]] !== x[1]) { el(x[0]).innerHTML = x[1]; last[x[0]] = x[1]; } });
+      el('pgn').innerHTML = pgn; bar();
+      el('legend').style.visibility = el('rows').querySelector('.row.local') ? '' : 'hidden';
+      fit(); shown = key;
+    };
+    if (key === shown) { el('pgn').innerHTML = pgn; bar(); return; }
+    if (anim === 'pre') {
+      apply(); targets.forEach(function (t) { t.classList.add('pre'); }); void document.body.offsetWidth;
+      targets.forEach(function (t) { t.classList.remove('pre'); });
+    } else if (anim && shown && document.body.classList.contains('in')) {
+      targets.forEach(function (t) { t.classList.add('gone'); });
+      setTimeout(function () {
+        apply(); targets.forEach(function (t) { t.classList.remove('gone'); t.classList.add('pre'); });
+        void document.body.offsetWidth; targets.forEach(function (t) { t.classList.remove('pre'); });
+      }, 400);
+    } else apply();
+  }
+  function bar() {
+    var b = el('bar'); if (!b) return;
+    if (!SL.on || SL.p('static') === '1') return;
+    b.style.setProperty('--pt', PAGE + 's'); b.classList.remove('run'); void b.offsetWidth; b.classList.add('run');
+  }
+  // Height the content actually needs (scrollHeight can't see overflow above a centred flex column)
+  function used(box) {
+    var k = box.children; if (!k.length) return 0;
+    var f = k[0], l = k[k.length - 1], cs = getComputedStyle(box);
+    return l.offsetTop + l.offsetHeight + parseFloat(getComputedStyle(l).marginBottom) - f.offsetTop + parseFloat(getComputedStyle(f).marginTop) +
+      parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  }
+  function fit() {
+    var rows = el('rows'), s = document.body.style, n = rows.querySelectorAll('.row').length || 1;
+    if (!PORT) {
+      var rh = Math.max(56, Math.min(96, Math.floor(620 / Math.max(n, 5)) - 12));
+      s.setProperty('--rh', rh + 'px'); s.setProperty('--fs', Math.round(rh * .48) + 'px'); s.setProperty('--gap', (rh > 70 ? 12 : 8) + 'px');
+      while (rh > 48 && used(rows) > rows.clientHeight) { rh -= 2; s.setProperty('--rh', rh + 'px'); s.setProperty('--fs', Math.round(rh * .48) + 'px'); }
+    } else {
+      for (var fs = 52; fs >= 28; fs -= 2) {
+        s.setProperty('--fs', fs + 'px'); s.setProperty('--gap', Math.round(fs * .18) + 'px');
+        if (rows.scrollHeight <= rows.clientHeight + 1) break;
+      }
+    }
+    rows.querySelectorAll('.t').forEach(function (t) { SL.shrink(t, PORT ? 28 : 24); });
+    var h1 = el('h1'); if (h1) (PORT ? SL.fitLines(h1, 2, 48) : SL.shrink(h1, 48));
+  }
+  function turn() { pi = pages.length ? (pi + 1) % pages.length : 0; paint(true); }
+  function startCycle() { clearInterval(cycleT); pi = 0; paint('pre'); if (pages.length > 1) cycleT = setInterval(turn, PAGE * 1000); }
+
+  function demoData() {
+    function ymd(off) { var d = new Date(Date.now() - off * 864e5); return d.toISOString().slice(0, 10); }
+    function fx(id, lg, h, a, hg, ag, st) {
+      var off = OFF_ST.indexOf(st) !== -1;
+      return { id: id, ts: 0, league: lg, status: st, elapsed: off ? null : 90, live: false, finished: !off, off: off,
+        home: { name: h, logo: '', goals: off ? null : hg, local: SL.isAyr(h) ? 'AYRSHIRE' : 'SCOTTISH' },
+        away: { name: a, logo: '', goals: off ? null : ag, local: SL.isAyr(a) ? 'AYRSHIRE' : 'SCOTTISH' }, scorers: [], local: SL.isAyr(h) || SL.isAyr(a) ? 'AYRSHIRE' : null };
+    }
+    var P = { id: 179, name: 'Scottish Premiership', tier: 1 }, C = { id: 180, name: 'Scottish Championship', tier: 2 };
+    // the most recent Saturday and the Tuesday before it
+    var dow = new Date().getUTCDay(), sat = (dow + 1) % 7, tue = sat + 4;
+    var d = { ok: true, from: ymd(6), to: ymd(0), days: [
+      { date: ymd(sat), fixtures: [
+        fx(1, P, 'Kilmarnock', 'Celtic', 2, 1, 'FT'), fx(2, P, 'Hearts', 'Aberdeen', 0, 0, 'FT'), fx(3, P, 'Rangers', 'Motherwell', 3, 1, 'FT'),
+        fx(4, P, 'Dundee United', 'Hibernian', 1, 1, 'FT'), fx(5, P, 'St Mirren', 'Dundee', 1, 0, 'FT'), fx(6, P, 'Livingston', 'Falkirk', 2, 2, 'FT'),
+        fx(7, C, 'Ayr United', 'Inverness Caledonian Thistle', 2, 0, 'FT'), fx(8, C, 'Raith Rovers', 'Greenock Morton', 0, 1, 'FT'),
+        fx(9, C, "Queen's Park", 'Airdrieonians', null, null, 'PST'), fx(10, C, 'Partick Thistle', 'Arbroath', 3, 3, 'FT'),
+        fx(11, C, 'Dunfermline Athletic', 'Ross County', 1, 2, 'FT')] },
+      { date: ymd(tue), fixtures: [fx(12, C, 'Inverness Caledonian Thistle', 'Ayr United', 1, 1, 'AET')] }] };
+    if (tue > 6) d.days.pop();
+    if (DEMO === 'empty') d.days = [];
+    return d;
+  }
+  function load() {
+    var p = DEMO ? Promise.resolve(demoData())
+      : fetch(FEED, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    return p.then(function (d) { DATA = d; }, function () { /* keep what we had: "Results updating" only until real data arrives */ })
+      .then(function () {
+        var before = JSON.stringify(pages); pages = paginate();
+        if (JSON.stringify(pages) === before) return;
+        if (pi >= pages.length) pi = 0;
+        if (SL.on) { clearInterval(cycleT); paint(true); if (pages.length > 1) cycleT = setInterval(turn, PAGE * 1000); }
+      });
+  }
+  document.addEventListener('sl:in', function () { if (SL.p('static') === '1') { shown = ''; paint(false); return; } startCycle(); });
+  document.addEventListener('sl:out', function () { clearInterval(cycleT); });
+  var booted = false;
+  function boot() { if (booted) return; booted = true; paint(false); SL.boot(); }
+  if (document.fonts) document.fonts.ready.then(function () { if (el('rows').innerHTML) fit(); });
+  setTimeout(boot, 4000);
+  load().then(boot);
+  setInterval(load, 600000);
+</script>
+</body></html>

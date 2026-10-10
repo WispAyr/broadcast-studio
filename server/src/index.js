@@ -58,6 +58,7 @@ app.use('/api/screen-groups', require('./routes/screen-groups'));
 const cutawayStream = require('./cutaway-stream-proxy');
 app.use(cutawayStream.PREFIX, cutawayStream.router);
 app.use('/api/cutaway', require('./routes/cutaway'));   // trigger-driven temporary screen takeover
+app.use('/api/tally', require('./routes/tally'));       // ON AIR / MIC LIVE tally from the studio-tap relay
 app.use('/api/shows', require('./routes/shows'));
 app.use('/api/layouts', require('./routes/layouts'));
 app.use('/api/modules', require('./routes/modules'));
@@ -91,6 +92,10 @@ app.use('/api/livetv', require('./routes/livetv'));
 app.use('/api/web-sources', require('./routes/web-sources'));
 app.use('/api/pavilion-festival', require('./routes/pavilion-festival'));
 app.use('/api/pavilion-events', require('./routes/pavilion-events'));
+// External data feeds (football from the NAR intranet) + the SideLiners director bot.
+const slLive = require('./routes/sideliners-live');
+app.use('/api/datafeeds', slLive.datafeeds);
+app.use('/api/sl-director', slLive.director);
 // Banner/emergency push + scheduled layout changes (Kiltwalk live-event ops).
 const broadcastRoutes = require('./routes/broadcast');
 app.use('/api/broadcast', broadcastRoutes.router);
@@ -402,6 +407,9 @@ server.listen(PORT, () => {
   // screens back. Must run: without it a cutaway never ends. Also sweeps at boot,
   // so a restart mid-hold does not strand a screen on the door camera.
   require('./screen-claims').start();
+  // Tally — 1s loop: marks a studio LOST after stale_ms without ingest, releases
+  // takeover claims that are no longer wanted, re-sends display state every 5s.
+  require('./routes/tally').start();
   // Now-playing poller for NAR (broadcast.radio station 7719).
   require('./nowplaying').startNarNowPlaying();
   // Card wall — daypart "now on air" graphic on the main screen wall.
@@ -409,4 +417,8 @@ server.listen(PORT, () => {
   // Web sources — re-resolve expiring manifest URLs before they die, and keep
   // a last-known-good still for each so a wall never goes black.
   require('./lib/web-source-refresher').start({ relayBase: process.env.WEB_SOURCE_RELAY_BASE });
+  // External data feeds + SideLiners director (director studios default to 'off'
+  // until someone opens the control page; AUTO needs an explicit, expiring arm).
+  require('./datafeeds').start();
+  require('./sl-director').start();
 });

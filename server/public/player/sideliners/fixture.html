@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Match preview card</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  .card { position: absolute; left: 50%; bottom: 100px; width: 1500px; margin-left: -750px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; }
+  .comp { --k: 14px; padding: 10px 40px 12px 34px; font: 700 32px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; }
+  .row { display: flex; align-items: stretch; height: 176px; }
+  .side { flex: 1; min-width: 0; background: var(--navy-glass); display: flex; align-items: center; gap: 30px; padding: 0 36px; border-top: 5px solid var(--amber); }
+  .side.away { flex-direction: row-reverse; text-align: right; }
+  .who { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .away .who { align-items: flex-end; }
+  .team { font: italic 700 60px/1.02 var(--display); white-space: nowrap; overflow: hidden; max-width: 470px; }
+  .team.long { font-size: 48px; }
+  .label { font: 700 24px/1 var(--body); letter-spacing: .18em; color: var(--ink-2); text-transform: uppercase; }
+  .vs { --pg: #fff; --k: 22px; flex: none; width: 170px; margin: 0 -10px; display: grid; place-items: center; color: var(--navy); font: italic 700 64px/1 var(--display); z-index: 1; }
+  .meta { margin: 0 auto; width: max-content; display: flex; font: 700 34px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; }
+  .meta span { padding: 11px 30px 14px; background: #fff; color: var(--navy); }
+  .meta .ko { background: var(--amber); }
+  /* Portrait: home over away, "v" chip on the seam, meta under — bottom-left of the safe box */
+  .portrait .card { left: var(--sx); margin-left: 0; width: var(--sw); bottom: var(--pb); }
+  .portrait .comp { font-size: 36px; padding: 11px 42px 13px 36px; --k: 16px; }
+  .portrait .top #brand { margin-bottom: 8px; }
+  .portrait .row { flex-direction: column; height: auto; position: relative; }
+  .portrait .side { flex: none; height: 168px; gap: 30px; padding: 0 150px 0 36px; --cs: 116px; border-top-width: 6px; }
+  .portrait .side.away { flex-direction: row; text-align: left; border-top: 2px solid rgba(255, 255, 255, .14); }
+  .portrait .away .who { align-items: flex-start; }
+  .portrait .team { font-size: 66px; max-width: none; }
+  .portrait .team.long { font-size: 56px; }
+  .portrait .label { font-size: 26px; }
+  .portrait .vs { position: absolute; right: 28px; top: 50%; margin: -52px 0 0; width: 124px; height: 104px; font-size: 64px; --k: 18px; }
+  .portrait .meta { margin: 0; width: auto; flex-wrap: wrap; font-size: 40px; }
+  .portrait .meta span { padding: 13px 32px 16px; }
+</style></head>
+<body>
+<div class="card">
+  <div class="top">
+    <div class="comp pg a wipe" style="--d:.45s" id="comp"></div>
+    <span class="a rise" style="--d:.7s" id="brand"></span>
+  </div>
+  <div class="row">
+    <div class="side home a wipe-r" style="--d:.1s" id="home"></div>
+    <div class="vs pg a pop" style="--d:0s; --od:.2s">v</div>
+    <div class="side away a wipe" style="--d:.1s" id="away"></div>
+  </div>
+  <div class="meta a wipe-mid" style="--d:.55s" id="meta"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  function side(el, name, crest, col, label, forceAyr) {
+    var ayr = forceAyr || SL.isAyr(name);
+    el.innerHTML = SL.crest(crest, name, col) +
+      '<div class="who"><span class="label">' + SL.esc(label) + '</span>' +
+      '<span class="team' + (name.length > 15 ? ' long' : '') + '">' + SL.esc(name) + '</span>' +
+      (ayr ? '<span><span class="ayr">Ayrshire</span></span>' : '') + '</div>';
+  }
+  var ayr = SL.p('ayr'); // override: home | away | both | none
+  side(document.getElementById('home'), SL.p('h', 'Kilmarnock'), SL.p('hc'), SL.p('hcol'), 'Home', ayr === 'home' || ayr === 'both');
+  side(document.getElementById('away'), SL.p('a', 'Celtic'), SL.p('ac'), SL.p('acol'), 'Away', ayr === 'away' || ayr === 'both');
+  if (ayr === 'none') document.querySelectorAll('.ayr').forEach(function (x) { x.parentNode.remove(); });
+  var comp = SL.p('comp', 'Scottish Premiership');
+  if (comp) document.getElementById('comp').textContent = comp; else document.getElementById('comp').style.visibility = 'hidden';
+  var meta = [];
+  if (SL.p('ko', '3pm')) meta.push('<span class="ko">KO ' + SL.esc(SL.p('ko', '3pm')) + '</span>');
+  if (SL.p('day')) meta.push('<span>' + SL.esc(SL.p('day')) + '</span>');
+  if (SL.p('v', 'Rugby Park')) meta.push('<span>' + SL.esc(SL.p('v', 'Rugby Park')) + '</span>');
+  document.getElementById('meta').innerHTML = meta.join('');
+  document.getElementById('brand').innerHTML = SL.wordmark(SL.portrait ? 64 : 52);
+  if (SL.portrait) document.fonts.ready.then(function () {
+    document.querySelectorAll('.team').forEach(function (t) { SL.shrink(t, 36); });
+  });
+  SL.boot();
+</script>
+</body></html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Kick-off countdown</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  .cd { position: absolute; right: 110px; bottom: 110px; display: flex; flex-direction: column; align-items: flex-end; }
+  .lab {
+    --k: 12px; padding-left: 30px !important; padding: 9px 24px 11px; font: 700 28px/1 var(--body); letter-spacing: .2em; text-transform: uppercase;
+  }
+  .box { display: flex; align-items: stretch; background: var(--navy-glass); border-top: 5px solid var(--amber); }
+  .match { display: flex; align-items: center; padding: 0 30px; font: italic 700 40px/1 var(--display); white-space: nowrap; max-width: 760px; overflow: hidden; text-overflow: ellipsis; }
+  .time {
+    display: flex; align-items: baseline; gap: 4px; background: #fff; color: var(--navy); padding: 14px 28px 12px;
+    font: 700 86px/1 var(--body); font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  }
+  .time small { font-size: 40px; font-weight: 700; margin-left: 2px; color: rgba(21,20,53,.6); }
+  .brand { margin-bottom: 12px; }
+  /* Portrait: top-right of the safe box, clear of the bug (top-left) and the lower-third zone */
+  .portrait .cd { top: 410px; bottom: auto; right: calc(1080px - 950px); max-width: var(--sw); }
+  .portrait .lab { font-size: 32px; padding: 10px 26px 12px; }
+  .portrait .box { max-width: var(--sw); }
+  .portrait .match { font-size: 46px; max-width: none; min-width: 0; flex: 0 1 auto; padding: 0 32px; }
+  .portrait .time { flex: none; }
+  .portrait .time { font-size: 104px; padding: 16px 30px 14px; }
+  .portrait .time small { font-size: 48px; }
+</style></head>
+<body>
+<div class="cd">
+  <div class="brand a rise" style="--d:.6s" id="brand"></div>
+  <div class="lab pg a wipe-r" style="--d:.3s" id="lab"></div>
+  <div class="box a wipe-r" style="--d:0s">
+    <div class="match" id="match"></div>
+    <div class="time" id="time"></div>
+  </div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* ?to=15:00 (today, local studio time) or a full ISO time ?to=2026-09-26T15:00
+     ?m=Kilmarnock v Celtic   ?lab=Kick-off in   ?done=Under way */
+  document.getElementById('brand').innerHTML = SL.wordmark(SL.portrait ? 62 : 52);
+  var m = SL.p('m', 'Kilmarnock v Celtic');
+  if (m) document.getElementById('match').textContent = m; else document.getElementById('match').remove();
+  var lab = document.getElementById('lab');
+  var to = SL.p('to', '15:00'), target;
+  if (/^\d{1,2}:\d{2}$/.test(to)) {
+    var hm = to.split(':'); target = SL.londonToday(+hm[0], +hm[1]);   // HH:MM London, whatever the PC's zone
+  } else target = new Date(to);
+  var el = document.getElementById('time');
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function tick() {
+    var s = Math.round((target - SL.now()) / 1000);
+    if (isNaN(s)) { el.textContent = '--:--'; return; }
+    if (s <= 0) { lab.textContent = SL.p('lab', 'Kick-off'); el.textContent = SL.p('done', 'Under way'); el.style.fontSize = SL.portrait ? '72px' : '60px'; return; }
+    lab.textContent = SL.p('lab', 'Kick-off in');
+    var h = Math.floor(s / 3600), mi = Math.floor(s % 3600 / 60), se = s % 60;
+    el.innerHTML = h ? h + '<small>h</small>&nbsp;' + pad(mi) + '<small>m</small>' : pad(mi) + ':' + pad(se);
+  }
+  tick(); setInterval(tick, 1000);
+  if (SL.portrait) document.fonts.ready.then(function () { SL.shrink(document.getElementById('match'), 30); });
+  SL.boot();
+</script>
+</body></html>

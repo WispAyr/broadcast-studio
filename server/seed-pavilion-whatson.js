@@ -49,9 +49,9 @@ function fullBleed(config, type = 'pavilion_whats_on') { return [{ type, x: 0, y
 
 const LAYOUTS = [
   { key: 'a-portrait',  name: "Pavilion: What's On — Screen A (Portrait)",           orientation: 'portrait',  w: 1080, h: 1920, modules: fullBleed({ mode: 'upcoming', holdSeconds: 13, comingUp: 4 }) },
-  { key: 'b-portrait',  name: "Pavilion: What's On — Screen B Featured (Portrait)",  orientation: 'portrait',  w: 1080, h: 1920, modules: fullBleed({ mode: 'featured', holdSeconds: 13, comingUp: 4 }) },
+  { key: 'b-portrait',  name: "Pavilion: What's On — Screen B Featured (Portrait)",  orientation: 'portrait',  w: 1080, h: 1920, modules: fullBleed({ mode: 'featured', holdSeconds: 13, comingUp: 4, offset: 'half', comingUpFrom: 'after' }) },
   { key: 'a-landscape', name: "Pavilion: What's On (Landscape)",                     orientation: 'landscape', w: 1920, h: 1080, modules: fullBleed({ mode: 'upcoming', holdSeconds: 13, comingUp: 4 }) },
-  { key: 'b-landscape', name: "Pavilion: What's On — Featured (Landscape)",          orientation: 'landscape', w: 1920, h: 1080, modules: fullBleed({ mode: 'featured', holdSeconds: 13, comingUp: 4 }) },
+  { key: 'b-landscape', name: "Pavilion: What's On — Featured (Landscape)",          orientation: 'landscape', w: 1920, h: 1080, modules: fullBleed({ mode: 'featured', holdSeconds: 13, comingUp: 4, offset: 'half', comingUpFrom: 'after' }) },
   { key: 'tl-portrait',  name: 'Pavilion: Calendar Timeline (Portrait)',              orientation: 'portrait',  w: 1080, h: 1920, modules: fullBleed({ mode: 'upcoming', holdSeconds: 8 }, 'pavilion_calendar_timeline') },
   { key: 'tl-landscape', name: 'Pavilion: Calendar Timeline (Landscape)',             orientation: 'landscape', w: 1920, h: 1080, modules: fullBleed({ mode: 'upcoming', holdSeconds: 8 }, 'pavilion_calendar_timeline') },
 ];

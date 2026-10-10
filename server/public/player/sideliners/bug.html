@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Corner bug</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* Official show bar + the white NAR lockup on navy (white-on-dark per the guidelines). */
+  .bug { position: absolute; top: 54px; right: 72px; height: 76px; display: flex; align-items: stretch; }
+  .mark { display: flex; align-items: center; padding: 0 6px 0 0; }
+  .nar-box { display: flex; align-items: center; padding: 0 24px; background: var(--navy-glass); border-bottom: 4px solid var(--amber); }
+  .nar-box .nar { --h: 38px; }
+  .clock {
+    display: flex; align-items: center; padding: 0 22px; background: #fff; color: var(--navy);
+    font: 700 42px/1 var(--body); font-variant-numeric: tabular-nums;
+  }
+  .live { display: flex; align-items: center; gap: 10px; padding: 0 20px; background: var(--red);
+    font: 700 30px/1 var(--body); letter-spacing: .16em; }
+  .live i { width: 14px; height: 14px; border-radius: 50%; background: #fff; animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  /* Portrait: top-left of the safe box, just under the platform header zone */
+  .portrait .bug { top: 290px; left: var(--sx); right: auto; max-width: var(--sw); }
+</style></head>
+<body>
+<div class="bug">
+  <div class="live a wipe" id="live" style="--d:.5s"><i></i>LIVE</div>
+  <div class="mark a wipe-r" id="mark" style="--d:.1s"></div>
+  <div class="nar-box a wipe-r" id="narbox" style="--d:0s"><img class="nar" src="logo/nar-long-white.svg" alt="Now Ayrshire Radio"></div>
+  <div class="clock a wipe" id="clock" style="--d:.35s"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  document.getElementById('mark').innerHTML = SL.wordmark(76);
+  if (SL.p('live') !== '1') document.getElementById('live').remove();
+  if (SL.p('nar') === '0') document.getElementById('narbox').remove();
+  var clock = document.getElementById('clock');
+  if (SL.p('clock', '1') === '0') clock.remove();
+  else {
+    var tick = function () { clock.textContent = SL.hhmm(); };
+    tick(); setInterval(tick, 1000);
+  }
+  SL.boot();
+</script>
+</body></html>

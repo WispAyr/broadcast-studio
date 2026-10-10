@@ -1,0 +1,135 @@
+/* SideLiner's graphics package — shared tokens + motion.
+   Brand: NAR Brand Guidelines v2 (live.standards.site/nowayrshireradio) + the show's own
+   artwork from nowayrshireradio.co.uk/shows/now-sport (purple→navy slanted bars, Amber Gold).
+   Rules held here, not per page:
+   - Palette tokens only. Ember gradient is the NOW tab's — it lives in the logo, never as fill.
+   - Hero backdrop is the guideline gradient exactly.
+   - MuseoModerno Bold Italic for display; Darker Grotesque Light 300 / Bold 700 for text.
+   - The show mark is the official artwork (logo/sideliners-*.png), never re-typeset.
+   Every graphic is authored on a 1920x1080 transparent stage and runs unchanged as a
+   Broadcast Studio overlay / web_source module or an OBS browser source. */
+
+@font-face { font-family: 'MuseoModerno'; src: url(../fonts/MuseoModerno-BoldItalic.ttf); font-weight: 700; font-style: italic; }
+@font-face { font-family: 'Darker Grotesque'; src: url(../fonts/DarkerGrotesque-var.ttf); font-weight: 300 700; }
+
+:root {
+  /* Primary */
+  --orange: #F15A22;
+  --red: #ED1B2F;
+  --amber: #FAA61A;
+  --navy: #151435;
+  /* Secondary */
+  --purple: #7B3B8E;
+  --raspberry: #BE1E58;
+  --aqua: #7AC4D3;
+  /* Derived */
+  --navy-glass: rgba(21, 20, 53, .94);
+  --ink-2: rgba(255, 255, 255, .78);
+  --hero: linear-gradient(120deg, #151435, #7B3B8E, #F15A22);
+  --bar: linear-gradient(90deg, #7B3B8E, #151435);   /* the show artwork's purple→navy bar */
+  --ease: cubic-bezier(.2, .9, .2, 1);
+  --ease-wipe: cubic-bezier(.75, 0, .2, 1);
+  --display: 'MuseoModerno', 'Arial Black', sans-serif;
+  --body: 'Darker Grotesque', 'Arial Narrow', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html { margin: 0; overflow: hidden; background: transparent; }
+body {
+  margin: 0; width: 1920px; height: 1080px; overflow: hidden;
+  background: transparent; color: #fff;
+  font-family: var(--body); font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* Preview backdrops (?bg=studio | check) — never used on air */
+body.bg-studio {
+  background:
+    radial-gradient(ellipse 60% 70% at 32% 42%, rgba(255, 196, 150, .30), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 74% 48%, rgba(120, 150, 255, .20), transparent 70%),
+    linear-gradient(180deg, #2b2a36 0%, #3a3440 55%, #1d1b22 100%);
+}
+body.bg-check { background: repeating-conic-gradient(#3a3a3a 0 25%, #2c2c2c 0 50%) 0 0 / 48px 48px; }
+
+/* ---------- Motion ----------
+   body.in  → elements animate to rest.  body.out → animate away (faster).
+   Per-element delay via --d (in) and --od (out). */
+.reset * { transition: none !important; animation: none !important; }
+.static * { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; }
+
+.a {
+  transition:
+    transform .75s var(--ease) var(--d, 0s),
+    opacity .5s ease var(--d, 0s),
+    clip-path .7s var(--ease-wipe) var(--d, 0s);
+}
+body.out .a { transition-duration: .38s, .3s, .42s; transition-delay: var(--od, 0s); }
+
+/* Wipes open slightly past the box so slanted edges and italic overhangs aren't shaved */
+.wipe      { clip-path: inset(-20px 100% -20px -40px); }
+.wipe-r    { clip-path: inset(-20px -40px -20px 100%); }
+.wipe-up   { clip-path: inset(100% -40px -20px -40px); }
+.wipe-mid  { clip-path: inset(-20px 50% -20px 50%); }
+.in .wipe, .in .wipe-r, .in .wipe-up, .in .wipe-mid { clip-path: inset(-20px -40px -20px -40px); }
+
+.rise  { transform: translateY(34px); opacity: 0; }
+.slide { transform: translateX(-60px); opacity: 0; }
+.slide-r { transform: translateX(60px); opacity: 0; }
+.fade  { opacity: 0; }
+.pop   { transform: scale(.6); opacity: 0; }
+.in .rise, .in .slide, .in .slide-r, .in .fade, .in .pop { transform: none; opacity: 1; }
+
+/* ---------- The show's slanted panel (from the SideLiner's artwork: ~15° lean) ----------
+   Shape lives on ::before so the element's own clip-path stays free for wipes. */
+.pg { position: relative; z-index: 0; }
+.pg::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--pg, var(--purple));
+  clip-path: polygon(var(--k, 12px) 0, 100% 0, calc(100% - var(--k, 12px)) 100%, 0 100%);
+}
+
+/* ---------- Marks ---------- */
+.slbar { display: block; height: var(--h, 48px); width: auto; }   /* official SideLiner's bar */
+.nar { display: block; height: var(--h, 40px); width: auto; }     /* NAR long lockup */
+
+.ayr {
+  display: inline-block; font: 700 20px/1 var(--body); letter-spacing: .16em;
+  color: var(--navy); background: var(--amber); padding: 5px 10px 6px; text-transform: uppercase;
+}
+
+/* Crest — real image when supplied, otherwise a monogram disc (never a guessed badge) */
+.crest {
+  --c: var(--purple); flex: none; width: var(--cs, 120px); height: var(--cs, 120px); border-radius: 50%;
+  display: grid; place-items: center; background: #fff; overflow: hidden;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .14);
+}
+.crest img { width: 78%; height: 78%; object-fit: contain; }
+.crest.mono { background: var(--c); box-shadow: inset 0 0 0 5px rgba(255, 255, 255, .9); }
+.crest.mono span { font: italic 700 calc(var(--cs, 120px) * .34)/1 var(--display); color: #fff; }
+
+/* ---------- Portrait (9:16 socials) ----------
+   body.portrait is set by sl.js for ?format=portrait or a frame taller than wide.
+   Stage 1080x1920. Socials safe box: x 60-950, y 270-1440 (platform UI covers the top 270,
+   bottom 480, right 130, left 60). Text and logos stay inside it; only full-frame backdrops
+   (open, slate, fixtures full=1) and presenter imagery may run to the frame edge.
+   Bottom-anchored graphics (lower third, strap, card, contact) sit with their bottom edge at
+   y 1400 (--pb). Every rule here is scoped to .portrait, so landscape is untouched. */
+body.portrait {
+  width: 1080px; height: 1920px;
+  --sx: 60px;      /* safe left  */
+  --sy: 270px;     /* safe top   */
+  --sw: 890px;     /* safe width (60..950) */
+  --sh: 1170px;    /* safe height (270..1440) */
+  --pb: 520px;     /* bottom edge of lower-third family = 1920 - 1400 */
+}
+/* Portrait motion: things rise into place from below rather than slide in from the left */
+.portrait:not(.in) .slide { transform: translateY(40px); }
+/* Debug only (?guides=1): platform UI zones in red, the safe box in green, the switcher's L3 line in cyan */
+.sl-guides { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; z-index: 2147483647;
+  background:
+    linear-gradient(rgba(255,0,80,.28), rgba(255,0,80,.28)) 0 0 / 1080px 270px no-repeat,
+    linear-gradient(rgba(255,0,80,.28), rgba(255,0,80,.28)) 0 1440px / 1080px 480px no-repeat,
+    linear-gradient(rgba(255,0,80,.28), rgba(255,0,80,.28)) 0 270px / 60px 1170px no-repeat,
+    linear-gradient(rgba(255,0,80,.28), rgba(255,0,80,.28)) 950px 270px / 130px 1170px no-repeat; }
+.sl-guides::before { content: ''; position: absolute; left: 60px; top: 270px; width: 890px; height: 1170px; outline: 3px dashed #0f0; }
+.sl-guides::after { content: ''; position: absolute; left: 0; right: 0; top: 1230px; border-top: 2px dashed #0ff; }

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Lower third</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  .l3 { position: absolute; left: 120px; bottom: 112px; display: flex; flex-direction: column; align-items: flex-start; }
+  .mark { margin: 0 0 10px 34px; --h: 58px; }
+  .name {
+    background: var(--navy-glass); padding: 16px 56px 14px 34px; border-top: 5px solid var(--amber);
+    font: italic 700 66px/1.05 var(--display); white-space: nowrap; max-width: 1340px; overflow: hidden;
+  }
+  .role {
+    --k: 14px; margin-left: 18px; padding: 10px 44px 13px 36px;
+    font: 700 34px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
+  }
+  .type-guest .role { --pg: var(--amber); color: var(--navy); }
+  .type-caller .role { --pg: var(--aqua); color: var(--navy); }
+  .type-guest .name { border-top-color: var(--purple); }
+  /* Portrait: bottom-left of the safe box, name wraps to two lines before it shrinks */
+  .portrait .l3 { left: var(--sx); bottom: var(--pb); max-width: var(--sw); }
+  .portrait .mark { --h: 72px; margin: 0 0 12px 30px; }
+  .portrait .name { font-size: 88px; line-height: 1.02; padding: 20px 52px 20px 34px; border-top-width: 6px;
+    white-space: normal; max-width: var(--sw); overflow-wrap: normal; }
+  .portrait .role { font-size: 42px; padding: 12px 46px 15px 38px; --k: 16px; white-space: normal; max-width: calc(var(--sw) - 18px); line-height: 1.05; }
+</style></head>
+<body>
+<div class="l3" id="l3">
+  <div class="mark a wipe" style="--d:.45s; --od:0s" id="mark"></div>
+  <div class="name a wipe" style="--d:0s; --od:.1s"><span class="a slide" style="--d:.18s" id="name"></span></div>
+  <div class="role pg a wipe" style="--d:.24s; --od:0s" id="role"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  var type = SL.p('type', 'presenter');
+  document.getElementById('l3').classList.add('type-' + type);
+  document.getElementById('mark').innerHTML = SL.wordmark(58);
+  if (SL.p('show') === '0') document.getElementById('mark').remove();
+  document.getElementById('name').textContent = SL.p('name', 'Scott Watson');
+  document.getElementById('role').textContent =
+    SL.p('role', type === 'presenter' ? 'Presenter' : type === 'caller' ? 'On the line' : 'Guest');
+  document.fonts.ready.then(function () {
+    if (SL.portrait) SL.fitLines(document.getElementById('name').parentNode, 2, 48);
+    else SL.shrink(document.getElementById('name').parentNode, 40);
+  });
+  SL.boot();
+</script>
+</body></html>

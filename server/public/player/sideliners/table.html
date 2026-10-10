@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — League table</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* League table. Default gfx_side: a tall right-hand panel (like teamnews). full=1: opaque full-frame (gfx_full).
+     Data: Broadcast Studio /api/datafeeds/sideliners/table/<league>. Factual columns only — no predictions. */
+  body.full .bgfill { position: absolute; inset: 0; background: var(--hero); }
+  body.full .bgfill::after { content: ''; position: absolute; left: -10%; right: 40%; top: 0; bottom: 0; background: rgba(21,20,53,.55); transform: skewX(-15deg); }
+  .panel { position: absolute; top: 100px; right: 100px; width: 820px; display: flex; flex-direction: column; --rh: 46px; --fs: 29px; }
+  .panel.form { width: 950px; }
+  .brandrow { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px; }
+  .sample { padding: 5px 12px 7px; border: 2px solid var(--aqua); color: var(--aqua); font: 700 20px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; }
+  .top { display: flex; align-items: center; gap: 24px; background: var(--navy-glass); padding: 22px 26px; border-top: 5px solid var(--amber); --cs: 92px; }
+  .top .k { font: 700 22px/1 var(--body); letter-spacing: .22em; color: var(--amber); text-transform: uppercase; }
+  .top .k span { color: var(--ink-2); margin-left: 12px; }
+  .top h1 { margin: 8px 0 0; font: italic 700 48px/1.02 var(--display); white-space: nowrap; }
+  .tbl { background: rgba(21, 20, 53, .9); padding: 6px 0 10px; }
+  .r { display: grid; grid-template-columns: 52px var(--cw, 36px) 1fr repeat(4, 40px) 58px 62px var(--fcol, 0px); column-gap: 8px; align-items: center;
+    height: var(--rh); padding: 0 22px 0 14px; position: relative; font: 700 var(--fs)/1 var(--body); font-variant-numeric: tabular-nums; }
+  .r > * { min-width: 0; }
+  .r.hd { height: 38px; font-size: 19px; letter-spacing: .16em; color: var(--ink-2); text-transform: uppercase; }
+  .r:not(.hd):nth-child(odd) { background: rgba(255,255,255,.035); }
+  .r .n { text-align: center; }
+  .r .pos { text-align: center; color: var(--ink-2); }
+  .r .gd { text-align: center; }
+  .r .pts { text-align: center; padding-top: 3px; font: italic 700 calc(var(--fs) * 1.02)/1 var(--display); }
+  .r.hd .pts { font: inherit; padding-top: 0; }
+  .r .team { white-space: nowrap; overflow: hidden; padding-left: 4px; }
+  .r .crest { --cs: calc(var(--rh) * .74); box-shadow: 0 0 0 2px rgba(255,255,255,.14); }
+  .r .crest.mono { box-shadow: inset 0 0 0 2px rgba(255,255,255,.9); }
+  .r .crest.mono span { font-size: calc(var(--cs) * .3); }
+  .r.local { background: linear-gradient(90deg, rgba(250,166,26,.28), rgba(250,166,26,.06) 60%, transparent) !important; }
+  .r.local::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 7px; background: var(--amber); }
+  .r.hl { background: #fff !important; color: var(--navy); }
+  .r.hl .pos { color: var(--navy); }
+  .r.hl.local { box-shadow: inset 7px 0 0 var(--amber); }
+  .r.hl.local::before { display: none; }
+  .form-c { display: flex; gap: 3px; justify-content: flex-end; }
+  .form-c b { width: var(--fb, 20px); height: calc(var(--rh) * .56); display: grid; place-items: center; font: 700 calc(var(--rh) * .34)/1 var(--body); }
+  .form-c .W { background: var(--aqua); color: var(--navy); }
+  .form-c .D { background: rgba(255,255,255,.28); color: #fff; }
+  .form-c .L { background: var(--red); color: #fff; }
+  .r.hl .form-c .D { background: rgba(21,20,53,.3); }
+  .r.hd .form-c { justify-content: flex-end; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fff; color: var(--navy); padding: 9px 22px 11px; font: 700 20px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; }
+  .foot .ayr { font-size: 18px; }
+  .foot .lg { display: flex; align-items: center; gap: 10px; }
+  .msg { padding: 26px 26px 28px; background: rgba(21, 20, 53, .9); font: 700 30px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); display: flex; align-items: center; gap: 16px; }
+  .msg .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--aqua); }
+  .in .msg .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+  /* full=1 (landscape): a centred board */
+  body.full:not(.portrait) .panel { top: 90px; bottom: 90px; right: auto; left: 50%; width: 1480px; margin-left: -740px; }
+  body.full:not(.portrait) .top { --cs: 110px; padding: 24px 32px; }
+  body.full:not(.portrait) .top h1 { font-size: 66px; }
+  body.full:not(.portrait) .top .k { font-size: 26px; }
+  body.full:not(.portrait) .tbl { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+  body.full:not(.portrait) .r { grid-template-columns: 70px var(--cw, 44px) 1fr repeat(4, 64px) 90px 90px var(--fcol, 0px); column-gap: 14px; padding: 0 36px 0 24px; }
+  body.full:not(.portrait) .r.hd { font-size: 22px; height: 44px; }
+
+  /* Portrait: one full-height column filling the safe box (y 290-1440); rows share the height */
+  .portrait .panel { left: var(--sx); right: auto; top: 290px; width: var(--sw); height: 1150px; }
+  .portrait .top { --cs: 104px; padding: 24px 28px; border-top-width: 6px; }
+  .portrait .top h1 { font-size: 60px; white-space: normal; }
+  .portrait .top .k { font-size: 26px; }
+  .portrait .tbl { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 6px 0 8px; }
+  .portrait .r { grid-template-columns: 44px var(--cw, 40px) 1fr repeat(4, 34px) 54px 58px var(--fcol, 0px); column-gap: 8px; padding: 0 16px 0 10px; }
+  .portrait .r:not(.hd) .n, .portrait .r:not(.hd) .gd { font-size: calc(var(--fs) * .92); }
+  .portrait .r:not(.hd) .team { white-space: normal; line-height: 1; padding: 2px 0 4px 4px; }
+  .portrait .r.hd { font-size: 20px; height: 40px; letter-spacing: .1em; }
+  .portrait .foot { font-size: 22px; padding: 11px 22px 13px; }
+</style></head>
+<body>
+<div class="bgfill a fade"></div>
+<div class="panel" id="panel">
+  <div class="brandrow a rise" style="--d:.1s" id="brandrow"></div>
+  <div class="top a wipe" style="--d:0s" id="top"></div>
+  <div class="tbl a wipe" style="--d:.12s" id="tbl"></div>
+  <div class="foot a wipe" style="--d:.3s" id="foot"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* Params
+     league=179      API league id (179 Premiership, 180 Championship, 183 League One, 184 League Two)
+     feed=           JSON source (default /api/datafeeds/sideliners/table/<league> on Broadcast Studio)
+     rows=12         rows to show: the top N, or — when hl= is outside the top N — a window of N around it
+     hl=<team>       highlight that team        form=1  last five results as W/D/L blocks (factual only)
+     full=1          opaque full-frame board (gfx_full)      title= override the league name
+     demo=1          sample Premiership table (marked SAMPLE DATA) · demo=l1 a League One sample (long names)
+   Columns: Pos, crest, Team, P, W, D, L, GD, Pts. Ayrshire clubs get an amber highlight. Nothing is predicted. */
+  var FULL = SL.p('full') === '1', PORT = SL.portrait, FORM = SL.p('form') === '1';
+  if (FULL) document.body.classList.add('full');
+  var LEAGUE = SL.p('league', '179'), DEMO = SL.p('demo');
+  var FEED = SL.p('feed', '/api/datafeeds/sideliners/table/' + encodeURIComponent(LEAGUE));
+  var N = Math.max(3, Math.min(42, +SL.p('rows', 12) || 12)), HL = SL.p('hl');
+  var panel = document.getElementById('panel'), last = '';
+  if (FORM) panel.classList.add('form');
+
+  function norm(s) { return String(s || '').toLowerCase().replace(/\bf\.?c\.?\b/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function isHl(team) { if (!HL) return false; var a = norm(team), b = norm(HL); return a === b || (b.length > 3 && (a.indexOf(b) === 0 || b.indexOf(a) === 0)); }
+  function pick(rows) {
+    rows = rows.slice().sort(function (a, b) { return (+a.rank || 0) - (+b.rank || 0); });
+    if (rows.length <= N) return rows;
+    var i = -1; rows.forEach(function (r, k) { if (i < 0 && isHl(r.team)) i = k; });
+    if (i < N) return rows.slice(0, N);
+    var s = Math.max(0, Math.min(rows.length - N, i - Math.floor(N / 2)));
+    return rows.slice(s, s + N);
+  }
+  function gd(v) { v = +v; return isNaN(v) ? '' : v > 0 ? '+' + v : String(v).replace('-', '−'); }
+  function formHtml(f) {
+    var s = String(f || '').toUpperCase().replace(/[^WDL]/g, '').slice(-5);
+    return '<span class="form-c">' + s.split('').map(function (c) { return '<b class="' + c + '">' + c + '</b>'; }).join('') + '</span>';
+  }
+  function render(d) {
+    var ok = d && d.ok !== false && Array.isArray(d.rows) && d.rows.length;
+    var L = (d && d.league) || {};
+    var name = SL.p('title') || L.name || 'League table';
+    var season = L.season ? (String(L.season).length === 4 ? L.season + '/' + String(+L.season + 1).slice(-2) : L.season) : '';
+    var top = SL.crest(L.logo, name) + '<div style="min-width:0;flex:1"><div class="k">League table' + (season ? '<span>' + SL.esc(season) + '</span>' : '') + '</div><h1 id="h1">' + SL.esc(name) + '</h1></div>';
+    var tbl, anyLocal = false;
+    if (!ok) tbl = '<div class="msg"><span class="dot"></span>Table updating</div>';
+    else {
+      var rows = pick(d.rows), i = 0;
+      tbl = '<div class="r hd"><span class="pos">Pos</span><span></span><span class="team">Team</span><span class="n">P</span><span class="n">W</span><span class="n">D</span><span class="n">L</span><span class="gd">GD</span><span class="pts">Pts</span>' +
+        (FORM ? '<span class="form-c">Form</span>' : '<span></span>') + '</div>' +
+        rows.map(function (r) {
+          var local = r.local === 'AYRSHIRE' || SL.isAyr(r.team); anyLocal = anyLocal || local;
+          return '<div class="r' + (local ? ' local' : '') + (isHl(r.team) ? ' hl' : '') + '">' +
+            '<span class="pos">' + SL.esc(r.rank) + '</span>' + SL.crest(r.logo, r.team) + '<span class="team">' + SL.esc(r.team) + '</span>' +
+            '<span class="n">' + SL.esc(r.played) + '</span><span class="n">' + SL.esc(r.won) + '</span><span class="n">' + SL.esc(r.drawn) + '</span><span class="n">' + SL.esc(r.lost) + '</span>' +
+            '<span class="gd">' + gd(r.gd) + '</span><span class="pts">' + SL.esc(r.points) + '</span>' + (FORM ? formHtml(r.form) : '<span></span>') + '</div>';
+        }).join('');
+    }
+    var foot = anyLocal ? '<span class="lg"><span class="ayr">Ayrshire</span>Ayrshire clubs highlighted</span>' : '';
+    var key = top + tbl + foot;
+    if (key === last) return;
+    last = key;
+    document.getElementById('top').innerHTML = top;
+    document.getElementById('tbl').innerHTML = tbl;
+    var fe = document.getElementById('foot'); fe.innerHTML = foot; fe.style.display = anyLocal ? '' : 'none';
+    fit();
+  }
+  function fit() {
+    var tbl = document.getElementById('tbl'), n = tbl.querySelectorAll('.r:not(.hd)').length || 1, s = panel.style;
+    if (PORT || FULL) {
+      // rows share the column's height
+      var avail = tbl.clientHeight - 60, rh = Math.max(34, Math.min(PORT ? 74 : 70, Math.floor(avail / n)));
+      s.setProperty('--rh', rh + 'px'); s.setProperty('--fs', Math.round(rh * (PORT ? .48 : .62)) + 'px');
+      s.setProperty('--cw', Math.round(rh * .74) + 'px');
+    } else {
+      var rh2 = n > 14 ? Math.max(30, Math.floor(46 * 14 / n)) : 46;
+      s.setProperty('--rh', rh2 + 'px'); s.setProperty('--fs', Math.round(rh2 * .63) + 'px'); s.setProperty('--cw', Math.round(rh2 * .78) + 'px');
+    }
+    // form blocks scale with the row; the column is sized to five of them
+    var fb = Math.max(20, Math.round(parseFloat(s.getPropertyValue('--rh')) * (FULL && !PORT ? .6 : .42)));
+    s.setProperty('--fb', fb + 'px'); if (FORM) s.setProperty('--fcol', (5 * fb + 12) + 'px');
+    // Long names: portrait lets a name take two lines (the rows are tall), then shrinks; landscape shrinks on one line
+    document.querySelectorAll('.r:not(.hd) .team').forEach(function (t) { PORT ? SL.fitLines(t, 2, 20) : SL.shrink(t, 18); });
+    var h1 = document.getElementById('h1'); if (h1) (PORT ? SL.fitLines(h1, 2, 36) : SL.shrink(h1, 30));
+  }
+
+  function demoData() {
+    var prem = [['Celtic', 8, 6, 1, 1, 12, 19, 'WWDWW'], ['Hearts', 8, 5, 2, 1, 7, 17, 'WDWWL'], ['Rangers', 8, 4, 3, 1, 6, 15, 'DWWDW'],
+      ['Kilmarnock', 8, 4, 2, 2, 3, 14, 'WLWDW'], ['Aberdeen', 8, 4, 1, 3, 2, 13, 'LWWLW'], ['Hibernian', 8, 3, 3, 2, 2, 12, 'DDWLW'],
+      ['Motherwell', 8, 3, 2, 3, 0, 11, 'WLDWL'], ['Dundee United', 8, 2, 4, 2, -1, 10, 'DDLWD'], ['St Mirren', 8, 2, 2, 4, -4, 8, 'LWDLL'],
+      ['Falkirk', 8, 2, 1, 5, -6, 7, 'LLWDL'], ['Livingston', 8, 1, 3, 4, -8, 6, 'DLLDW'], ['Dundee', 8, 1, 2, 5, -13, 5, 'LDLLL']];
+    var l1 = [['Inverness Caledonian Thistle', 8, 6, 1, 1, 11, 19, 'WWWDW'], ['Alloa Athletic', 8, 5, 1, 2, 6, 16, 'WLWWD'], ['Queen of the South', 8, 4, 2, 2, 4, 14, 'DWWLW'],
+      ['Cove Rangers', 8, 4, 1, 3, 2, 13, 'WLWLW'], ['Kelty Hearts', 8, 3, 3, 2, 1, 12, 'DDWWL'], ['Peterhead', 8, 3, 2, 3, 0, 11, 'LWDWL'],
+      ['Stenhousemuir', 8, 2, 4, 2, -1, 10, 'DDLDW'], ['Montrose', 8, 2, 2, 4, -5, 8, 'LLDWL'], ['East Fife', 8, 2, 1, 5, -7, 7, 'LWLLD'], ['Hamilton Academical', 8, 1, 3, 4, -11, 6, 'DLLDL']];
+    var l1mode = DEMO === 'l1', src = l1mode ? l1 : prem;
+    return { ok: true, league: { id: l1mode ? 183 : 179, name: l1mode ? 'Scottish League One' : 'Scottish Premiership', logo: '', season: 2025 },
+      rows: src.map(function (r, i) { return { rank: i + 1, team: r[0], teamId: i + 1, logo: '', played: r[1], won: r[2], drawn: r[3], lost: r[4], gd: r[5], points: r[6], form: r[7], local: SL.isAyr(r[0]) ? 'AYRSHIRE' : null }; }) };
+  }
+  document.getElementById('brandrow').innerHTML = (DEMO ? '<span class="sample">Sample data</span>' : '<span></span>') + SL.wordmark(PORT ? 60 : 52);
+  if (DEMO) document.getElementById('foot').innerHTML = '';
+
+  function load() {
+    if (DEMO) { render(demoData()); return Promise.resolve(); }
+    return fetch(FEED, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(render).catch(function () { if (!last) render(null); });   // never a made-up table: "Table updating" until real data arrives
+  }
+  var booted = false;
+  function boot() { if (booted) return; booted = true; if (!last) render(null); SL.boot(); }
+  setTimeout(boot, 4000);
+  load().then(boot);
+  setInterval(load, 60000);
+  if (document.fonts) document.fonts.ready.then(function () { if (last) fit(); });
+</script>
+</body></html>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Result / score card</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* Result card (gfx_l3): status tag + competition tab, score row, scorers under each side.
+     st=FT|HT|AET|PEN is a result/half-time card. An in-play minute (67') or a live status (1H, 2H, ET…) makes it a
+     LIVE score card; nothing that isn't finished is ever labelled as finished. Unknown st values show verbatim. */
+  .card { position: absolute; left: 50%; bottom: 100px; width: 1560px; margin-left: -780px; }
+  .top { display: flex; align-items: flex-end; height: 58px; }
+  .tag { --k: 14px; --pg: #fff; color: var(--navy); padding: 12px 40px 12px 30px; z-index: 1; display: flex; align-items: center; gap: 14px;
+    font: 700 34px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; }
+  .tag.ht { --pg: var(--amber); }
+  .tag.live { --pg: var(--red); color: #fff; }
+  .tag.raw { text-transform: none; letter-spacing: .06em; }
+  .tag .min { background: #fff; color: var(--navy); padding: 6px 12px 7px; margin: -6px -8px -7px 6px; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; flex: none; }
+  .in .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .comp { --k: 14px; margin-left: -8px; padding: 10px 40px 12px 34px; font: 700 30px/1 var(--body);
+    letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+  .pens { margin-left: -6px; padding: 10px 26px 12px; background: var(--amber); color: var(--navy); font: 700 30px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+  .top #brand { margin-left: auto; }
+  .row { display: flex; align-items: stretch; min-height: 172px; position: relative; }
+  .side { flex: 1; min-width: 0; background: var(--navy-glass); display: flex; align-items: center; gap: 28px;
+    padding: 24px 40px 24px 34px; border-top: 5px solid var(--amber); --cs: 116px; }
+  .side.away { flex-direction: row-reverse; text-align: right; padding: 24px 34px 24px 40px; }
+  .who { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .away .who { align-items: flex-end; }
+  .team { font: italic 700 58px/1.02 var(--display); max-width: 100%; }
+  .sc { display: flex; flex-wrap: wrap; column-gap: 26px; row-gap: 4px; font: 700 32px/1.12 var(--body); max-width: 100%; }
+  .away .sc { justify-content: flex-end; }
+  .sc span { white-space: nowrap; }
+  .sc i { font-style: normal; font-weight: 300; color: var(--ink-2); margin-left: 8px; }
+  .ayrw { display: flex; } .away .ayrw { justify-content: flex-end; }
+  .score { --pg: #fff; --k: 26px; flex: none; width: 330px; margin: 0 -12px; z-index: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--navy); }
+  .d { width: 116px; text-align: center; font: italic 700 116px/1 var(--display); font-variant-numeric: tabular-nums; padding-top: 4px; }
+  .dash { font: italic 700 70px/1 var(--display); opacity: .35; margin-top: -8px; }
+  .live-card .score { --pg: #fff; }
+
+  /* Portrait: tag row on top, home over away (scorers under each name), digits in a white column on the right */
+  .portrait .card { left: var(--sx); margin-left: 0; width: var(--sw); bottom: var(--pb); }
+  .portrait .top { height: auto; flex-wrap: wrap; }
+  .portrait .tag { font-size: 40px; padding: 14px 44px 14px 34px; --k: 16px; }
+  .portrait .pens { font-size: 34px; padding: 14px 26px; }
+  .portrait .top #brand { margin-bottom: 8px; }
+  .portrait .panel { background: var(--navy-glass); border-top: 6px solid var(--amber); position: relative; }
+  .portrait .panel::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 150px; background: #fff; }
+  .portrait .panel > * { position: relative; z-index: 1; }
+  .portrait .comp { margin: 0 150px 0 0; padding: 20px 36px 4px; font-size: 28px; letter-spacing: .18em; color: var(--ink-2); white-space: normal; }
+  .portrait .comp::before { display: none; }
+  .portrait .prow { display: grid; grid-template-columns: 110px 1fr 150px; align-items: center; column-gap: 26px;
+    padding: 0 0 0 36px; min-height: 150px; --cs: 110px; }
+  .portrait .prow + .prow { border-top: 2px solid rgba(255,255,255,.14); }
+  .portrait .prow .who { padding: 18px 0; }
+  .portrait .prow .team { font-size: 62px; line-height: 1.02; }
+  .portrait .prow .sc { font-size: 36px; column-gap: 22px; }
+  .portrait .prow .pd { align-self: stretch; display: grid; place-items: center; color: var(--navy); }
+  .portrait .prow + .prow .pd { border-top: 2px solid rgba(21,20,53,.14); margin-top: -2px; }
+  .portrait .d { width: 130px; }
+</style></head>
+<body>
+<div class="card" id="card"></div>
+<script src="js/sl.js"></script>
+<script>
+  /* Params: h a · hs as · st (FT|HT|AET|PEN, an in-play minute like 67', or a live status 1H|2H|ET|BT|P|LIVE; anything
+     else shows verbatim) · min (minute, used with a live status) · comp · hc ac (crest URLs) · hcol acol
+     hsc asc — scorers per side, ';'-separated: "Anderson 23';Watt 67' (pen)" (same player twice → "Watt 23', 67'")
+     pens (optional shoot-out score, e.g. 4-3, shown only when given). Empty scorer lists are simply omitted. */
+  function minute(m) {
+    m = String(m || '').trim().replace(/[’′]/g, "'");
+    return !m ? '' : /'$/.test(m) ? m : m + "'";
+  }
+  var ST = SL.p('st', 'FT').trim(), up = ST.toUpperCase().replace(/[’′]/g, "'");
+  var FIN = { FT: 'Full-time', HT: 'Half-time', AET: 'After extra time', PEN: 'On penalties' };
+  var LIVE = { '1H': '1st half', '2H': '2nd half', ET: 'Extra time', BT: 'ET break', P: 'Penalties', LIVE: '' };
+  var tag;
+  if (FIN[up]) tag = '<div class="tag pg' + (up === 'HT' ? ' ht' : '') + ' a wipe-up" style="--d:.3s;--od:.2s">' + FIN[up] + '</div>';
+  else if (/^\d{1,3}(\+\d{1,2})?'?$/.test(up) || LIVE.hasOwnProperty(up)) {
+    var isMin = /^\d{1,3}(\+\d{1,2})?'?$/.test(up);
+    var mm = isMin ? minute(up) : minute(SL.p('min')) || LIVE[up];
+    document.body.classList.add('live-card');
+    tag = '<div class="tag pg live a wipe-up" style="--d:.3s;--od:.2s"><span class="dot"></span>Live' +
+      (mm ? '<span class="min">' + SL.esc(mm) + '</span>' : '') + '</div>';
+  } else tag = '<div class="tag pg raw a wipe-up" style="--d:.3s;--od:.2s">' + SL.esc(ST) + '</div>';
+
+  // Scorers: group repeat scorers, minutes in light weight after the name
+  function scorers(raw) {
+    var order = [], by = {};
+    String(raw || '').split(/\s*;\s*/).filter(Boolean).forEach(function (e) {
+      var m = e.match(/^(.*?)[\s,]+((?:\d{1,3}(?:\+\d{1,2})?['’′]?)(?:\s*\((?:pen|p|og|o\.g\.)\))?)$/i);
+      var name = m ? m[1].trim() : e.trim(), t = m ? m[2].replace(/['’′]?(\s*\()/, "'$1").replace(/(\d)$/, "$1'").replace(/[’′]/g, "'") : '';
+      t = t.replace(/\((p)\)/i, '(pen)');
+      if (!by[name]) { by[name] = []; order.push(name); }
+      if (t) by[name].push(t);
+    });
+    if (!order.length) return '';
+    return '<div class="sc">' + order.map(function (n) {
+      return '<span>' + SL.esc(n) + (by[n].length ? '<i>' + SL.esc(by[n].join(', ')) + '</i>' : '') + '</span>';
+    }).join('') + '</div>';
+  }
+  var H = SL.p('h', 'Kilmarnock'), A = SL.p('a', 'Celtic');
+  var HS = SL.p('hs', '0'), AS = SL.p('as', '0');
+  var hsc = scorers(SL.p('hsc')), asc = scorers(SL.p('asc'));
+  function ayr(name) { return SL.isAyr(name) ? '<span class="ayrw"><span class="ayr">Ayrshire</span></span>' : ''; }
+  function who(name, sc) { return '<div class="who"><span class="team">' + SL.esc(name) + '</span>' + ayr(name) + sc + '</div>'; }
+  var comp = SL.p('comp', 'Scottish Premiership'), pens = SL.p('pens').replace(/\s*[-–]\s*/, '–');
+  var topRow = '<div class="top">' + tag +
+    (comp && !SL.portrait ? '<div class="comp pg a wipe" style="--d:.4s;--od:.1s">' + SL.esc(comp) + '</div>' : '') +
+    (pens ? '<div class="pens a wipe" style="--d:.5s">Pens ' + SL.esc(pens) + '</div>' : '') +
+    '<span class="a rise" id="brand" style="--d:.6s">' + SL.wordmark(SL.portrait ? 64 : 52) + '</span></div>';
+  var d = function (v) { return '<div class="d">' + SL.esc(v) + '</div>'; };
+  var html;
+  if (!SL.portrait) {
+    html = topRow + '<div class="row">' +
+      '<div class="side home a wipe-r" style="--d:.08s">' + SL.crest(SL.p('hc'), H, SL.p('hcol')) + who(H, hsc) + '</div>' +
+      '<div class="score pg a pop" style="--d:0s;--od:.2s">' + d(HS) + '<span class="dash">–</span>' + d(AS) + '</div>' +
+      '<div class="side away a wipe" style="--d:.08s">' + SL.crest(SL.p('ac'), A, SL.p('acol')) + who(A, asc) + '</div></div>';
+  } else {
+    var prow = function (name, crest, col, v, sc) {
+      return '<div class="prow">' + SL.crest(crest, name, col) + who(name, sc) + '<div class="pd">' + d(v) + '</div></div>';
+    };
+    html = topRow + '<div class="panel a wipe" style="--d:.05s;--od:.1s">' + (comp ? '<div class="comp">' + SL.esc(comp) + '</div>' : '') +
+      prow(H, SL.p('hc'), SL.p('hcol'), HS, hsc) + prow(A, SL.p('ac'), SL.p('acol'), AS, asc) + '</div>';
+  }
+  document.getElementById('card').innerHTML = html;
+  function fit() {
+    document.querySelectorAll('.team').forEach(function (t) { SL.fitLines(t, 2, SL.portrait ? 40 : 34); });
+    // Long scorer lists: tighten the type until each list is at most 3 lines
+    document.querySelectorAll('.sc').forEach(function (s) { SL.fitLines(s, 3, 22); });
+    if (!SL.portrait) SL.shrink(document.querySelector('.comp'), 22);
+  }
+  fit(); if (document.fonts) document.fonts.ready.then(fit);
+  SL.boot();
+</script>
+</body></html>

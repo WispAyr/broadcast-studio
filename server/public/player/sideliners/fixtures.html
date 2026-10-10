@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Fixtures board</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* ?full=1 puts the hero backdrop behind it (a full-frame graphic); otherwise it floats over camera */
+  body.full .bgfill { position: absolute; inset: 0; background: var(--hero); }
+  body.full .bgfill::after { content: ''; position: absolute; left: -10%; right: 40%; top: 0; bottom: 0; background: rgba(21,20,53,.55); transform: skewX(-15deg); }
+  .board { position: absolute; left: 50%; top: 96px; bottom: 96px; width: 1480px; margin-left: -740px; display: flex; flex-direction: column; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 18px; border-bottom: 5px solid var(--amber); }
+  .head h1 { margin: 0; font: italic 700 84px/1 var(--display); }
+  .head .brand { padding-bottom: 6px; }
+  .sub { margin-top: 14px; font: 700 28px/1 var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--ink-2); }
+  .list { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--gap, 10px); padding-top: 16px; }
+  .grp {
+    --k: 10px; align-self: flex-start; padding: 7px 20px 9px; margin-top: 10px;
+    font: 700 var(--gfs, 24px)/1 var(--body); letter-spacing: .18em; text-transform: uppercase;
+  }
+  .row {
+    display: grid; grid-template-columns: 1fr 180px 1fr; align-items: center; height: var(--rh, 74px);
+    background: var(--navy-glass); position: relative;
+  }
+  .row.local { background: linear-gradient(90deg, rgba(250, 166, 26, .22), var(--navy-glass) 30%, var(--navy-glass) 70%, rgba(250, 166, 26, .22)); }
+  .row.local::before, .row.local::after { content: ''; position: absolute; top: 0; bottom: 0; width: 8px; background: var(--amber); }
+  .row.local::before { left: 0; } .row.local::after { right: 0; }
+  .t { font: italic 700 var(--fs, 40px)/1 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 32px; }
+  .t.h { text-align: right; } .t.a { text-align: left; }
+  .ko {
+    justify-self: center; background: #fff; color: var(--navy); min-width: 138px; text-align: center;
+    font: 700 var(--kfs, 32px)/1 var(--body); padding: 9px 14px 11px; font-variant-numeric: tabular-nums;
+  }
+  .foot { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; }
+  .foot img { height: 40px; }
+  .legend { font: 700 22px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--ink-2); display: flex; align-items: center; gap: 12px; }
+  /* Portrait: the board fills the safe box (x 60-950, y 270-1440). Up to ~8 fixtures use two-line
+     rows (KO | home over away) at big type; more than fit fall back to one-line rows, shrunk to fit. */
+  .portrait .board { left: var(--sx); margin-left: 0; width: var(--sw); top: 290px; bottom: 480px; }
+  .portrait .head { flex-direction: column-reverse; align-items: flex-start; gap: 16px; padding-bottom: 20px; border-bottom-width: 6px; }
+  .portrait .head h1 { font-size: 82px; line-height: 1.02; }
+  .portrait .head .brand { padding-bottom: 0; }
+  .portrait .sub { font-size: 32px; }
+  .portrait .list { justify-content: flex-start; padding-top: 18px; }
+  .portrait .list > :first-child { margin-top: auto; }
+  .portrait .list > :last-child { margin-bottom: auto; }
+  .portrait .grp { margin-top: 8px; }
+  .portrait .row.two { grid-template-columns: 170px 1fr; grid-template-rows: auto auto; height: auto; padding: calc(var(--fs) * .2) 0 calc(var(--fs) * .22); row-gap: calc(var(--fs) * .04); }
+  .portrait .row.two .ko { grid-row: 1 / 3; grid-column: 1; }
+  .portrait .row.two .t { grid-column: 2; text-align: left; padding: 0 30px 0 6px; line-height: 1.04; }
+  .portrait .row.one { grid-template-columns: 1fr 150px 1fr; }
+  .portrait .row.one .t { padding: 0 20px; }
+  .portrait .row.one .ko { min-width: 118px; padding: 7px 10px 9px; }
+  .portrait .foot { padding-top: 18px; }
+  .portrait .legend { font-size: 24px; }
+  .portrait .foot img { height: 46px; }
+  body.full.portrait .bgfill::after { left: -40%; right: 30%; }
+</style></head>
+<body>
+<div class="bgfill a fade"></div>
+<div class="board">
+  <div class="head a wipe" style="--d:.05s">
+    <div><h1 id="title"></h1><div class="sub" id="sub"></div></div>
+    <div class="brand" id="brand"></div>
+  </div>
+  <div class="list" id="list"></div>
+  <div class="foot a fade" id="foot" style="--d:.9s">
+    <span class="legend" id="legend"><span class="ayr">Ayrshire</span> Ayrshire clubs highlighted</span>
+    <img src="logo/nar-long-white.svg" alt="Now Ayrshire Radio">
+  </div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* ?f= one fixture per line (or ';'):  Home | Away | KO | Competition
+     e.g. Kilmarnock|Celtic|15:00|Premiership;Ayr Utd|Partick Thistle|15:00|Championship */
+  var DEMO = 'Kilmarnock|Celtic|15:00|Scottish Premiership;Hearts|Aberdeen|15:00|Scottish Premiership;' +
+    'Ayr United|Partick Thistle|15:00|Scottish Championship;Morton|Raith Rovers|15:00|Scottish Championship;' +
+    'Auchinleck Talbot|Pollok|14:00|West of Scotland League;Cumnock Juniors|Hurlford United|14:00|West of Scotland League';
+  var rows = SL.p('f', DEMO).split(/\s*[;\n]\s*/).filter(Boolean).map(function (l) {
+    var p = l.split('|').map(function (s) { return s.trim(); });
+    return { h: p[0] || '', a: p[1] || '', ko: p[2] || '', c: p[3] || '' };
+  });
+  if (SL.p('full') === '1') document.body.classList.add('full');
+  document.getElementById('title').textContent = SL.p('t', "Saturday's fixtures");
+  var sub = SL.p('s', ''); if (sub) document.getElementById('sub').textContent = sub; else document.getElementById('sub').remove();
+  document.getElementById('brand').innerHTML = SL.wordmark(64);
+
+  var groups = [], byC = {};
+  rows.forEach(function (r) { if (!byC[r.c]) { byC[r.c] = []; groups.push(r.c); } byC[r.c].push(r); });
+  var lines = rows.length + groups.filter(Boolean).length;
+  // Scale rows so 4–14 fixtures all fit the frame
+  var rh = Math.max(46, Math.min(84, Math.floor(700 / lines) - 10));
+  var s = document.body.style;
+  s.setProperty('--rh', rh + 'px'); s.setProperty('--fs', Math.round(rh * .52) + 'px');
+  s.setProperty('--kfs', Math.round(rh * .5) + 'px'); s.setProperty('--gfs', Math.max(18, Math.round(rh * .32)) + 'px');
+  s.setProperty('--gap', (rh > 60 ? 10 : 6) + 'px');
+
+  // mode: '' = landscape row, 'two' / 'one' = portrait two-line / one-line rows
+  function build(mode) {
+    var html = '', i = 0, anyLocal = false;
+    groups.forEach(function (c) {
+      if (c) html += '<div class="grp pg a wipe" style="--d:' + (.25 + i * .07).toFixed(2) + 's">' + SL.esc(c) + '</div>';
+      byC[c].forEach(function (r) {
+        i++;
+        var local = SL.isAyr(r.h) || SL.isAyr(r.a); anyLocal = anyLocal || local;
+        var h = '<span class="t h">' + SL.esc(r.h) + '</span>', ko = '<span class="ko">' + SL.esc(r.ko || 'TBC') + '</span>',
+            a = '<span class="t a">' + SL.esc(r.a) + '</span>';
+        html += '<div class="row a wipe' + (local ? ' local' : '') + (mode ? ' ' + mode : '') + '" style="--d:' + (.25 + i * .07).toFixed(2) + 's">' +
+          (mode === 'two' ? ko + h + a : h + ko + a) + '</div>';
+      });
+    });
+    document.getElementById('list').innerHTML = html;
+    document.getElementById('legend').style.visibility = anyLocal ? '' : 'hidden';
+  }
+  if (!SL.portrait) build('');
+  else {
+    var list = document.getElementById('list');
+    var size = function (fs, rh) {
+      s.setProperty('--fs', fs + 'px'); s.setProperty('--kfs', Math.round(fs * .9) + 'px');
+      s.setProperty('--gfs', Math.max(20, Math.round(fs * .56)) + 'px'); s.setProperty('--gap', Math.round(fs * .22) + 'px');
+      if (rh) s.setProperty('--rh', rh + 'px');
+    };
+    var fits = function () { return list.scrollHeight <= list.clientHeight + 1; };
+    var fitRows = function () {
+      var fs;
+      build('two');
+      for (fs = 52; fs >= 38; fs -= 2) { size(fs); if (fits()) return; }
+      build('one');
+      for (fs = 42; fs > 22; fs -= 2) { size(fs, Math.round(fs * 1.7)); if (fits()) break; }
+      list.querySelectorAll('.t').forEach(function (t) { SL.shrink(t, Math.round(fs * .7)); });
+    };
+    fitRows();
+    if (document.fonts) document.fonts.ready.then(fitRows);
+  }
+  SL.boot();
+</script>
+</body></html>

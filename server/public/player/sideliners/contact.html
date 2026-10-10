@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Get involved</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  .strap { position: absolute; left: 120px; right: 120px; bottom: 100px; display: flex; align-items: stretch; height: 108px; }
+  .tag {
+    --k: 16px; flex: none; margin-right: -8px; z-index: 1; display: flex; align-items: center; gap: 16px; padding: 0 36px;
+    font: italic 700 44px/1 var(--display); white-space: nowrap;
+  }
+  .items { flex: 1; min-width: 0; display: flex; background: var(--navy-glass); border-top: 5px solid var(--amber); }
+  .it { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 34px; border-left: 1px solid rgba(255,255,255,.14); }
+  .it:first-child { border-left: 0; }
+  .it b { font: 700 22px/1 var(--body); letter-spacing: .2em; color: var(--amber); text-transform: uppercase; }
+  .it span { font: 700 44px/1.1 var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .narbox { flex: none; display: flex; align-items: center; padding: 0 32px; background: #fff; }
+  .narbox .nar { --h: 44px; }
+  /* Portrait: headline tab + NAR box on one row, the ways in stacked underneath */
+  .portrait .strap { left: var(--sx); right: auto; width: var(--sw); bottom: var(--pb); height: auto;
+    display: grid; grid-template-columns: auto 1fr; align-items: end; }
+  .portrait .tag { grid-column: 1; grid-row: 1; margin: 0; height: 96px; padding: 0 44px 4px 40px; font-size: 56px; --k: 20px; }
+  .portrait .narbox { grid-column: 2; grid-row: 1; justify-self: end; height: 78px; padding: 0 30px; }
+  .portrait .narbox .nar { --h: 46px; }
+  .portrait .items { grid-column: 1 / -1; grid-row: 2; flex-direction: column; border-top-width: 6px; }
+  .portrait .it { flex: none; padding: 22px 40px 24px 36px; border-left: 0; border-top: 1px solid rgba(255,255,255,.14); gap: 6px; }
+  .portrait .it:first-child { border-top: 0; }
+  .portrait .it b { font-size: 26px; }
+  .portrait .it span { font-size: 58px; line-height: 1.05; }
+</style></head>
+<body>
+<div class="strap">
+  <div class="tag pg a wipe-up" id="tag"></div>
+  <div class="items a wipe" style="--d:.15s" id="items"></div>
+  <div class="narbox a wipe-r" style="--d:.35s"><img class="nar" src="logo/nar-long-fullcolour.svg" alt="Now Ayrshire Radio"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* Only what is passed is shown — no number or handle is invented.
+     ?wa=07xxx xxxxxx  (text/WhatsApp)   ?soc=@nowayrshireradio   ?web=nowayrshireradio.co.uk   ?t=Get involved */
+  document.getElementById('tag').innerHTML = SL.esc(SL.p('t', 'Get involved'));
+  var items = [['wa', 'Text / WhatsApp'], ['soc', 'Socials'], ['web', 'Online']], html = '';
+  items.forEach(function (it, i) {
+    var v = SL.p(it[0], it[0] === 'web' ? 'nowayrshireradio.co.uk' : '');
+    if (v) html += '<div class="it a rise" style="--d:' + (.35 + i * .1) + 's"><b>' + it[1] + '</b><span>' + SL.esc(v) + '</span></div>';
+  });
+  document.getElementById('items').innerHTML = html;
+  if (SL.portrait) document.fonts.ready.then(function () {
+    document.querySelectorAll('.it span').forEach(function (t) { SL.shrink(t, 34); });
+  });
+  SL.boot();
+</script>
+</body></html>

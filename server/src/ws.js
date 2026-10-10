@@ -356,7 +356,7 @@ function setupWebSocket(server) {
     });
 
     // Disconnect handling
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       if (socket.screenId) {
         // Only flip offline if no other socket is still holding this screen.
         // Reconnect races + multi-tab previews used to mark screens offline
@@ -374,7 +374,21 @@ function setupWebSocket(server) {
           }
         }
       }
-      console.log(`Socket disconnected: ${socket.id}`);
+      // Diagnostic (2026-09-18): the Pavilion kiosks reconnect every ~27.6s and the
+      // bare id told us nothing. Log WHY, plus the transport and how long it lived.
+      const livedMs = socket.handshake && socket.handshake.issued
+        ? Date.now() - socket.handshake.issued
+        : null;
+      const transport = socket.conn && socket.conn.transport
+        ? socket.conn.transport.name
+        : '?';
+      console.log(
+        `Socket disconnected: ${socket.id} reason=${reason}` +
+        ` transport=${transport}` +
+        (livedMs === null ? '' : ` lived=${(livedMs / 1000).toFixed(1)}s`) +
+        (socket.screenId ? ` screen=${socket.screenId}` : '') +
+        ` addr=${socket.handshake && socket.handshake.address}`
+      );
     });
   });
 
