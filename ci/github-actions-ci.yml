@@ -1,0 +1,63 @@
+name: ci
+
+# Basic CI (review 2026-10-10): server unit + integration tests on a scratch DB,
+# client production build, and a dependency audit that reports (does not fail)
+# so a new advisory is visible on every PR.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    env:
+      JWT_SECRET: ci-only-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - name: syntax check every server source file
+        run: find src -name '*.js' -not -name '*.bak*' -print0 | xargs -0 -n1 node --check
+      - name: npm audit (production deps, report only)
+        run: npm audit --omit=dev || true
+
+  client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: npm audit (production deps, report only)
+        run: npm audit --omit=dev || true
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: no inline signing keys or JWT secrets in tracked config
+        run: |
+          if git grep -nE "(SURFACE_SIGNING_KEY|JWT_SECRET)\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,}" -- ':!*.md' ':!server/__tests__'; then
+            echo "::error::a secret value is committed — move it to .env"; exit 1; fi
