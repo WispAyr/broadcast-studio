@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { xpVars, bridgeable, postVars } from '../lib/xpVarsBridge.js';
 
 export default function WebSourceModule({ config = {} }) {
   const url = config.url || config.src || '';
@@ -33,6 +34,18 @@ export default function WebSourceModule({ config = {} }) {
     iframe.addEventListener('load', onLoad);
     return () => iframe.removeEventListener('load', onLoad);
   }, [scrollX, scrollY, refreshKey]);
+
+  // Crosspoint variables (xp:*) → same-origin pages: snapshot on load, then each change (see lib/xpVarsBridge.js).
+  const src0 = useProxy ? `/api/proxy/fetch?url=${encodeURIComponent(url)}` : url;
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    if (!iframe || !bridgeable(src0, origin, useProxy)) return;
+    const onLoad = () => postVars(iframe.contentWindow, xpVars.snapshot(), origin);
+    iframe.addEventListener('load', onLoad);
+    const unsub = xpVars.subscribe((changed) => postVars(iframe.contentWindow, changed, origin));
+    return () => { iframe.removeEventListener('load', onLoad); unsub(); };
+  }, [src0, useProxy, refreshKey]);
 
   if (!url) {
     return (

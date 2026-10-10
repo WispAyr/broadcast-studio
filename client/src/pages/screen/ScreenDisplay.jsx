@@ -11,6 +11,7 @@ import NowPlayingL3 from '../../components/NowPlayingL3';
 import GoalGraphic, { GoalAudio } from '../../components/GoalGraphic';
 import { LookBackdrop } from '../../components/LookBackdrop';
 import { duck, unduck, onDuck, rampVolume, autoPlay, installUnlockListener } from '../../lib/audioBus';
+import { xpVars } from '../../lib/xpVarsBridge.js';
 
 // A one-shot video/audio sting played over the screen. Ducks the bed on play,
 // restores + removes itself when the media ends. `audioOutput` gates sound:
@@ -819,6 +820,7 @@ export default function ScreenDisplay() {
 
     socket.on('variable_update', (data) => {
       if (data && data.id) variablesRef.current[data.id] = data.value;
+      if (data && data.id) xpVars.publish({ [data.id]: data.value });   // xp:* only → same-origin web_source frames
       setModules((prev) =>
         prev.map((m) => {
           if (!m.config || m.config.variable_id !== data.id) return m;
@@ -833,6 +835,7 @@ export default function ScreenDisplay() {
       const vars = data && data.variables;
       if (!vars || typeof vars !== 'object') return;
       variablesRef.current = { ...variablesRef.current, ...vars };
+      xpVars.publish(vars);
       setModules((prev) =>
         prev.map((m) => {
           if (!m.config || !m.config.variable_id) return m;
