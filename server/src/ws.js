@@ -94,6 +94,9 @@ function setupWebSocket(server) {
 
       console.log(`Screen ${screenId} registered to studio ${studioId}`);
 
+      // Give a (re)loaded screen the score bug back if it is on air.
+      require('./scoreboard').replay(socket, resolvedStudio);
+
       try {
         const vars = getVariablesByStudio(resolvedStudio) || [];
         const snap = {};
