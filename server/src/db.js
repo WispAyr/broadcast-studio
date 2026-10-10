@@ -3,7 +3,8 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
-const dbPath = path.join(__dirname, '..', 'data', 'broadcast.db');
+// BS_DB_PATH: tests and tools point this at a scratch DB; production leaves it unset.
+const dbPath = process.env.BS_DB_PATH || path.join(__dirname, '..', 'data', 'broadcast.db');
 const db = new Database(dbPath);
 
 // Enable WAL mode for better concurrent access
