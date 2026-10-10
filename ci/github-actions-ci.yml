@@ -1,3 +1,8 @@
+# ACTIVATE: move this file to .github/workflows/ci.yml (needs a push with the GitHub `workflow` scope —
+# the bot token that opened this PR does not have it). Content is final and was run locally.
+# NOTE 10 Oct 2026: GitHub Actions on the WispAyr account is blocked by billing ("recent account payments have
+# failed or your spending limit needs to be increased"); crosspoint uses a self-hosted wispayr-ci on pu2 meanwhile.
+
 name: ci
 
 # Basic CI (review 2026-10-10): server unit + integration tests on a scratch DB,
