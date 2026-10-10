@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Goal flash</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* Goal flash (gfx_l3). mode=goal: an amber GOAL slam (~0.6 s hold) that wipes away to reveal the score strip,
+     the scoring side's digit rolling up on an amber tile. mode=cancelled: red GOAL RULED OUT beat, digit rolls back.
+     mode=update: no slam, GOAL UPDATE tag + the scorer line (a scorer attributed after the flash aired). */
+  .card { position: absolute; left: 50%; bottom: 100px; width: 1560px; margin-left: -780px; }
+  .top { display: flex; align-items: flex-end; height: 58px; }
+  .tag { --k: 14px; --pg: var(--amber); color: var(--navy); padding: 12px 40px 12px 30px; z-index: 1;
+    font: 700 34px/1 var(--body); letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; }
+  .m-cancelled .tag { --pg: var(--red); color: #fff; }
+  .comp { --k: 14px; margin-left: -8px; padding: 10px 40px 12px 34px; font: 700 30px/1 var(--body);
+    letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+  .top #brand { margin-left: auto; }
+  .row { display: flex; align-items: stretch; height: 172px; position: relative; }
+  .side { flex: 1; min-width: 0; background: var(--navy-glass); display: flex; align-items: center; gap: 28px;
+    padding: 0 40px 0 34px; border-top: 5px solid var(--amber); --cs: 116px; }
+  .side.away { flex-direction: row-reverse; text-align: right; padding: 0 34px 0 40px; }
+  .who { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .away .who { align-items: flex-end; }
+  .team { font: italic 700 58px/1.02 var(--display); max-width: 100%; }
+  .score { --pg: #fff; --k: 26px; flex: none; width: 330px; margin: 0 -12px; z-index: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--navy); }
+  .d { position: relative; width: 116px; height: 132px; display: grid; place-items: center; overflow: hidden; z-index: 0;
+    font: italic 700 116px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .d::before { content: ''; position: absolute; inset: 8px 4px; z-index: -1; background: transparent;
+    clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); }
+  .d.hit::before { background: var(--amber); }
+  .m-cancelled .d.hit::before { background: var(--red); }
+  .m-cancelled .d.hit { color: #fff; }
+  .dash { font: italic 700 70px/1 var(--display); opacity: .35; margin-top: -8px; }
+  /* Digit roll: old value → new value (a goal rolls up, a cancelled goal rolls back down) */
+  .roll { display: flex; flex-direction: column; height: 132px; }
+  .roll i { font-style: inherit; height: 132px; display: grid; place-items: center; flex: none; padding-top: 4px; }
+  .in .roll.up { animation: rollUp .55s var(--ease) var(--rd, 1.2s) both; }
+  .in .roll.down { animation: rollDown .55s var(--ease) var(--rd, 1.2s) both; }
+  .roll.down { transform: translateY(-132px); }
+  @keyframes rollUp { from { transform: translateY(0); } to { transform: translateY(-132px); } }
+  @keyframes rollDown { from { transform: translateY(-132px); } to { transform: translateY(0); } }
+  .in .d.hit::before { animation: tile .5s var(--ease) var(--rd, 1.2s) both; }
+  @keyframes tile { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+  /* Scorer line hangs under the scoring side */
+  .line { display: flex; margin: 0; font: 700 38px/1 var(--body); letter-spacing: .02em; }
+  .line.home { justify-content: flex-start; padding-left: 0; }
+  .line.away { justify-content: flex-end; }
+  .line > span { padding: 12px 30px 15px; background: #fff; color: var(--navy); white-space: nowrap; }
+  .line .min { background: var(--amber); font-variant-numeric: tabular-nums; }
+  .m-cancelled .line .min { background: var(--red); color: #fff; }
+  .m-cancelled .line .who2 { text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 4px; }
+  .line .gt { font-weight: 300; margin-left: 6px; }
+  .ayrw { display: flex; } .away .ayrw { justify-content: flex-end; }
+
+  /* The slam: purple leader + amber band sweep across the strip, GOAL slams in, band wipes off to the right */
+  .slam, .slam-b { position: absolute; left: -20px; right: -20px; top: -24px; bottom: -24px; z-index: 5;
+    clip-path: inset(0 100% 0 0); pointer-events: none; }
+  .slam-b { background: var(--purple); }
+  .slam { background: var(--amber); color: var(--navy); display: flex; align-items: center; justify-content: center; gap: 48px; overflow: hidden; }
+  .m-cancelled .slam { background: var(--red); color: #fff; }
+  .slam::after { content: ''; position: absolute; top: 0; bottom: 0; width: 140px; left: -200px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); transform: skewX(-15deg); }
+  .slam .word { font: italic 700 190px/1 var(--display); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; margin-top: -14px; }
+  .m-cancelled .slam .word { font-size: 124px; }
+  .slam .who3 { display: flex; align-items: center; gap: 20px; font: 700 50px/1 var(--body); letter-spacing: .14em;
+    text-transform: uppercase; white-space: nowrap; --cs: 96px; }
+  .in .slam-b { animation: band 1.3s var(--ease-wipe) 0s both; }
+  .in .slam { animation: band 1.3s var(--ease-wipe) .06s both; }
+  .in .slam .word { animation: word 1.3s var(--ease) .06s both; }
+  .in .slam .who3 { animation: who3 1.3s var(--ease) .06s both; }
+  .in .slam::after { animation: glint 1.3s linear .06s both; }
+  @keyframes band { 0% { clip-path: inset(0 100% 0 0); } 18% { clip-path: inset(0 0 0 0); }
+    70% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 0 0 100%); } }
+  @keyframes word { 0% { transform: scale(1.9) skewX(-8deg); opacity: 0; } 16% { opacity: 1; }
+    24% { transform: scale(.95); } 32% { transform: scale(1); } 70% { transform: translateX(0); }
+    100% { transform: translateX(120px); opacity: 1; } }
+  @keyframes who3 { 0%, 18% { transform: translateX(-60px); opacity: 0; } 34% { transform: none; opacity: 1; }
+    70% { transform: none; } 100% { transform: translateX(160px); } }
+  @keyframes glint { 0%, 20% { left: -200px; } 60% { left: 110%; } 100% { left: 110%; } }
+
+  /* Portrait: bottom-left of the safe box. Tag + show bar on top, comp label in the panel, home over away
+     with each side's digit in a white column on the right, scorer line under. */
+  .portrait .card { left: var(--sx); margin-left: 0; width: var(--sw); bottom: var(--pb); }
+  .portrait .top { height: auto; margin-bottom: 0; }
+  .portrait .tag { font-size: 40px; padding: 14px 44px 14px 34px; --k: 16px; }
+  .portrait .top #brand { margin-bottom: 8px; }
+  .portrait .panel { background: var(--navy-glass); border-top: 6px solid var(--amber); position: relative; }
+  .portrait .comp { margin: 0; padding: 20px 36px 4px; font-size: 28px; letter-spacing: .18em; color: var(--ink-2); }
+  .portrait .comp::before { display: none; }
+  .portrait .prow { display: grid; grid-template-columns: 110px 1fr 150px; align-items: center; column-gap: 26px;
+    padding: 0 0 0 36px; min-height: 150px; --cs: 110px; }
+  .portrait .prow + .prow { border-top: 2px solid rgba(255,255,255,.14); }
+  .portrait .prow .team { font-size: 62px; line-height: 1.02; padding: 18px 0; }
+  .portrait .prow .who { gap: 10px; }
+  .portrait .panel::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 150px; background: #fff; z-index: 0; }
+  .portrait .panel > * { position: relative; z-index: 1; }
+  .portrait .pwrap { position: relative; }   /* the slam sits outside the panel so the panel's wipe can't clip it */
+  .portrait .comp { margin-right: 150px; }
+  .portrait .prow .pd { align-self: stretch; display: grid; place-items: center; color: var(--navy); }
+  .portrait .prow + .prow .pd { border-top: 2px solid rgba(21,20,53,.14); margin-top: -2px; }
+  .portrait .d { width: 130px; }
+  .portrait .line { font-size: 44px; justify-content: flex-start; }
+  .portrait .line > span { padding: 14px 32px 17px; white-space: normal; line-height: 1.05; }
+  .portrait .slam, .portrait .slam-b { top: -20px; bottom: -20px; left: 0; right: 0; padding: 0 30px; flex-direction: column; gap: 22px; }
+  .portrait .slam .word { font-size: 200px; }
+  .portrait.m-cancelled .slam .word { font-size: 104px; text-align: center; line-height: .98; white-space: normal; }
+  .portrait .slam .who3 { font-size: 46px; }
+</style></head>
+<body>
+<div class="card" id="card"></div>
+<script src="js/sl.js"></script>
+<script>
+  /* Params: h a (teams) · hs as (score AFTER the goal) · side=home|away (who scored) · scorer · min
+     gt (API goal type: 'Penalty' → (pen), 'Own Goal' → (og), 'Normal Goal' → nothing) · comp · hc ac (crest URLs)
+     hcol acol (monogram colours) · mode=goal|cancelled|update · tag= (override the tag text, e.g. SCORE CORRECTION)
+     An empty scorer shows the team ("Kilmarnock score"). A name is never invented. */
+  var MODE = SL.p('mode', 'goal'); if (['goal', 'cancelled', 'update'].indexOf(MODE) === -1) MODE = 'goal';
+  document.body.classList.add('m-' + MODE);
+  var H = SL.p('h', 'Kilmarnock'), A = SL.p('a', 'Celtic');
+  var HS = parseInt(SL.p('hs', '1'), 10) || 0, AS = parseInt(SL.p('as', '0'), 10) || 0;
+  var SIDE = SL.p('side', 'home') === 'away' ? 'away' : 'home';
+  var TEAM = SIDE === 'home' ? H : A;
+  var SCORER = SL.p('scorer').trim();
+  var gt = SL.p('gt').toLowerCase(), GT = /own/.test(gt) ? '(og)' : /pen/.test(gt) ? '(pen)' : '';
+  function minute(m) {
+    m = String(m || '').trim().replace(/[’′]/g, "'");
+    if (!m) return '';
+    return /'$/.test(m) ? m : m + "'";
+  }
+  var MIN = minute(SL.p('min'));
+  var TAG = SL.p('tag', { goal: 'Goal', cancelled: 'Goal ruled out', update: 'Goal update' }[MODE]);
+  var SLAM = MODE !== 'update';
+  var B = SLAM ? .92 : 0;                           // the strip starts after the slam beat
+  document.body.style.setProperty('--rd', (B + .55).toFixed(2) + 's');
+
+  function dly(d, od) { return ' style="--d:' + (B + d).toFixed(2) + 's' + (od != null ? ';--od:' + od + 's' : '') + '"'; }
+  function ayr(name) { return SL.isAyr(name) ? '<span class="ayrw"><span class="ayr">Ayrshire</span></span>' : ''; }
+  // Digit for one side: the scoring side's digit is emphasised and rolls (up on a goal, back down when cancelled)
+  function digit(v, s) {
+    if (s !== SIDE) return '<div class="d">' + v + '</div>';
+    if (MODE === 'update') return '<div class="d hit">' + v + '</div>';
+    if (MODE === 'goal') return '<div class="d hit"><span class="roll up"><i>' + Math.max(0, v - 1) + '</i><i>' + v + '</i></span></div>';
+    return '<div class="d hit"><span class="roll down"><i>' + v + '</i><i>' + (v + 1) + '</i></span></div>';
+  }
+  function scorerLine() {
+    var who = SCORER ? SL.esc(SCORER) : SL.esc(TEAM) + (MODE === 'cancelled' ? ' goal' : ' score');
+    return '<div class="line ' + SIDE + ' a wipe' + (SIDE === 'away' && !SL.portrait ? '-r' : '') + '"' + dly(.5, 0) + '>' +
+      (MIN ? '<span class="min">' + SL.esc(MIN) + '</span>' : '') +
+      '<span><span class="who2">' + who + '</span>' + (SCORER && GT ? '<span class="gt">' + GT + '</span>' : '') + '</span></div>';
+  }
+  var slam = SLAM ? '<div class="slam-b"></div><div class="slam"><span class="word">' + SL.esc(TAG) + '</span>' +
+    (MODE === 'goal' ? '<span class="who3">' + SL.crest(SL.p(SIDE === 'home' ? 'hc' : 'ac'), TEAM, SL.p(SIDE === 'home' ? 'hcol' : 'acol')) + SL.esc(TEAM) + '</span>' : '') +
+    '</div>' : '';
+  var comp = SL.p('comp', 'Scottish Premiership');
+  var topRow = '<div class="top"><div class="tag pg a wipe-up"' + dly(.3, .2) + '>' + SL.esc(TAG) + '</div>' +
+    (comp && !SL.portrait ? '<div class="comp pg a wipe"' + dly(.4, .1) + '>' + SL.esc(comp) + '</div>' : '') +
+    '<span class="a rise" id="brand"' + dly(.6, 0) + '>' + SL.wordmark(SL.portrait ? 64 : 52) + '</span></div>';
+
+  var html;
+  if (!SL.portrait) {
+    html = topRow + '<div class="row">' +
+      '<div class="side home a wipe-r"' + dly(.08) + '>' + SL.crest(SL.p('hc'), H, SL.p('hcol')) +
+        '<div class="who"><span class="team">' + SL.esc(H) + '</span>' + ayr(H) + '</div></div>' +
+      '<div class="score pg a pop"' + dly(0, .2) + '>' + digit(HS, 'home') + '<span class="dash">–</span>' + digit(AS, 'away') + '</div>' +
+      '<div class="side away a wipe"' + dly(.08) + '>' + SL.crest(SL.p('ac'), A, SL.p('acol')) +
+        '<div class="who"><span class="team">' + SL.esc(A) + '</span>' + ayr(A) + '</div></div>' +
+      slam + '</div>' + scorerLine();
+  } else {
+    var prow = function (name, crest, col, v, s) {
+      return '<div class="prow">' + SL.crest(crest, name, col) + '<div class="who"><span class="team">' + SL.esc(name) + '</span>' + ayr(name) + '</div>' +
+        '<div class="pd">' + digit(v, s) + '</div></div>';
+    };
+    html = topRow + '<div class="pwrap"><div class="panel a wipe"' + dly(.05, .1) + '>' +
+      (comp ? '<div class="comp">' + SL.esc(comp) + '</div>' : '') +
+      prow(H, SL.p('hc'), SL.p('hcol'), HS, 'home') + prow(A, SL.p('ac'), SL.p('acol'), AS, 'away') + '</div>' + slam + '</div>' + scorerLine();
+  }
+  document.getElementById('card').innerHTML = html;
+
+  function fit() {
+    document.querySelectorAll('.team').forEach(function (t) { SL.fitLines(t, 2, SL.portrait ? 40 : 34); });
+    if (!SL.portrait) SL.shrink(document.querySelector('.comp'), 22);
+    document.querySelectorAll('.line > span').forEach(function (s) { if (!SL.portrait) SL.shrink(s, 26); });
+    var w = document.querySelector('.slam .word'); if (w && !SL.portrait) SL.shrink(w, 90);
+  }
+  fit(); if (document.fonts) document.fonts.ready.then(fit);
+  SL.boot();
+</script>
+</body></html>

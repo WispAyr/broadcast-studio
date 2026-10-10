@@ -13,6 +13,7 @@
  */
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../../lib/api';
+import TallyPanel from './components/TallyPanel';
 
 const OUTCOME_STYLE = {
   fired:                { c: 'bg-red-500/15 text-red-300 border-red-500/30',       t: 'Cut' },
@@ -180,6 +181,9 @@ export default function Cutaway() {
           </div>
         )}
       </section>
+
+      {/* STUDIO TALLY — ON AIR / MIC LIVE from the studio-tap relay */}
+      <TallyPanel onConfirm={(c) => setConfirm({ ...c, onOk: () => { setConfirm(null); c.onOk(); } })} />
 
       {/* RULES */}
       <section className="mb-6">

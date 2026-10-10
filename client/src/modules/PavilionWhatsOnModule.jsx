@@ -14,10 +14,14 @@ import {
  * config:
  *   mode           'upcoming' (chronological, default) | 'featured' (featured first)
  *   holdSeconds    seconds per card (default 13)
+ *   offset         slot shift vs other screens: a number, or 'half' so a
+ *                  second screen on the same list never shows the same card
  *   brand          headline wordmark (default 'AYR PAVILION')
  *   brandSub       small line under wordmark (default 'Ayr Beach · The Piv')
  *   website        footer site (default 'ayrpavilion.com')
  *   comingUp       how many "also coming up" rows to show (default 4, 0 = off)
+ *   comingUpFrom   'today' (next N from today, default) | 'after' (the N that
+ *                  follow the card on screen, so a second screen's rail differs)
  *   accent         primary accent (default cyan #19e3ff)
  *   accent2        secondary accent (default pink #ff3d9a)
  */
@@ -79,6 +83,7 @@ export default function PavilionWhatsOnModule({ config = {} }) {
   const brand = config.brand || 'AYR PAVILION';
   const brandSub = config.brandSub || 'Ayr Beach · The Piv';
   const website = config.website || 'ayrpavilion.com';
+  const comingUpFrom = config.comingUpFrom === 'after' ? 'after' : 'today';
   const comingUpN = config.comingUp == null ? 4 : Math.max(0, Number(config.comingUp) || 0);
 
   // Recompute the curated list once per day-rollover / data refresh, not every clock tick.
@@ -93,23 +98,33 @@ export default function PavilionWhatsOnModule({ config = {} }) {
   );
 
   // ── rotation ─────────────────────────────────────────────────────────────
-  const [idx, setIdx] = useState(0);
+  // Locked to the wall clock, not to page load: every screen on the same
+  // list shows slot floor(now/hold), shifted by `offset`. Two kiosks that
+  // boot together would otherwise run in lockstep on identical cards.
+  const n = events.length;
+  const offset = config.offset === 'half' ? Math.floor(n / 2) : (Number(config.offset) || 0);
+  const slotIdx = () => (n ? (((Math.floor(Date.now() / hold) + offset) % n) + n) % n : 0);
+  const [idx, setIdx] = useState(slotIdx);
   const [prev, setPrev] = useState(null); // outgoing card index during crossfade
-  const idxRef = useRef(0);
+  const idxRef = useRef(idx);
   useEffect(() => { idxRef.current = idx; }, [idx]);
   useEffect(() => {
-    if (idx >= events.length) { setIdx(0); idxRef.current = 0; }
-  }, [events.length, idx]);
-  useEffect(() => {
-    if (events.length < 2) return;
-    const t = setInterval(() => {
+    if (!n) return undefined;
+    const tick = () => {
       const cur = idxRef.current;
-      setPrev(cur);
-      setIdx((cur + 1) % events.length);
-      setTimeout(() => setPrev(p => (p === cur ? null : p)), FADE_MS + 100);
-    }, hold);
+      const next = slotIdx();
+      if (next === cur) return;
+      idxRef.current = next;
+      setIdx(next);
+      if (cur < n) {
+        setPrev(cur);
+        setTimeout(() => setPrev(p => (p === cur ? null : p)), FADE_MS + 100);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 500);
     return () => clearInterval(t);
-  }, [events.length, hold]);
+  }, [n, hold, offset]);
 
   const isPortrait = box.h > box.w * 1.1;
   const vw = box.w / 100;
@@ -117,7 +132,7 @@ export default function PavilionWhatsOnModule({ config = {} }) {
   // one "unit" that scales sensibly in either orientation
   const u = isPortrait ? vw : vh * 0.62;
 
-  const theme = { accent, accent2, brand, brandSub, website, mode, isPortrait, vw, vh, u, now, comingUpN };
+  const theme = { accent, accent2, brand, brandSub, website, mode, isPortrait, vw, vh, u, now, comingUpN, comingUpFrom };
   const current = events[idx];
 
   return (
@@ -283,12 +298,18 @@ function Chip({ children, kind, theme }) {
 }
 
 function InfoPanel({ ev, when, times, shownActs, extra, tickets, theme, chrono, style }) {
-  const { accent, accent2, u, vh, vw, isPortrait, comingUpN } = theme;
+  const { accent, accent2, u, vh, vw, isPortrait, comingUpN, comingUpFrom } = theme;
   const dot = <span style={{ width: 0.8 * u, height: 0.8 * u, borderRadius: '50%', background: accent2, flex: '0 0 auto' }} />;
 
-  const upNext = comingUpN > 0
-    ? chrono.filter(e => e.id !== ev.id).filter(e => (e.event_date + e.title) !== (ev.event_date + ev.title)).slice(0, comingUpN)
-    : [];
+  const others = chrono.filter(e => e.id !== ev.id).filter(e => (e.event_date + e.title) !== (ev.event_date + ev.title));
+  let pool = others;
+  if (comingUpFrom === 'after') {
+    // the events that follow the one on screen, wrapping round to the start
+    const key = ev.event_date + (ev.event_time || '');
+    const later = others.filter(e => (e.event_date + (e.event_time || '')) > key);
+    pool = later.concat(others.filter(e => !later.includes(e)));
+  }
+  const upNext = comingUpN > 0 ? pool.slice(0, comingUpN) : [];
 
   return (
     <div style={{
@@ -356,7 +377,7 @@ function InfoPanel({ ev, when, times, shownActs, extra, tickets, theme, chrono, 
 
       {upNext.length > 0 && (
         <div style={{ marginTop: 3.2 * vh, paddingTop: 2 * vh, borderTop: `1px solid ${LINE}` }}>
-          <div style={{ fontSize: 1.6 * u, fontWeight: 800, letterSpacing: '0.32em', textTransform: 'uppercase', color: MUTED, marginBottom: 1.2 * vh }}>Also coming up</div>
+          <div style={{ fontSize: 1.6 * u, fontWeight: 800, letterSpacing: '0.32em', textTransform: 'uppercase', color: MUTED, marginBottom: 1.2 * vh }}>{comingUpFrom === 'after' ? 'Coming up after' : 'Also coming up'}</div>
           <div style={{ display: 'grid', gridTemplateColumns: isPortrait ? '1fr' : '1fr 1fr', gap: `${0.8 * vh}px ${3 * u}px` }}>
             {upNext.map(e => (
               <div key={e.id + e.event_date} style={{ display: 'flex', alignItems: 'baseline', gap: 1.6 * u, minWidth: 0 }}>

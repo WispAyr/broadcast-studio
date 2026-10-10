@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Team news</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* ?side=left|right — the panel sits beside the presenter's camera */
+  .panel { position: absolute; top: 110px; width: 660px; display: flex; flex-direction: column; }
+  .right .panel { right: 110px; } .left .panel { left: 110px; }
+  .top { display: flex; align-items: center; gap: 24px; background: var(--navy-glass); padding: 26px 30px; border-top: 5px solid var(--amber); --cs: 104px; }
+  .top .k { font: 700 24px/1 var(--body); letter-spacing: .22em; color: var(--amber); text-transform: uppercase; }
+  .top h1 { margin: 8px 0 0; font: italic 700 54px/1.02 var(--display); }
+  .sec { background: rgba(21, 20, 53, .88); padding: 18px 30px 20px; border-top: 1px solid rgba(255,255,255,.1); }
+  .sec h2 { margin: 0 0 10px; display: inline-block; padding: 6px 14px 8px; font: 700 24px/1 var(--body); letter-spacing: .2em; text-transform: uppercase; color: var(--navy); }
+  .out h2 { background: var(--red); color: #fff; } .doubt h2 { background: var(--amber); } .back h2 { background: var(--aqua); }
+  .sec ul { list-style: none; margin: 0; padding: 0; }
+  .sec li { font: 700 40px/1.22 var(--body); display: flex; justify-content: space-between; gap: 20px; }
+  .sec li em { font-style: normal; font-weight: 300; color: var(--ink-2); font-size: 32px; }
+  .src { background: #fff; color: var(--navy); padding: 10px 30px 13px; font: 700 26px/1.1 var(--body); }
+  .src b { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 22px; margin-right: 8px; }
+  .brand { margin-bottom: 12px; }
+  /* Portrait: one full-height column filling the safe box (y 270-1440); side= is ignored.
+     The last section stretches so the Source line sits on the bottom of the safe box. */
+  .portrait .panel { left: var(--sx); right: auto; top: 290px; width: var(--sw); height: 1150px; --z: 1; }
+  .portrait .brand { margin-bottom: 14px; }
+  .portrait .top { gap: 30px; padding: 30px 36px; --cs: 132px; border-top-width: 6px; }
+  .portrait .top .k { font-size: 30px; }
+  .portrait .top h1 { font-size: 76px; }
+  .portrait #secs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .portrait .sec { padding: calc(26px * var(--z)) 36px calc(28px * var(--z)); }
+  .portrait .sec { flex: 1 0 auto; }
+  .portrait .sec h2 { font-size: 30px; padding: 7px 16px 9px; margin-bottom: calc(14px * var(--z)); }
+  .portrait .sec li { font-size: calc(56px * var(--z)); line-height: 1.18; align-items: baseline; }
+  .portrait .sec li em { font-size: calc(42px * var(--z)); flex: none; }
+  .portrait .src { padding: 16px 36px 19px; font-size: 34px; }
+  .portrait .src b { font-size: 26px; }
+</style></head>
+<body>
+<div class="panel">
+  <div class="brand a rise" style="--d:.1s" id="brand"></div>
+  <div class="top a wipe" style="--d:0s" id="top"></div>
+  <div id="secs"></div>
+  <div class="src a wipe" id="src"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* Lists: comma-separated. Optional note after a colon, e.g.  out=Stuart Findlay: hamstring, Liam Polworth
+     src= is the attribution line — who said it (e.g. "Derek McInnes, Thursday press conference").
+     Team news is someone else's claim: always fill src before this goes to air. */
+  document.body.classList.add(SL.p('side', 'right') === 'left' ? 'left' : 'right');
+  var team = SL.p('team', 'Kilmarnock');
+  document.getElementById('brand').innerHTML = SL.wordmark(52);
+  document.getElementById('top').innerHTML = SL.crest(SL.p('crest'), team, SL.p('col')) +
+    '<div><div class="k">' + SL.esc(SL.p('k', 'Team news')) + '</div><h1>' + SL.esc(team) + '</h1></div>';
+
+  var SECS = [['out', 'Out'], ['doubt', 'Doubtful'], ['back', 'Available again']];
+  var demo = { out: 'Player One: hamstring, Player Two: suspended', doubt: 'Player Three: knock', back: 'Player Four' };
+  var noLists = !SECS.some(function (s) { return SL.p(s[0]); });
+  var html = '', i = 0;
+  SECS.forEach(function (s) {
+    var raw = noLists ? demo[s[0]] : SL.p(s[0]);
+    if (!raw) return;
+    var items = raw.split(/\s*,\s*/).filter(Boolean);
+    html += '<div class="sec ' + s[0] + ' a wipe" style="--d:' + (.2 + (i++) * .12) + 's"><h2>' + s[1] + '</h2><ul>' +
+      items.map(function (it) {
+        var m = it.split(':'); var who = m.shift().trim(); var note = m.join(':').trim();
+        return '<li><span>' + SL.esc(who) + '</span>' + (note ? '<em>' + SL.esc(note) + '</em>' : '') + '</li>';
+      }).join('') + '</ul></div>';
+  });
+  document.getElementById('secs').innerHTML = html;
+  var src = SL.p('src', noLists ? 'Manager, pre-match press conference' : '');
+  var srcEl = document.getElementById('src');
+  srcEl.style.setProperty('--d', (.25 + i * .12) + 's');
+  if (src) srcEl.innerHTML = '<b>Source</b>' + SL.esc(src); else srcEl.remove();
+  if (SL.portrait) document.fonts.ready.then(function () {
+    // Long lists: tighten the list type until the column fits the safe box
+    var p = document.querySelector('.panel'), secs = document.getElementById('secs'), z = 1;
+    while (z > .55 && secs.scrollHeight > secs.clientHeight + 1) { z -= .05; p.style.setProperty('--z', z.toFixed(2)); }
+  });
+  SL.boot();
+</script>
+</body></html>

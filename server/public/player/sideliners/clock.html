@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Studio clock</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  /* Studio clock for the studio wall TV. Full-frame, opaque (hero backdrop, as slate.html).
+     Time comes from the SERVER (/api/time), not the local PC; the SYNCED / LOCAL badge says which.
+     Show-aware panel in Europe/London time; a compact live-scores crawl along the bottom (honesty rules as scores.html). */
+  .bg { position: absolute; inset: 0; background: var(--hero); overflow: hidden; }
+  .band { position: absolute; top: -10%; bottom: -10%; transform: skewX(-15deg); }
+  .b1 { left: -12%; width: 1180px; background: rgba(21, 20, 53, .5); }
+  .b2 { left: 63%; width: 110px; background: rgba(250, 166, 26, .12); animation: drift 29s ease-in-out infinite alternate-reverse; }
+  .b3 { left: 86%; width: 520px; background: rgba(21, 20, 53, .26); animation: drift 37s ease-in-out infinite alternate; }
+  @keyframes drift { to { translate: -120px 0; } }
+
+  /* ---- The clock: 60 LED seconds dots + 12 hour markers around the digital time ---- */
+  .dial { position: absolute; left: 110px; top: 70px; width: 800px; height: 800px; }
+  .dial svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .dial .hm { fill: rgba(255, 255, 255, .92); }
+  .dial .sd { fill: rgba(255, 255, 255, .11); }
+  .dial .sd.q { fill: rgba(255, 255, 255, .2); }
+  .dial .sd.on { fill: var(--amber); filter: drop-shadow(0 0 7px rgba(250, 166, 26, .85)); }
+  .dial .sd.lead { fill: #fff3d6; filter: drop-shadow(0 0 10px rgba(250, 166, 26, 1)) drop-shadow(0 0 3px #fff); }
+  .face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .hhmm { font: 700 236px/1 var(--body); font-variant-numeric: tabular-nums; letter-spacing: -.01em; margin-top: 40px;
+    text-shadow: 0 4px 30px rgba(21, 20, 53, .35); }
+  .hhmm i { font-style: normal; display: inline-block; width: .26em; text-align: center; transform: translateY(-.06em); }
+  .ss { margin-top: 2px; font: 700 120px/1 var(--body); font-variant-numeric: tabular-nums; color: var(--amber); }
+  .ss i { font-style: normal; opacity: .55; }
+  .src { margin-top: 26px; display: flex; align-items: center; gap: 10px; padding: 6px 14px 8px; border: 2px solid rgba(255,255,255,.35);
+    font: 700 19px/1 var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); }
+  .src b { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+  .src.sync { border-color: var(--aqua); color: var(--aqua); }
+  body.nosec .sd, body.nosec .ss { display: none; }
+  body.nosec .hhmm { font-size: 270px; margin-top: 0; }
+
+  /* ---- Right column: lockup, date, show panel ---- */
+  .col { position: absolute; left: 1010px; width: 800px; top: 84px; display: flex; flex-direction: column; align-items: flex-start; }
+  .sllock { height: 250px; margin-left: -6px; }
+  .toprow { display: flex; align-items: flex-start; width: 100%; }
+  .sample { margin: 12px 0 0 auto; padding: 5px 12px 7px; border: 2px solid var(--aqua); color: var(--aqua);
+    font: 700 20px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+  .date { margin-top: 34px; }
+  .date .wd { font: italic 700 86px/1.02 var(--display); }
+  .date .dm { margin-top: 6px; font: 300 52px/1.1 var(--body); color: var(--ink-2); }
+  .show { margin-top: 38px; width: 100%; background: var(--navy-glass); border-top: 5px solid var(--amber); }
+  .show.onair { border-top-color: var(--red); }
+  .shead { display: flex; align-items: center; padding: 22px 30px 0; }
+  .tag { --k: 12px; --pg: var(--purple); padding: 9px 30px 11px 26px; font: 700 28px/1 var(--body); letter-spacing: .18em;
+    text-transform: uppercase; display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+  .tag.onair { --pg: var(--red); }
+  .dot { width: 13px; height: 13px; border-radius: 50%; background: currentColor; flex: none; }
+  .in .tag.onair .dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .slabel { margin-left: 22px; font: 700 30px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+  .cd { display: flex; align-items: baseline; gap: 6px; padding: 12px 30px 22px; font: 700 110px/1 var(--body); font-variant-numeric: tabular-nums; }
+  .cd u { text-decoration: none; font-size: 42px; color: var(--ink-2); margin: 0 26px 0 6px; letter-spacing: .06em; text-transform: uppercase; }
+  .cd u:last-child { margin-right: 0; }
+  .ko { display: flex; align-items: center; gap: 16px; padding: 14px 30px 16px; background: #fff; color: var(--navy);
+    font: 700 32px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+  .ko b { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+  .ko .sep { width: 9px; height: 9px; background: var(--amber); transform: skewX(-15deg); flex: none; }
+  .ko .in { color: var(--purple); }
+  .ko[hidden] { display: none; }
+
+  /* ---- Bottom band: compact live scores, or the next kick-offs today ---- */
+  .tickwrap { position: absolute; left: 100px; right: 100px; top: 950px; height: 76px; }
+  .tick { position: absolute; inset: 0; display: flex; align-items: stretch; background: var(--navy-glass); border-top: 4px solid var(--amber);
+    transition: opacity .5s ease, transform .6s var(--ease); }
+  .tick.hide { opacity: 0; transform: translateY(24px); }
+  .tlab { --k: 12px; --pg: var(--red); flex: none; display: flex; align-items: center; gap: 12px; margin: 10px 0 10px 14px; padding: 0 30px 0 24px;
+    font: 700 26px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+  .tlab.ko { --pg: var(--amber); color: var(--navy); background: none; }
+  .in .tlab .dot { animation: pulse 1.6s ease-in-out infinite; }
+  .tview { flex: 1; min-width: 0; overflow: hidden; position: relative; margin-left: 20px;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 50px), transparent); }
+  .trk { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; will-change: transform; }
+  .ti { display: inline-flex; align-items: center; gap: 16px; padding: 0 30px; height: 100%; }
+  .ti::after { content: ''; width: 10px; height: 30px; background: var(--amber); transform: skewX(-15deg); margin-left: 30px; opacity: .8; }
+  .ti .n { font: italic 700 34px/1 var(--display); }
+  .ti.local .n { color: #fff; }
+  .ti .ayr { font-size: 16px; padding: 4px 7px 5px; }
+  .ti .s { background: #fff; color: var(--navy); padding: 6px 14px 7px; font: italic 700 34px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .ti .s.k { background: none; color: #fff; border: 2px solid rgba(255,255,255,.5); font: 700 30px/1 var(--body); padding: 6px 12px 8px; }
+  .ti .m { padding: 7px 10px 8px; min-width: 64px; text-align: center; font: 700 26px/1 var(--body); font-variant-numeric: tabular-nums; background: var(--red); }
+  .ti .m.ht { background: var(--amber); color: var(--navy); }
+  .ti .m.ft { background: none; border: 2px solid rgba(255,255,255,.4); }
+
+  /* ---- Portrait: stacked inside the safe box (x 60-950, y 270-1440) ---- */
+  .portrait .b1 { left: -60%; width: 900px; } .portrait .b2 { left: 72%; } .portrait .b3 { left: 88%; width: 420px; }
+  .portrait .col { left: var(--sx); width: var(--sw); top: 290px; }
+  .portrait .toprow { align-items: center; }
+  .portrait .sllock { height: 170px; margin-left: 0; }
+  .portrait .date { margin: 0 0 0 auto; text-align: right; }
+  .portrait .date .wd { font-size: 76px; }
+  .portrait .date .dm { font-size: 44px; }
+  .portrait .sample { position: absolute; right: 130px; top: 1060px; margin: 0; }
+  .portrait .dial { left: 200px; top: 468px; width: 620px; height: 620px; }
+  .portrait .hhmm { font-size: 184px; margin-top: 34px; }
+  .portrait .ss { font-size: 96px; }
+  .portrait .src { margin-top: 20px; font-size: 20px; }
+  body.portrait.nosec .hhmm { font-size: 214px; margin-top: 0; }
+  .portrait .show { position: absolute; left: var(--sx); width: var(--sw); top: auto; bottom: 568px; margin: 0; }
+  .portrait .shead { padding: 18px 26px 0; }
+  .portrait .cd { font-size: 92px; padding: 8px 26px 16px; }
+  .portrait .cd u { font-size: 36px; margin-right: 20px; }
+  .portrait .ko { font-size: 29px; padding: 12px 26px 14px; letter-spacing: .06em; }
+  .portrait .tickwrap { left: var(--sx); right: auto; width: var(--sw); top: 1368px; height: 72px; }
+  .portrait .tlab { font-size: 24px; padding: 0 24px 0 20px; }
+  .portrait .ti .n { font-size: 32px; }
+  body.portrait.noshow .dial { top: 520px; width: 800px; height: 800px; left: 110px; }
+  body.portrait.noshow .hhmm { font-size: 230px; }
+</style></head>
+<body>
+<div class="bg a fade" style="--d:0s"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+<div class="dial a fade" style="--d:.2s" id="dial">
+  <svg viewBox="0 0 800 800" id="ring" aria-hidden="true"></svg>
+  <div class="face">
+    <div class="hhmm" id="hhmm">--<i>:</i>--</div>
+    <div class="ss" id="ss">--</div>
+    <div class="src" id="src"><b></b><span>Local</span></div>
+  </div>
+</div>
+<div class="col" id="col">
+  <div class="toprow a wipe" style="--d:.3s" id="toprow"><span id="lock"></span><span id="sampleSlot"></span></div>
+  <div class="date a rise" style="--d:.5s" id="date"><div class="wd" id="wd"></div><div class="dm" id="dm"></div></div>
+  <div class="show a wipe" style="--d:.65s" id="show">
+    <div class="shead"><span class="tag pg" id="stag"></span><span class="slabel" id="slabel"></span></div>
+    <div class="cd" id="cd"></div>
+    <div class="ko" id="ko" hidden></div>
+  </div>
+</div>
+<div class="tickwrap a wipe" style="--d:.85s" id="tickwrap">
+  <div class="tick hide" id="tick"><div class="tlab pg" id="tlab"></div><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  /* Params
+     time=    server clock (default /api/time → {now: <epoch ms>})
+     feed=    scores / fixtures (default /api/datafeeds/sideliners/public)
+     show=0   hide the show panel      ticker=0  hide the bottom band      seconds=0  hide the seconds ring + seconds
+     tier= / league=   optional filters for the ticker and the first kick-off (default: everything the feed carries)
+     demo=1   sample scores + fixtures (SAMPLE DATA shown). demo=onair also moves the clock to a Saturday 11:23 (sample only).
+   TIME: 5 samples of the server clock, the lowest-RTT one wins, RTT/2 compensated. An offset beyond ±30 s is rejected
+   and the local PC clock is used (badge LOCAL). Resync every 10 min. Rendered on requestAnimationFrame, so the second
+   changes within one frame of the true boundary. Every wall time on this page is Europe/London. */
+  var TIME_URL = SL.p('time', '/api/time'), FEED = SL.p('feed', '/api/datafeeds/sideliners/public');
+  var DEMO = SL.p('demo'), SHOW = SL.p('show', '1') !== '0', TICKER = SL.p('ticker', '1') !== '0', SECS = SL.p('seconds', '1') !== '0';
+  var TIERS = SL.list('tier').map(Number), LEAGUES = SL.list('league').map(String);
+  var MAX_OFFSET = 30000, RESYNC = 10 * 60 * 1000, MAX_AGE = 120, POLL = 15000, SPEED = 80;
+  var OFF = 0, SHIFT = 0, SYNCED = false;
+  function el(id) { return document.getElementById(id); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function now() { return Date.now() + OFF + SHIFT; }
+  if (!SECS) document.body.classList.add('nosec');
+  if (!SHOW) { el('show').remove(); document.body.classList.add('noshow'); }
+  if (!TICKER) el('tickwrap').remove();
+  if (SL.portrait) {   // portrait: the date sits opposite the lockup; the show panel under the dial
+    el('date').classList.remove('a', 'rise'); el('toprow').appendChild(el('date'));
+    if (SHOW) el('col').parentNode.appendChild(el('show'));
+  }
+
+  // ---------- Europe/London wall time ----------
+  var WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MO = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var LDN = null;
+  try { LDN = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hourCycle: 'h23', year: 'numeric', month: 'numeric',
+    day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', weekday: 'short' }); } catch (e) {}
+  var WDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function wall(ms) {
+    if (!LDN) { var d = new Date(ms); return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: d.getHours(), mi: d.getMinutes(), s: d.getSeconds(), wd: d.getDay() }; }
+    var o = {}; LDN.formatToParts(new Date(ms)).forEach(function (p) { o[p.type] = p.value; });
+    return { y: +o.year, mo: +o.month, d: +o.day, h: +o.hour % 24, mi: +o.minute, s: +o.second, wd: WDS.indexOf(o.weekday) };
+  }
+  function tzOff(ms) { var w = wall(ms); return Date.UTC(w.y, w.mo - 1, w.d, w.h, w.mi, w.s) - Math.floor(ms / 1000) * 1000; }
+  // London wall-clock → epoch ms (DST-correct)
+  function epochOf(y, mo, d, h, mi) { var g = Date.UTC(y, mo - 1, d, h, mi); return g - tzOff(g - tzOff(g)); }
+  function sameDay(a, b) { return a.y === b.y && a.mo === b.mo && a.d === b.d; }
+  function hhmm(ms) { var w = wall(ms); return pad(w.h) + ':' + pad(w.mi); }
+
+  // ---------- Server time sync ----------
+  function sampleOnce() {
+    var t0 = performance.now();
+    return fetch(TIME_URL, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) {
+        var t1 = performance.now(), local = Date.now(), srv = Number(j && j.now);
+        if (!isFinite(srv) || srv < 1e12) throw new Error('bad time');
+        var rtt = t1 - t0;
+        return { rtt: rtt, off: srv + rtt / 2 - local };
+      });
+  }
+  function sync() {
+    var best = null, n = 0;
+    function next() {
+      if (n++ >= 5) return Promise.resolve();
+      return sampleOnce().then(function (s) { if (!best || s.rtt < best.rtt) best = s; }, function () {}).then(next);
+    }
+    return next().then(function () {
+      if (best && Math.abs(best.off) <= MAX_OFFSET) { OFF = best.off; SYNCED = true; }
+      else { OFF = 0; SYNCED = false; }            // no answer, or an implausible one: the local clock, and say so
+      var s = el('src'); s.className = 'src' + (SYNCED ? ' sync' : '');
+      s.lastChild.textContent = SYNCED ? 'Synced' : 'Local';
+      s.title = SYNCED ? 'offset ' + Math.round(OFF) + ' ms, rtt ' + Math.round(best.rtt) + ' ms' : '';
+      lastSec = -1;
+    });
+  }
+
+  // ---------- Dial ----------
+  (function buildRing() {
+    var h = '', i, a, R = 356, RH = 392;
+    for (i = 0; i < 12; i++) { a = i / 12 * 2 * Math.PI; h += '<circle class="hm" cx="' + (400 + RH * Math.sin(a)).toFixed(1) + '" cy="' + (400 - RH * Math.cos(a)).toFixed(1) + '" r="8"/>'; }
+    for (i = 0; i < 60; i++) { a = i / 60 * 2 * Math.PI; h += '<circle class="sd' + (i % 5 ? '' : ' q') + '" data-i="' + i + '" cx="' + (400 + R * Math.sin(a)).toFixed(1) + '" cy="' + (400 - R * Math.cos(a)).toFixed(1) + '" r="' + (i % 5 ? 9.5 : 11) + '"/>'; }
+    el('ring').innerHTML = h;
+  })();
+  var DOTS = Array.prototype.slice.call(document.querySelectorAll('.sd')), litTo = -2;
+  function setDots(s) {
+    if (s === litTo) return;
+    for (var i = 0; i < 60; i++) {
+      var c = i < s ? 'sd on' : i === s ? 'sd lead' : 'sd' + (i % 5 ? '' : ' q');
+      if (DOTS[i].getAttribute('class') !== c) DOTS[i].setAttribute('class', c);
+    }
+    litTo = s;
+  }
+
+  // ---------- Show panel (Saturdays 10:00-14:00, Europe/London) ----------
+  function dur(ms) {
+    var t = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(t / 86400), h = Math.floor(t % 86400 / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+    if (d >= 1) return '<b>' + d + '</b><u>' + (d === 1 ? 'day' : 'days') + '</u><b>' + h + '</b><u>' + (h === 1 ? 'hr' : 'hrs') + '</u>';
+    return '<b>' + h + ':' + pad(m) + ':' + pad(s) + '</b>';
+  }
+  function short(ms) {           // "2h 14m" / "42 min"
+    var m = Math.ceil(ms / 60000);
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+  }
+  var lastShow = '';
+  function showPanel(t, w) {
+    if (!SHOW) return;
+    var on = w.wd === 6 && w.h >= 10 && w.h < 14, tag, label, cd;
+    if (on) {
+      tag = '<span class="dot"></span>On air'; label = 'Show ends in'; cd = dur(epochOf(w.y, w.mo, w.d, 14, 0) - t);
+    } else {
+      var ahead = (6 - w.wd + 7) % 7; if (ahead === 0 && w.h >= 14) ahead = 7;
+      var nd = new Date(Date.UTC(w.y, w.mo - 1, w.d + ahead));
+      tag = 'Next show'; label = 'Saturday 10am';
+      cd = dur(epochOf(nd.getUTCFullYear(), nd.getUTCMonth() + 1, nd.getUTCDate(), 10, 0) - t);
+    }
+    var k = tag + label;
+    if (k !== lastShow) {
+      el('stag').innerHTML = tag; el('stag').className = 'tag pg' + (on ? ' onair' : '');
+      el('show').className = el('show').className.replace(/\s*onair/g, '') + (on ? ' onair' : '');
+      el('slabel').textContent = label; lastShow = k;
+    }
+    el('cd').innerHTML = cd;
+    // First kick-off today (from the feed's upcoming fixtures), only while that schedule is recent
+    var ko = el('ko'), f = firstKo(t, w);
+    if (f) { ko.innerHTML = 'First kick-off <b>' + hhmm(f.ts * 1000) + '</b><span class="sep"></span><span class="in">in ' + short(f.ts * 1000 - t) + '</span>'; ko.hidden = false; }
+    else ko.hidden = true;
+  }
+
+  // ---------- Feed (scores + today's fixtures) ----------
+  var DATA = null, gotAt = 0;
+  function toSec(g) { if (g == null || g === '') return null; if (typeof g === 'number') return g > 1e12 ? g / 1000 : g; var x = Date.parse(g); return isNaN(x) ? null : x / 1000; }
+  function age() {
+    if (!DATA) return Infinity;
+    var base = typeof DATA.ageSec === 'number' ? DATA.ageSec : (toSec(DATA.generated) != null ? gotAt / 1000 - toSec(DATA.generated) : Infinity);
+    return base + (Date.now() - gotAt) / 1000;
+  }
+  function fresh() { return !!DATA && DATA.ok !== false && DATA.stale !== true && age() <= MAX_AGE; }
+  function keep(f) {
+    var L = f.league || {};
+    if (TIERS.length && TIERS.indexOf(+L.tier) === -1) return false;
+    if (LEAGUES.length && LEAGUES.indexOf(String(L.id)) === -1) return false;
+    return true;
+  }
+  var OFF_ST = ['PST', 'CANC', 'ABD', 'SUSP', 'INT', 'AWD', 'WO'];
+  function todays(t, w) {         // today's fixtures (London date) that have not kicked off yet, earliest first
+    if (!DATA || DATA.ok === false || Date.now() - gotAt > 15 * 60 * 1000) return [];   // schedule older than 15 min: not shown
+    return (DATA.upcoming || []).filter(keep).filter(function (f) {
+      return f && f.ts && f.off !== true && f.finished !== true && f.live !== true && OFF_ST.indexOf(String(f.status || '').toUpperCase()) === -1 &&
+        f.ts * 1000 > t && sameDay(wall(f.ts * 1000), w);
+    }).sort(function (a, b) { return a.ts - b.ts; });
+  }
+  function firstKo(t, w) { return todays(t, w)[0] || null; }
+  function isLocal(f) {
+    var h = f.home || {}, a = f.away || {};
+    return f.local === 'AYRSHIRE' || h.local === 'AYRSHIRE' || a.local === 'AYRSHIRE' || SL.isAyr(h.name) || SL.isAyr(a.name);
+  }
+  function chip(f) {
+    var s = String(f.status || '').toUpperCase(), e = f.elapsed, x = f.extra;
+    var min = e != null && e !== '' ? e + (x ? '+' + x : '') + "'" : '';
+    switch (s) {
+      case 'HT': return ['HT', 'ht']; case 'BT': return ['ET BRK', 'ht']; case 'P': return ['PENS', ''];
+      case 'SUSP': case 'INT': return [s, 'ht'];
+      default: return [min || 'LIVE', ''];
+    }
+  }
+  function team(t) { return '<b class="n">' + SL.esc(t.name) + '</b>'; }
+  function itemLive(f) {
+    var h = f.home || {}, a = f.away || {}, c = chip(f), g = h.goals != null && a.goals != null;
+    return '<span class="ti' + (isLocal(f) ? ' local' : '') + '" data-id="' + SL.esc(f.id) + '">' + team(h) +
+      '<span class="s" data-sc>' + (g ? h.goals + '–' + a.goals : 'v') + '</span>' + team(a) +
+      '<span class="m ' + c[1] + '" data-st>' + SL.esc(c[0]) + '</span></span>';
+  }
+  function itemKo(f) {
+    var h = f.home || {}, a = f.away || {};
+    return '<span class="ti' + (isLocal(f) ? ' local' : '') + '"><span class="s k">' + hhmm(f.ts * 1000) + '</span>' + team(h) +
+      '<span style="opacity:.6;font:700 28px/1 var(--body)">v</span>' + team(a) + '</span>';
+  }
+  var LIVE_ST = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'LIVE', 'SUSP', 'INT'];
+  // What the band may carry right now. Nothing unless the feed is fresh.
+  function band(t, w) {
+    if (!TICKER || !fresh()) return null;
+    var live = (DATA.live || []).filter(keep).filter(function (f) { return f.finished !== true && (f.live === true || LIVE_ST.indexOf(String(f.status || '').toUpperCase()) !== -1); });
+    live.sort(function (a, b) { return (isLocal(b) - isLocal(a)) || ((+(a.league || {}).tier || 99) - (+(b.league || {}).tier || 99)); });
+    if (live.length) return { kind: 'live', ids: live.map(function (f) { return f.id; }).join(','), html: live.map(itemLive).join(''), list: live };
+    var next = todays(t, w).slice(0, 3);
+    if (next.length) return { kind: 'ko', ids: 'ko:' + next.map(function (f) { return f.id + '@' + f.ts; }).join(','), html: next.map(itemKo).join('') };
+    return null;
+  }
+
+  // ---------- Ticker (crawls only when it does not fit) ----------
+  var TK = { ids: null, x: 0, w: 0, crawl: false, pending: null, last: 0 };
+  function applyBand(b) {
+    var tick = el('tick'), trk = el('trk');
+    el('tlab').className = 'tlab pg' + (b.kind === 'ko' ? ' ko' : '');
+    el('tlab').innerHTML = b.kind === 'live' ? '<span class="dot"></span>Live' : 'Kick-offs today';
+    trk.innerHTML = b.html; TK.ids = b.ids; TK.x = 0;
+    var W = trk.scrollWidth, V = el('tview').clientWidth;
+    TK.crawl = W > V && SL.p('static') !== '1';
+    if (TK.crawl) { trk.innerHTML = b.html + b.html; TK.w = W; } else TK.w = 0;
+    if (!TK.crawl && W > V) {       // static frame: only whole items, never one cut at the edge
+      var its = trk.querySelectorAll('.ti');
+      for (var k = its.length - 1; k > 0 && trk.scrollWidth > V; k--) its[k].remove();
+    }
+    trk.style.transform = 'translateX(0)';
+    tick.classList.remove('hide');
+  }
+  function updateBand(t, w) {
+    if (!TICKER) return;
+    var b = band(t, w), tick = el('tick');
+    if (!b) { tick.classList.add('hide'); TK.ids = null; TK.pending = null; return; }
+    if (b.ids === TK.ids) {         // same matches: scores + minutes update in place (both copies)
+      if (b.list) b.list.forEach(function (f) {
+        var tmp = document.createElement('div'); tmp.innerHTML = itemLive(f);
+        var ns = tmp.querySelector('[data-sc]').textContent, nst = tmp.querySelector('[data-st]');
+        document.querySelectorAll('#trk .ti[data-id="' + String(f.id).replace(/"/g, '') + '"]').forEach(function (it) {
+          var sc = it.querySelector('[data-sc]'), st = it.querySelector('[data-st]');
+          if (sc.textContent !== ns) sc.textContent = ns;
+          if (st.textContent !== nst.textContent) { st.textContent = nst.textContent; st.className = nst.className; }
+        });
+      });
+      TK.pending = null; return;
+    }
+    // New set of matches: swap at the seam if crawling (no jump), otherwise straight away
+    if (TK.ids && TK.crawl && !tick.classList.contains('hide')) TK.pending = b; else applyBand(b);
+  }
+  function crawl(ts) {
+    var dt = TK.last ? Math.min(100, ts - TK.last) : 0; TK.last = ts;
+    if (!TK.crawl || !TK.w) return;
+    TK.x -= SPEED * dt / 1000;
+    if (TK.x <= -TK.w) { TK.x += TK.w; if (TK.pending) { var p = TK.pending; TK.pending = null; applyBand(p); return; } }
+    el('trk').style.transform = 'translateX(' + TK.x.toFixed(2) + 'px)';
+  }
+
+  // ---------- Render loop ----------
+  var lastSec = -1, lastDay = '';
+  function tick(t) {
+    var w = wall(t);
+    el('hhmm').innerHTML = pad(w.h) + '<i>:</i>' + pad(w.mi);
+    if (SECS) { el('ss').innerHTML = pad(w.s); setDots(w.s); }
+    var dk = w.y + '-' + w.mo + '-' + w.d;
+    if (dk !== lastDay) { lastDay = dk; el('wd').textContent = WD[w.wd]; el('dm').textContent = w.d + ' ' + MO[w.mo - 1] + ' ' + w.y; }
+    showPanel(t, w);
+    updateBand(t, w);
+  }
+  function frame(ts) {
+    var t = now(), sec = Math.floor(t / 1000);
+    if (sec !== lastSec) { lastSec = sec; tick(sec * 1000); }
+    crawl(ts);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- Data ----------
+  function demoData(t) {
+    var s = Math.floor(t / 1000);
+    function fx(id, lg, h, a, hg, ag, st, e, ts) {
+      return { id: id, ts: ts || s - 60 * 60, league: lg, status: st, elapsed: e, live: st !== 'NS', finished: false, off: false,
+        home: { name: h, logo: '', goals: hg, local: SL.isAyr(h) ? 'AYRSHIRE' : 'SCOTTISH' }, away: { name: a, logo: '', goals: ag, local: SL.isAyr(a) ? 'AYRSHIRE' : 'SCOTTISH' },
+        scorers: [], local: SL.isAyr(h) || SL.isAyr(a) ? 'AYRSHIRE' : null };
+    }
+    var P = { id: 179, name: 'Scottish Premiership', tier: 1 }, C = { id: 180, name: 'Scottish Championship', tier: 2 }, L1 = { id: 183, name: 'Scottish League One', tier: 3 };
+    var w = wall(t), left = epochOf(w.y, w.mo, w.d, 23, 59) / 1000 - s;   // keep the sample kick-offs later today
+    var ko = s + Math.min(2 * 3600 + 14 * 60, Math.max(60, Math.floor(left / 2)));
+    return { ok: true, generated: new Date().toISOString(), stale: false, ageSec: 5,
+      live: DEMO === 'onair' ? [] : [fx(1, P, 'Kilmarnock', 'Celtic', 2, 1, '2H', 67), fx(2, P, 'Hearts', 'Aberdeen', 0, 0, 'HT', 45),
+        fx(3, C, 'Ayr United', 'Partick Thistle', 1, 0, '2H', 64), fx(4, L1, 'Inverness Caledonian Thistle', 'Kelty Hearts', 2, 2, '2H', 70),
+        fx(5, P, 'Rangers', 'Motherwell', 3, 1, '2H', 71)],
+      results: [],
+      upcoming: [fx(11, P, 'Kilmarnock', 'Celtic', null, null, 'NS', null, ko), fx(12, C, 'Ayr United', 'Partick Thistle', null, null, 'NS', null, ko),
+        fx(13, L1, 'Inverness Caledonian Thistle', 'Queen of the South', null, null, 'NS', null, Math.min(ko + 45 * 60, s + left - 30))] };
+  }
+  var pollT = 0;
+  function poll() {
+    clearTimeout(pollT);
+    if (DEMO) { DATA = demoData(now()); gotAt = Date.now(); pollT = setTimeout(poll, POLL); return Promise.resolve(); }
+    return fetch(FEED, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { DATA = d; gotAt = Date.now(); })
+      .catch(function () { /* keep the last copy; it ages out on its own */ })
+      .then(function () { pollT = setTimeout(poll, POLL); lastSec = -1; });
+  }
+
+  // ---------- Boot ----------
+  el('lock').innerHTML = SL.lockup();
+  if (DEMO) {
+    if (SL.portrait) { el('sampleSlot').remove(); document.body.insertAdjacentHTML('beforeend', '<span class="sample a fade" style="--d:.9s">Sample data</span>'); }
+    else el('sampleSlot').outerHTML = '<span class="sample">Sample data</span>';
+  }
+  if (DEMO === 'onair') {        // sample only: pretend it is Saturday 11:23:40 London this week
+    var w0 = wall(Date.now()), back = (w0.wd - 6 + 7) % 7, sd = new Date(Date.UTC(w0.y, w0.mo - 1, w0.d - back));
+    SHIFT = epochOf(sd.getUTCFullYear(), sd.getUTCMonth() + 1, sd.getUTCDate(), 11, 23) + 40000 - Date.now();
+  }
+  requestAnimationFrame(frame);
+  // Fallback: browsers pause requestAnimationFrame in hidden or background tabs/iframes, and a
+  // studio clock must never sit on --:--. This keeps the digits right (not the crawl) whenever
+  // rAF isn't running; when rAF is running it finds the second already drawn and does nothing.
+  setInterval(function () { var sec = Math.floor(now() / 1000); if (sec !== lastSec) { lastSec = sec; tick(sec * 1000); } }, 250);
+  var booted = false;
+  function boot() { if (booted) return; booted = true; lastSec = -1; SL.boot(); }
+  setTimeout(boot, 3000);
+  Promise.all([sync(), poll()]).then(boot);
+  setInterval(sync, RESYNC);
+  if (document.fonts) document.fonts.ready.then(function () { TK.ids = null; lastSec = -1; });
+</script>
+</body></html>

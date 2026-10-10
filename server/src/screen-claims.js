@@ -41,6 +41,14 @@ const { enrichLayout } = require('./lib/enrich-layout');
 
 // Priority ladder. Programme is the implicit floor (no claim row).
 const LAYERS = Object.freeze({
+  // ON AIR / MIC LIVE takeover card (routes/tally.js). BELOW cutaway on purpose:
+  // a tally holds for a whole show (hours) while a cutaway is capped at its
+  // max_hold (minutes). Above cutaway, an armed door camera on that screen would
+  // be dead for every live show; below it, the door shot interrupts the card for
+  // at most max_hold and the screen shows the ON AIR BANNER over the cutaway
+  // meanwhile, so the room is never left without the warning. Refreshed only by
+  // fresh ingest with a short hold, so it expires by itself if the relay stops.
+  tally:     400,   // ingest-refreshed, ALWAYS expires, respects the padlock
   cutaway:   500,   // trigger-driven, ALWAYS expires, respects the padlock
   blackout:  900,   // manual safety cut, never expires, ignores the padlock
   emergency: 1000,  // override everything

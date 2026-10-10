@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SideLiner's — Topic strap</title>
+<link rel="stylesheet" href="css/sl.css">
+<style>
+  .strap { position: absolute; left: 120px; right: 120px; bottom: 100px; display: flex; flex-direction: column; align-items: flex-start; }
+  .row { align-self: stretch; display: flex; align-items: stretch; }
+  .tag {
+    --k: 16px; flex: none; display: flex; align-items: center; padding: 0 44px 0 38px;
+    font: 700 34px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap;
+  }
+  .main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 30px; margin-left: -6px;
+    background: var(--navy-glass); padding: 18px 30px 16px 36px; border-top: 5px solid var(--amber); }
+  .title { flex: 1; min-width: 0; font: italic 700 58px/1.08 var(--display); white-space: nowrap; overflow: hidden; }
+  .main .slbar { flex: none; }
+  .sub { margin-left: 140px; background: #fff; color: var(--navy); padding: 9px 36px 12px;
+    font: 700 34px/1 var(--body); white-space: nowrap; max-width: calc(100% - 140px); overflow: hidden; text-overflow: ellipsis; }
+  /* Portrait: tag + show bar on a row above a full-width headline panel (up to 3 lines) */
+  .portrait .strap { left: var(--sx); right: auto; width: var(--sw); bottom: var(--pb); }
+  .portrait .row { flex-wrap: wrap; align-items: flex-end; }
+  .portrait .tag { font-size: 40px; padding: 12px 46px 14px 40px; --k: 18px; }
+  .portrait .row > #brand { margin: 0 0 10px auto; }
+  .portrait .main { flex: 0 0 100%; margin-left: 0; padding: 24px 40px 26px 36px; border-top-width: 6px; }
+  .portrait .title { font-size: 76px; line-height: 1.06; white-space: normal; }
+  .portrait .sub { margin-left: 36px; max-width: calc(100% - 36px); white-space: normal; font-size: 42px; line-height: 1.1; padding: 12px 34px 15px; }
+</style></head>
+<body>
+<div class="strap">
+  <div class="row">
+    <div class="tag pg a wipe-up" id="tag" style="--od:.2s"></div>
+    <div class="main a wipe" style="--d:.12s; --od:.08s">
+      <div class="title a slide" style="--d:.3s" id="title"></div>
+      <span class="a fade" style="--d:.6s" id="brand"></span>
+    </div>
+  </div>
+  <div class="sub a wipe" style="--d:.34s" id="sub"></div>
+</div>
+<script src="js/sl.js"></script>
+<script>
+  document.getElementById('tag').textContent = SL.p('tag', 'Preview');
+  document.getElementById('title').textContent = SL.p('t', 'Can Killie keep the run going at Rugby Park?');
+  var sub = SL.p('s', '');
+  if (sub) document.getElementById('sub').textContent = sub; else document.getElementById('sub').remove();
+  document.getElementById('brand').innerHTML = SL.wordmark(SL.portrait ? 64 : 52);
+  if (SL.p('brand') === '0') document.getElementById('brand').remove();
+  else if (SL.portrait) document.querySelector('.row').insertBefore(document.getElementById('brand'), document.querySelector('.main'));
+  document.fonts.ready.then(function () {
+    if (SL.portrait) SL.fitLines(document.getElementById('title'), 3, 48);
+    else SL.shrink(document.getElementById('title'), 40);
+  });
+  SL.boot();
+</script>
+</body></html>
