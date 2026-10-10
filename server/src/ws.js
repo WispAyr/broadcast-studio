@@ -69,7 +69,14 @@ function setupWebSocket(server) {
     return false;
   }
   // requireAuth + studio check for an event that targets { screenId } or { studioId }
+  // Events that needed no sign-in before 2026-10-10: BS_ACCESS_LEGACY_OPEN=1 lets
+  // anonymous sockets send them again (logged), for an integration we missed.
+  const WAS_OPEN = new Set(['update_module_config', 'counter_bump', 'counter_set', 'join_studio']);
   function control(socket, action, { screenId, studioId } = {}) {
+    if (!socket.user && WAS_OPEN.has(action) && access.LEGACY_OPEN()) {
+      console.warn(`[access] would deny anonymous ${action} from ${socket.id} (BS_ACCESS_LEGACY_OPEN=1)`);
+      return true;
+    }
     if (!requireAuth(socket, action)) return false;
     return allowStudios(socket, action, [screenId ? screenStudio(screenId) : null, studioId || null]);
   }
@@ -276,8 +283,8 @@ function setupWebSocket(server) {
     // Signed-in only, and only a studio the user reaches (a studio room carries
     // layout previews, with any links in them). Screens join via register_screen.
     socket.on('join_studio', ({ studioId } = {}) => {
-      if (studioId && !socket.user) { requireAuth(socket, 'join_studio'); return; }
-      if (studioId && !access.decide({ user: socket.user, reachable: access.reachableFor(socket.user), studioIds: [studioId] }).ok) {
+      if (studioId && !socket.user && !access.LEGACY_OPEN()) { requireAuth(socket, 'join_studio'); return; }
+      if (studioId && socket.user && !access.decide({ user: socket.user, reachable: access.reachableFor(socket.user), studioIds: [studioId] }).ok) {
         if (!access.LEGACY_OPEN()) { console.warn(`[access] denied join_studio ${studioId} by ${socket.user.username}`); socket.emit('control_denied', { action: 'join_studio', reason: 'studio not in your access' }); return; }
         console.warn(`[access] would deny join_studio ${studioId} by ${socket.user.username} (BS_ACCESS_LEGACY_OPEN=1)`);
       }

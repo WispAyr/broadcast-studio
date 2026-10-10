@@ -213,3 +213,19 @@ describe('socket', () => {
     s.close(); pab.close();
   });
 });
+
+describe('BS_ACCESS_LEGACY_OPEN=1 escape hatch', () => {
+  afterAll(() => { delete process.env.BS_ACCESS_LEGACY_OPEN; });
+  test('restores the old open behaviour for REST and the previously-open socket events', async () => {
+    process.env.BS_ACCESS_LEGACY_OPEN = '1';
+    expect((await req('PUT', '/api/screens/scr-b', 'pa', { name: 'B1' })).status).toBe(200);
+    const screen = await new Promise((resolve) => { const s = ioc(base, { transports: ['websocket'], reconnection: false }); s.on('connect', () => resolve(s)); });
+    screen.emit('register_screen', { screenId: 'scr-b' });
+    await new Promise((r) => setTimeout(r, 100));
+    const anon = await new Promise((resolve) => { const s = ioc(base, { transports: ['websocket'], reconnection: false }); s.on('connect', () => resolve(s)); });
+    const got = new Promise((resolve) => { const t = setTimeout(() => resolve(null), 800); screen.once('update_module_config', (d) => { clearTimeout(t); resolve(d); }); });
+    anon.emit('update_module_config', { studioId: B, moduleId: 'm', config: { text: 'legacy' } });
+    expect(await got).toMatchObject({ moduleId: 'm' });
+    anon.close(); screen.close();
+  });
+});
