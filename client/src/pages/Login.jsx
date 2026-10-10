@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api';
+import { reauthenticateSocket } from '../lib/socket';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function Login() {
     try {
       const data = await login(username, password);
       localStorage.setItem('broadcast_token', data.token);
+      reauthenticateSocket();
       localStorage.setItem('broadcast_user', JSON.stringify(data.user));
       navigate('/control');
     } catch (err) {

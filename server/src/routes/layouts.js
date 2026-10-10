@@ -6,6 +6,13 @@ const { enrichLayout } = require('../lib/enrich-layout');
 const { getIO } = require('../ws');
 const { accessibleResourceIds } = require('./content-fabric');
 const { accessibleStudios } = require('./workgroups');
+const { guardStudios } = require('../lib/access');
+
+// Studio-ownership guards (review 2026-10-10, lib/access.js).
+const layoutStudio = (id) => { const r = id && db.prepare('SELECT studio_id FROM layouts WHERE id = ?').get(id); return r ? r.studio_id : null; };
+const guardLayoutParam = guardStudios((req) => [layoutStudio(req.params.id)]);
+const guardBodyStudio = guardStudios((req) => [(req.body && req.body.studio_id) || req.user.studio_id || (req.user.role === 'super_admin' ? null : '__no_studio__')]);
+const guardQueryStudio = guardStudios((req) => [req.query.studio_id], { write: false });
 
 const router = express.Router();
 
@@ -37,7 +44,7 @@ function layoutsForStudio(studioId) {
 }
 
 // GET / - list layouts for studio
-router.get('/', authenticate, (req, res) => {
+router.get('/', authenticate, guardQueryStudio, (req, res) => {
   try {
     let layouts;
     if (req.query.studio_id) {
@@ -71,7 +78,7 @@ router.get('/', authenticate, (req, res) => {
 });
 
 // POST / - create layout
-router.post('/', authenticate, (req, res) => {
+router.post('/', authenticate, guardBodyStudio, (req, res) => {
   try {
     const { name, grid_cols, grid_rows, modules, studio_id, orientation, resolution_w, resolution_h, background, public_safe, project } = req.body;
     let studioId = studio_id || req.user.studio_id;
@@ -113,7 +120,7 @@ router.get('/:id', optionalAuthenticate, (req, res) => {
 });
 
 // PUT /:id - update layout
-router.put('/:id', authenticate, (req, res) => {
+router.put('/:id', authenticate, guardLayoutParam, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {
@@ -178,7 +185,7 @@ router.put('/:id', authenticate, (req, res) => {
 });
 
 // DELETE /:id - delete layout
-router.delete('/:id', authenticate, (req, res) => {
+router.delete('/:id', authenticate, guardLayoutParam, (req, res) => {
   try {
     const layout = getLayoutById(req.params.id);
     if (!layout) {

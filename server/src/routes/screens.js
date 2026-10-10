@@ -6,6 +6,17 @@ const { getIO } = require('../ws');
 const { enrichLayout } = require('../lib/enrich-layout');
 const claims = require('../screen-claims');
 const { accessibleStudios } = require('./workgroups');
+const { guardStudios, canReach, decide, reachableFor, enforce } = require('../lib/access');
+
+// Studio-ownership guards (review 2026-10-10): every write names the studio(s) it
+// touches, and the caller must reach them (lib/access.js). Missing records
+// resolve to nothing so the route's own 404 still answers.
+const screenStudio = (id) => { const r = id && db.prepare('SELECT studio_id FROM screens WHERE id = ?').get(id); return r ? r.studio_id : null; };
+const NONE = '__no_studio__';
+const bodyStudio = (req) => (req.body && req.body.studio_id) || req.user.studio_id || (req.user.role === 'super_admin' ? null : NONE);
+const guardScreenParam = guardStudios((req) => [screenStudio(req.params.id)]);
+const guardBodyStudio = guardStudios((req) => [bodyStudio(req)]);
+const guardScreenOrStudio = guardStudios((req) => (req.body && req.body.screen_id) ? [screenStudio(req.body.screen_id)] : [bodyStudio(req)]);
 
 // Shared broadcast-safety helpers.
 //
@@ -143,7 +154,7 @@ router.get('/', authenticate, (req, res) => {
 });
 
 // POST / - create screen
-router.post('/', authenticate, (req, res) => {
+router.post('/', authenticate, guardBodyStudio, (req, res) => {
   try {
     const { name, screen_number, studio_id } = req.body;
     let studioId = studio_id || req.user.studio_id;
@@ -187,7 +198,7 @@ router.get('/:id', optionalAuthenticate, (req, res) => {
 });
 
 // PUT /:id - update screen
-router.put('/:id', authenticate, (req, res) => {
+router.put('/:id', authenticate, guardScreenParam, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -237,7 +248,7 @@ router.put('/:id', authenticate, (req, res) => {
 });
 
 // DELETE /:id - delete screen
-router.delete('/:id', authenticate, (req, res) => {
+router.delete('/:id', authenticate, guardScreenParam, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -252,7 +263,7 @@ router.delete('/:id', authenticate, (req, res) => {
 });
 
 // POST /:id/layout - set screen's current layout
-router.post('/:id/layout', authenticate, (req, res) => {
+router.post('/:id/layout', authenticate, guardScreenParam, (req, res) => {
   try {
     const screen = getScreenById(req.params.id);
     if (!screen) {
@@ -267,6 +278,15 @@ router.post('/:id/layout', authenticate, (req, res) => {
     const layout = getLayoutById(layout_id);
     if (!layout) {
       return res.status(404).json({ error: 'Layout not found' });
+    }
+
+    // The layout must belong to a studio the caller reaches, or be shared to
+    // this screen's studio (content fabric) — otherwise one studio's layout
+    // (and any links in it) could be put on another studio's screen.
+    if (layout.studio_id !== screen.studio_id && !canReach(req.user, layout.studio_id)) {
+      const { accessibleResourceIds } = require('./content-fabric');
+      const shared = accessibleResourceIds('layout', screen.studio_id).has(layout.id);
+      if (!shared && !enforce(res, { ok: false, status: 403, reason: 'layout not available to this studio' }, `take layout ${layout.id} on screen ${screen.id}`)) return;
     }
 
     // Public-only studio guard — refuse non-safe layouts on public screens.
@@ -299,7 +319,7 @@ router.post('/:id/layout', authenticate, (req, res) => {
 });
 
 // POST /sync - sync all studio screens to one layout
-router.post('/sync', authenticate, (req, res) => {
+router.post('/sync', authenticate, guardBodyStudio, (req, res) => {
   try {
     const { layout_id, studio_id } = req.body;
     let studioId = studio_id || req.user.studio_id;
@@ -369,7 +389,7 @@ router.post('/sync', authenticate, (req, res) => {
 // POST /blackout — capture every screen's current layout, then cut to black.
 // Idempotent: a second blackout while already black does not overwrite the captured
 // layouts (or you'd lose the real look and "restore" would bring back black).
-router.post('/blackout', authenticate, (req, res) => {
+router.post('/blackout', authenticate, guardBodyStudio, (req, res) => {
   try {
     let studioId = req.body?.studio_id || req.user.studio_id;
     if (!studioId) { const first = db.prepare('SELECT id FROM studios LIMIT 1').get(); if (first) studioId = first.id; }
@@ -410,7 +430,7 @@ router.post('/blackout', authenticate, (req, res) => {
 // per screen, because a blackout never overwrote the programme in the first place —
 // it just outranked it. If a cutaway happens to be live and unexpired underneath,
 // the screen correctly returns to THAT and times out to programme on its own.
-router.post('/restore', authenticate, (req, res) => {
+router.post('/restore', authenticate, guardBodyStudio, (req, res) => {
   try {
     let studioId = req.body?.studio_id || req.user.studio_id;
     if (!studioId) { const first = db.prepare('SELECT id FROM studios LIMIT 1').get(); if (first) studioId = first.id; }
@@ -447,7 +467,7 @@ router.get('/blackout/state', authenticate, (req, res) => {
 });
 
 // POST /emergency - emergency override all screens
-router.post('/emergency', authenticate, (req, res) => {
+router.post('/emergency', authenticate, guardBodyStudio, (req, res) => {
   try {
     const { layout_id, studio_id } = req.body;
     let studioId = studio_id || req.user.studio_id;
@@ -497,7 +517,7 @@ router.post('/emergency', authenticate, (req, res) => {
 });
 
 // POST /overlay - push overlay via REST (for MCP server)
-router.post('/overlay', authenticate, (req, res) => {
+router.post('/overlay', authenticate, guardScreenOrStudio, (req, res) => {
   try {
     const { screen_id, studio_id, overlay } = req.body;
     if (!overlay) return res.status(400).json({ error: 'overlay is required' });
@@ -533,7 +553,7 @@ router.post('/overlay', authenticate, (req, res) => {
 });
 
 // POST /clear-overlays - clear overlays via REST (for MCP server)
-router.post('/clear-overlays', authenticate, (req, res) => {
+router.post('/clear-overlays', authenticate, guardScreenOrStudio, (req, res) => {
   try {
     const { screen_id, studio_id } = req.body;
     if (screen_id) {
@@ -550,3 +570,4 @@ router.post('/clear-overlays', authenticate, (req, res) => {
 });
 
 module.exports = router;
+module.exports.rejectIfPublicOnlyUnsafe = rejectIfPublicOnlyUnsafe;
