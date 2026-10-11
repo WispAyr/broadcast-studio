@@ -89,6 +89,10 @@ function hist(r, entry) { r.history.unshift({ at: Date.now(), ...entry }); r.his
 // ── graphic builders ─────────────────────────────────────────────────────
 const qs = o => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 const url = (page, params) => `${GFX}${page}?${qs(params)}`;
+// Goal cards (goal, scorer update, ruled out) play as the Rive goal card: /player/rive/goal.html takes the same
+// parameters as sideliners/goal.html. Roll back with SL_GOAL_GFX=/player/sideliners/ and a restart.
+const GOAL_GFX = process.env.SL_GOAL_GFX || "/player/rive/";
+const goalUrl = params => `${GOAL_GFX}goal.html?${qs(params)}`;
 const fx = e => `${e.home.name} ${e.home.goals ?? 0}-${e.away.goals ?? 0} ${e.away.name}`;
 const scorersFor = (list, side) => (list || []).filter(g => g.side === side)
   .map(g => `${g.player || '?'} ${g.minute}'${g.detail === 'Penalty' ? ' (pen)' : g.detail === 'Own Goal' ? ' (og)' : ''}`).join(';');
@@ -110,13 +114,13 @@ function cueFromEvent(e) {
     case 'goal':
       return { ...c, slot: 'gfx_l3', duration: 9, side: e.side, scorer: e.scorer || null,
         title: `GOAL — ${fx(e)}`, detail: e.scorer ? `${e.scorer} ${e.minute}'` : `${e.team} (scorer not yet confirmed)`,
-        url: url('goal.html', { ...common, side: e.side, scorer: e.scorer, min: e.minute, gt: e.goalType, mode: 'goal' }), _common: common, _ev: e };
+        url: goalUrl({ ...common, side: e.side, scorer: e.scorer, min: e.minute, gt: e.goalType, mode: 'goal' }), _common: common, _ev: e };
     case 'scorer':
       return { ...c, slot: 'gfx_l3', duration: 7, side: e.side, title: `GOAL UPDATE — ${e.scorer} ${e.minute}'`, detail: fx(e),
-        url: url('goal.html', { ...common, side: e.side, scorer: e.scorer, min: e.minute, gt: e.goalType, mode: 'update' }) };
+        url: goalUrl({ ...common, side: e.side, scorer: e.scorer, min: e.minute, gt: e.goalType, mode: 'update' }) };
     case 'goal_cancelled':
       return { ...c, slot: 'gfx_l3', duration: 8, side: e.side, title: `GOAL RULED OUT — ${fx(e)}`, detail: `${e.team} goal cancelled`,
-        url: url('goal.html', { ...common, side: e.side, mode: 'cancelled' }) };
+        url: goalUrl({ ...common, side: e.side, mode: 'cancelled' }) };
     case 'red_card':
       return { ...c, slot: 'gfx_l3', duration: 7, title: `RED CARD — ${e.player || e.team}`, detail: `${e.team} · ${e.minute}' · ${fx(e)}`,
         url: url('strap.html', { tag: 'Red card', t: `${e.player || e.team} sent off`, s: `${e.team} · ${e.minute}' · ${fx(e)}` }) };
