@@ -28,6 +28,9 @@ const B = [
     },
   }, '#FAA61A'],
   ['L3 OFF', 'remove_overlay', { overlay_type: 'gfx_l3' }, '#444'],
+  // Manual goal card (the director fires real ones from the data feed); sample data, for checking the screens.
+  ['Goal card TEST (Rive)', 'push_overlay', { overlay: { type: 'gfx_l3', duration: 9,
+    url: '/player/rive/goal.html?h=Kilmarnock&a=Celtic&hs=2&as=1&comp=Scottish%20Premiership&side=home&scorer=Bruce%20Anderson&min=23' } }, '#FAA61A'],
 ];
 
 const hasVar = db.prepare('SELECT 1 FROM variables WHERE studio_id = ? AND id = ?');
