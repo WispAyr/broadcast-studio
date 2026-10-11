@@ -89,9 +89,10 @@ function hist(r, entry) { r.history.unshift({ at: Date.now(), ...entry }); r.his
 // ── graphic builders ─────────────────────────────────────────────────────
 const qs = o => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 const url = (page, params) => `${GFX}${page}?${qs(params)}`;
-// Goal cards (goal, scorer update, ruled out) play as the Rive goal card: /player/rive/goal.html takes the same
-// parameters as sideliners/goal.html. Roll back with SL_GOAL_GFX=/player/sideliners/ and a restart.
-const GOAL_GFX = process.env.SL_GOAL_GFX || "/player/rive/";
+// Goal cards (goal, scorer update, ruled out). /player/rive/goal.html is the Rive goal card: a drop-in taking the
+// same parameters as sideliners/goal.html. Default stays the HTML card until the Rive one has had a screen test;
+// switch with SL_GOAL_GFX=/player/rive/ and a restart.
+const GOAL_GFX = process.env.SL_GOAL_GFX || "/player/sideliners/";
 const goalUrl = params => `${GOAL_GFX}goal.html?${qs(params)}`;
 const fx = e => `${e.home.name} ${e.home.goals ?? 0}-${e.away.goals ?? 0} ${e.away.name}`;
 const scorersFor = (list, side) => (list || []).filter(g => g.side === side)
