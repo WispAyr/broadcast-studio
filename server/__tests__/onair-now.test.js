@@ -15,11 +15,13 @@ describe('on-air match', () => {
     expect(match(np('Up the Road with Billy and Bex'), NAMES, T).presenter).toBe('Billy & Bex');
     expect(match(np('Drivetime', { presenter: 'Liam Dolan' }), NAMES, T).presenter).toBe('Liam Dolan');
   });
-  test('automated, unknown, off air, stale or missing feed → no on-air claim', () => {
+  test('automated, unknown, no schedule, stale or missing feed → no on-air claim', () => {
     expect(match(np('Non-Stop Nights'), NAMES, T)).toBeNull();
     expect(match(np('Nonstop Nights with Amanda Jean'), NAMES, T)).toBeNull();
     expect(match(np('The Late Show - with Billy Sturgeon'), NAMES, T)).toBeNull();
-    expect(match({ ...np('Evening Vibe with Amanda Jean'), offAir: true }, NAMES, T)).toBeNull();
+    // offAir = the track slot is on the station default; the scheduled show still decides
+    expect(match({ ...np('Evening Vibe with Amanda Jean'), offAir: true }, NAMES, T).presenter).toBe('Amanda Jean');
+    expect(match({ offAir: true, onAir: null }, NAMES, T)).toBeNull();
     expect(match(np('Evening Vibe with Amanda Jean', { end: T - 600e3 }), NAMES, T)).toBeNull();
     expect(match(null, NAMES, T)).toBeNull();
     expect(match({}, NAMES, T)).toBeNull();

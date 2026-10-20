@@ -1,7 +1,7 @@
 /* Who is really on air, from Broadcast Studio's own same-origin now-playing feed (GET /api/nowplaying/<station>,
    the broadcast.radio poller: {onAir: {title, presenter, start, end}, offAir}). Never from the analytics sample.
    match() maps the live show to a presenter that HAS analytics; anything else (automated shows such as Non-Stop Nights,
-   unknown shows, an expired slot, off air) returns null, and the presenter page then makes no on-air claim. */
+   unknown shows, an expired slot, no schedule) returns null, and the presenter page then makes no on-air claim. */
 (function (root) {
   var norm = function (s) {
     return String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/['’‘`]/g, '')
@@ -10,7 +10,9 @@
   var AUTOMATED = /\b(non ?stop|nonstop|automated|overnight|playlist|best of|replay|repeat)\b/;
   // np: the feed value; names: presenter names that have analytics; now: epoch ms
   function match(np, names, now) {
-    if (!np || np.offAir === true || !np.onAir || !np.onAir.title) return null;
+    // offAir in this feed means the TRACK slot shows the station default (no song metadata), not that the show ended:
+    // the scheduled show (onAir with start/end) is what decides.
+    if (!np || !np.onAir || !np.onAir.title) return null;
     var oa = np.onAir, t = now == null ? Date.now() : now;
     if (typeof oa.end === 'number' && t > oa.end + 120000) return null;           // slot over: the feed is stale
     if (typeof oa.start === 'number' && t < oa.start - 120000) return null;
