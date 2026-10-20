@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Now Ayrshire Radio — Halloween-o-meter</title>
+<link rel="stylesheet" href="css/sl.css"><link rel="stylesheet" href="css/oa.css">
+<style>
+  .ttl .wd { font-size: 80px; }
+  #ring .hm { fill: rgba(255, 255, 255, .92); }
+  #ring .sd { fill: rgba(255, 255, 255, .11); transition: fill .3s ease; }
+  #ring .sd.q { fill: rgba(255, 255, 255, .2); }
+  #ring .sd.on { fill: var(--orange); filter: drop-shadow(0 0 7px rgba(241, 90, 34, .85)); }
+  #ring .sd.lead { fill: #ffe2cf; filter: drop-shadow(0 0 10px rgba(241, 90, 34, 1)) drop-shadow(0 0 3px #fff); }
+  .face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .hv { font: 700 236px/1 var(--body); font-variant-numeric: tabular-nums; margin-top: 10px; text-shadow: 0 4px 30px rgba(21, 20, 53, .35); }
+  .hl { margin-top: 4px; font: 700 34px/1.05 var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--orange); text-align: center; }
+  .hs { margin-top: 26px; padding: 6px 14px 8px; border: 2px solid rgba(255,255,255,.35); font: 700 19px/1 var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); }
+</style></head>
+<body>
+<div class="bg a fade" style="--d:0s"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+<div class="vis a fade" style="--d:.2s" id="vis"><svg viewBox="0 0 800 800" id="ring" aria-hidden="true"></svg>
+  <div class="face"><div class="hv" id="hv">0</div><div class="hl">Halloween<br>mentions</div><div class="hs" id="hs"></div></div></div>
+<div class="col">
+  <div class="toprow a wipe" style="--d:.3s"><span id="lock"></span><span class="src" id="src"><b></b><span>Data</span></span></div>
+  <div class="ttl a rise" style="--d:.5s"><div class="wd" id="wd"></div><div class="dm" id="dm"></div></div>
+  <div class="panel a wipe" style="--d:.65s" id="panel"></div>
+</div>
+<div class="tickwrap a rise" style="--d:.8s"><div class="tick"><span class="tlab pg" id="tlab"></span><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div></div>
+<script src="js/oa.js"></script>
+<script>
+OA.el('lock').innerHTML = OA.lockup();
+
+// Halloween-o-meter: the studio clock's own 60-dot LED ring. each lit dot is 1/60 of
+// the way to the next round hundred above the real count, the centre counts up to the real total.
+var ring = OA.el('ring'), dots = [], H = 0;
+(function build() {   // the clock's ring, verbatim geometry: 12 white hour dots outside, 60 LED dots
+  var s = '', i, a, R = 356, RH = 392;
+  for (i = 0; i < 12; i++) { a = i / 12 * 2 * Math.PI; s += '<circle class="hm" cx="' + (400 + RH * Math.sin(a)).toFixed(1) + '" cy="' + (400 - RH * Math.cos(a)).toFixed(1) + '" r="8"/>'; }
+  for (i = 0; i < 60; i++) { a = i / 60 * 2 * Math.PI; s += '<circle class="sd' + (i % 5 ? '' : ' q') + '" cx="' + (400 + R * Math.sin(a)).toFixed(1) + '" cy="' + (400 - R * Math.cos(a)).toFixed(1) + '" r="' + (i % 5 ? 9.5 : 11) + '"/>'; }
+  ring.innerHTML = s; dots = ring.querySelectorAll('.sd');
+})();
+var scale = 100, lit = 0, shown = 0, t0 = 0;
+function render(v) {
+  H = v.halloween.total; scale = Math.max(100, Math.ceil(H / 100) * 100); lit = Math.round(60 * H / scale);
+  OA.el('hs').textContent = 'of ' + scale + ' · ' + lit + ' / 60 lit';
+  var now = new Date(), y = now.getFullYear(), hd = Math.ceil((Date.UTC(y, 9, 31) - Date.UTC(y, now.getMonth(), now.getDate())) / 864e5);
+  OA.el('wd').textContent = 'Halloween-o-meter';
+  OA.el('dm').textContent = (hd > 0 ? hd + ' days to Halloween' : hd === 0 ? 'It\'s Halloween' : 'Since ' + OA.asOf(v).split(' – ')[0]);
+  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg" style="--pg:var(--orange)"><span class="dot"></span>Spookiest shows</span></div><div class="rows">' +
+    OA.rows(v.halloween.byPresenter, 6) + '</div>';
+  OA.band('Said on air', v.halloween.words.filter(function (x) { return OA.ok(x.w); }).map(function (x) { return [x.w, x.n]; }), 'am');
+}
+document.addEventListener('oa:in', function () { t0 = performance.now(); });
+(function frame(ts) {
+  if (t0) {
+    var k = Math.min(1, (ts - t0 - 600) / 2600); k = k < 0 ? 0 : 1 - Math.pow(1 - k, 3);
+    var n = Math.round(H * k), L = Math.round(lit * k);
+    if (n !== shown) { shown = n; OA.el('hv').textContent = n; }
+    var lead = k >= 1 ? (Math.floor(ts / 1000) % Math.max(1, lit)) : L - 1;
+    dots.forEach(function (d, i) { d.classList.toggle('on', i < L && i !== lead); d.classList.toggle('lead', i === lead && i < L); });
+  }
+  requestAnimationFrame(frame);
+})(0);
+OA.boot(render);
+
+</script>
+</body></html>

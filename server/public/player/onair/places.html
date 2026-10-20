@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Now Ayrshire Radio — Ayrshire on air</title>
+<link rel="stylesheet" href="css/sl.css"><link rel="stylesheet" href="css/oa.css">
+<style></style></head>
+<body>
+<div class="bg a fade" style="--d:0s"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+<div class="vis a fade" style="--d:.2s" id="vis"><canvas id="map" width="1600" height="1600"></canvas></div>
+<div class="col">
+  <div class="toprow a wipe" style="--d:.3s"><span id="lock"></span><span class="src" id="src"><b></b><span>Data</span></span></div>
+  <div class="ttl a rise" style="--d:.5s"><div class="wd" id="wd"></div><div class="dm" id="dm"></div></div>
+  <div class="panel a wipe" style="--d:.65s" id="panel"></div>
+</div>
+<div class="tickwrap a rise" style="--d:.8s"><div class="tick"><span class="tlab pg" id="tlab"></span><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div></div>
+<script src="js/oa.js"></script>
+<script>
+OA.el('lock').innerHTML = OA.lockup();
+
+// Places map pulse: every Ayrshire place named on air, at its real position; dot size and pulse rate come from how often
+// it was said. Backdrop is the clock's LED dot language (unlit dots), no map imagery.
+var LL = { Kilmarnock: [55.611, -4.495], Irvine: [55.619, -4.657], Troon: [55.543, -4.660], Ayr: [55.458, -4.629], Brodick: [55.576, -5.151],
+  Largs: [55.795, -4.867], Heathfield: [55.474, -4.606], Dreghorn: [55.611, -4.616], Cumnock: [55.453, -4.264], Turnberry: [55.316, -4.828],
+  Prestwick: [55.495, -4.614], Girvan: [55.243, -4.856], Ardrossan: [55.641, -4.811], Ballantrae: [55.101, -5.003], Stewarton: [55.680, -4.513],
+  Holmston: [55.452, -4.612], Hurlford: [55.598, -4.457], Arran: [55.58, -5.24], Auchinleck: [55.471, -4.295], Alloway: [55.430, -4.636],
+  Dundonald: [55.575, -4.594], Kilwinning: [55.653, -4.703], Saltcoats: [55.634, -4.786], Maybole: [55.354, -4.682], Dalmellington: [55.323, -4.400],
+  Newmilns: [55.606, -4.330], Mauchline: [55.517, -4.379], Tarbolton: [55.512, -4.487], Beith: [55.749, -4.635], Dalry: [55.708, -4.723],
+  'West Kilbride': [55.692, -4.851], Millport: [55.755, -4.928], Lamlash: [55.534, -5.128], Galston: [55.600, -4.384], Darvel: [55.611, -4.282] };
+var LAT0 = 55.47, KX = Math.cos(LAT0 * Math.PI / 180);
+function xy(ll) { return [430 + (ll[1] + 4.72) * KX * 111 * 9.4, 400 - (ll[0] - LAT0) * 111 * 9.4]; }
+var pts = [], c = OA.el('map').getContext('2d'); c.scale(2, 2);
+function render(v) {
+  var list = v.places.filter(function (p) { return LL[p.w]; }), mx = list[0] ? list[0].n : 1;
+  pts = list.map(function (p, i) { var q = xy(LL[p.w]); return { w: p.w, n: p.n, i: i, x: q[0], y: q[1], f: Math.sqrt(p.n / mx), ph: i * .37 }; });
+  OA.el('wd').textContent = 'Ayrshire on air';
+  var named = v.places.filter(function (p) { return OA.REGIONS.indexOf(p.w) < 0; });
+  OA.el('dm').textContent = named.length + ' places named · ' + OA.asOf(v);
+  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"><span class="dot"></span>Most said places</span></div><div class="rows">' + OA.rows(named, 6) + '</div>';
+  var reg = v.places.filter(function (p) { return OA.REGIONS.indexOf(p.w) >= 0; });
+  OA.band('Mentions', reg.map(function (p) { return [p.w, OA.n(p.n)]; }).concat(named.slice(6, 14).map(function (p) { return [p.w, p.n]; })), 'am');
+}
+var t0 = null;
+function draw(ts) {
+  if (t0 === null) t0 = ts; var t = (ts - t0) / 1000, on = document.body.classList.contains('in');
+  c.clearRect(0, 0, 800, 800);
+  for (var gy = 20; gy < 800; gy += 26) for (var gx = 20 + ((gy / 26) % 2) * 13; gx < 800; gx += 26) {
+    c.fillStyle = 'rgba(255,255,255,.07)'; c.beginPath(); c.arc(gx, gy, 2.4, 0, 7); c.fill();
+  }
+  var labs = [];
+  pts.forEach(function (p) {
+    var enter = on ? Math.min(1, Math.max(0, (t - .5 - p.i * .06) / .75)) : 0, e = 1 - Math.pow(1 - enter, 3);
+    if (!e) return;
+    var period = 3.2 - 2.0 * p.f, k = ((t + p.ph) % period) / period, R = 10 + 70 * p.f;
+    c.strokeStyle = 'rgba(250,166,26,' + ((1 - k) * .7 * e).toFixed(3) + ')'; c.lineWidth = 3;
+    c.beginPath(); c.arc(p.x, p.y, (8 + R * k) * e, 0, 7); c.stroke();
+    var r = (5 + 15 * p.f) * e, lead = p.i === 0;
+    c.shadowColor = 'rgba(250,166,26,' + (lead ? 1 : .85) + ')'; c.shadowBlur = lead ? 20 : 14;
+    c.fillStyle = lead ? '#fff3d6' : '#FAA61A'; c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.fill(); c.shadowBlur = 0;
+    c.font = (p.i < 3 ? 'italic 700 34px MuseoModerno' : '700 28px "Darker Grotesque"');
+    var lw = c.measureText(p.w).width, lx = null, ly = 0, bx = null;
+    [[p.x + r + 12, p.y], [p.x - r - 12 - lw, p.y], [p.x - lw / 2, p.y - r - 26], [p.x - lw / 2, p.y + r + 30]].some(function (q) {
+      var x0 = q[0], b = { x: x0 - 4, y: q[1] - 22, w: lw + 8, h: 36 };
+      if (b.x < 0 || b.x + b.w > 800) return false;
+      var hit = (p.i >= 3 && pts.some(function (o) { return o !== p && o.x > b.x - 6 && o.x < b.x + b.w + 6 && o.y > b.y - 6 && o.y < b.y + b.h + 6; })) ||
+        labs.some(function (o) { return b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h; });
+      if (!hit) { lx = x0; ly = q[1]; bx = b; } return !hit;
+    });
+    if (bx) {
+      labs.push(bx); c.globalAlpha = e; c.fillStyle = p.i < 3 ? '#fff' : 'rgba(255,255,255,.78)';
+      c.textAlign = 'left'; c.lineJoin = 'round'; c.lineWidth = 7; c.strokeStyle = 'rgba(21,20,53,.85)'; c.strokeText(p.w, lx, ly + 10); c.fillText(p.w, lx, ly + 10); c.globalAlpha = 1;
+    }
+  });
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+OA.boot(render);
+
+</script>
+</body></html>

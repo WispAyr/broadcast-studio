@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Now Ayrshire Radio — On air now — signature words</title>
+<link rel="stylesheet" href="css/sl.css"><link rel="stylesheet" href="css/oa.css">
+<style>
+  #sig { position: absolute; left: 0; top: 30px; width: 800px; display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+  .sw { --k: 16px; --pg: rgba(21, 20, 53, .78); display: flex; align-items: baseline; gap: 22px; padding: 10px 40px 14px 30px;
+    clip-path: inset(-20px 100% -20px -40px); transition: clip-path .7s var(--ease-wipe) var(--d, 0s); }
+  .in .sw { clip-path: inset(-20px -40px -20px -40px); }
+  .sw b { font: italic 700 var(--fs, 60px)/1 var(--display); }
+  .sw i { font: 700 26px/1 var(--body); font-style: normal; letter-spacing: .18em; color: var(--amber); }
+  .sw.lead { --pg: var(--amber); } .sw.lead b { color: var(--navy); } .sw.lead i { color: var(--navy); }
+  .sw.glow b { color: #fff3d6; text-shadow: 0 0 10px rgba(250, 166, 26, 1), 0 0 3px #fff; }
+  .sigcap { position: absolute; left: 0; bottom: 6px; width: 800px; font: 700 22px/1.2 var(--body); letter-spacing: .14em; white-space: nowrap; text-transform: uppercase; color: var(--ink-2); }
+  .stats { display: flex; padding: 12px 30px 22px; gap: 40px; }
+  .stat { display: flex; flex-direction: column; } .stat b { font: 700 96px/1 var(--body); font-variant-numeric: tabular-nums; }
+  .stat u { text-decoration: none; font: 700 26px/1 var(--body); color: var(--ink-2); letter-spacing: .14em; text-transform: uppercase; margin-top: 6px; }
+</style></head>
+<body>
+<div class="bg a fade" style="--d:0s"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+<div class="vis a fade" style="--d:.2s" id="vis"><div id="sig"></div><div class="sigcap a fade" style="--d:2.4s" id="cap"></div></div>
+<div class="col">
+  <div class="toprow a wipe" style="--d:.3s"><span id="lock"></span><span class="src" id="src"><b></b><span>Data</span></span></div>
+  <div class="ttl a rise" style="--d:.5s"><div class="wd" id="wd"></div><div class="dm" id="dm"></div></div>
+  <div class="panel a wipe" style="--d:.65s" id="panel"></div>
+</div>
+<div class="tickwrap a rise" style="--d:.8s"><div class="tick"><span class="tlab pg" id="tlab"></span><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div></div>
+<script src="js/oa.js"></script>
+<script>
+OA.el('lock').innerHTML = OA.lockup();
+
+// The presenter on air now and the words that are most theirs (TF-IDF against every other show) — real counts only.
+// No one on air (or ?cycle=1): steps through every presenter, 20 s each.
+var idx = 0, timer = 0;
+function show(v, p, cur) {
+  var sig = (p.signature || []).filter(OA.ok).slice(0, 6);
+  OA.el('sig').innerHTML = sig.map(function (w, i) {
+    return '<div class="sw pg' + (i === 0 ? ' lead' : '') + '" style="--d:' + (.9 + i * .18).toFixed(2) + 's;--fs:' + (i === 0 ? 92 : 68 - i * 3) + 'px"><b>' + OA.esc(w) + '</b><i>#' + (i + 1) + '</i></div>';
+  }).join('');
+  OA.el('cap').textContent = 'Signature words · more ' + p.name + ' than anyone else';
+  OA.el('wd').textContent = p.name;
+  OA.el('dm').textContent = cur && cur.show ? cur.show : p.shows + ' shows · ' + OA.asOf(v);
+  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"' + (cur ? ' style="--pg:var(--red)"' : '') + '><span class="dot"></span>' + (cur ? 'On air now' : 'Presenter') +
+    '</span><span class="slabel">' + p.shows + ' shows</span></div><div class="stats">' +
+    '<div class="stat"><b>' + Math.round(p.wpm) + '</b><u>words / min</u></div><div class="stat"><b>' + Math.round(p.talkPct) + '%</b><u>talk time</u></div>' +
+    '<div class="stat"><b>' + OA.n(p.words) + '</b><u>words said</u></div></div>';
+  OA.band(p.name, [['Hours talking', p.talkHours], ['Station mentions', p.stationMentions], ['Halloween-o-meter', p.halloween], ['Shows', p.shows]]);
+}
+function render(v) {
+  clearInterval(timer);
+  var cur = v.current && v.current.known && OA.p('cycle') !== '1' ? v.current : null;
+  var list = v.presenters.filter(function (p) { return p.signature && p.signature.length; });
+  if (cur) { show(v, list.filter(function (p) { return p.name === cur.presenter; })[0], cur); return; }
+  show(v, list[idx % list.length], null);
+  timer = setInterval(function () {
+    document.body.classList.remove('in');
+    setTimeout(function () { idx++; show(v, list[idx % list.length], null); setTimeout(OA.play, 60); }, 450);
+  }, 20000);
+}
+(function glow() {
+  var s = Math.floor(Date.now() / 1000), w = document.querySelectorAll('.sw');
+  if (w.length && document.body.classList.contains('in')) w.forEach(function (e, i) { e.classList.toggle('glow', i !== 0 && i === 1 + (s % (w.length - 1))); });
+  setTimeout(glow, 250);
+})();
+OA.boot(render);
+
+</script>
+</body></html>

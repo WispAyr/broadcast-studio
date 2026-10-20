@@ -1,0 +1,1075 @@
+{
+ "aggregatesOnly": true,
+ "generatedAt": 1792516433000,
+ "period": {
+  "from": 1790510400000,
+  "to": 1792497600000
+ },
+ "totals": {
+  "shows": 64,
+  "liveShows": 55,
+  "hours": 234.1,
+  "words": 519060
+ },
+ "topWords": [
+  {
+   "w": "night",
+   "n": 918
+  },
+  {
+   "w": "air",
+   "n": 796
+  },
+  {
+   "w": "every",
+   "n": 718
+  },
+  {
+   "w": "home",
+   "n": 693
+  },
+  {
+   "w": "week",
+   "n": 680
+  },
+  {
+   "w": "coming",
+   "n": 608
+  },
+  {
+   "w": "local",
+   "n": 587
+  },
+  {
+   "w": "tell",
+   "n": 580
+  },
+  {
+   "w": "keep",
+   "n": 567
+  },
+  {
+   "w": "give",
+   "n": 565
+  },
+  {
+   "w": "play",
+   "n": 514
+  },
+  {
+   "w": "call",
+   "n": 509
+  },
+  {
+   "w": "dance",
+   "n": 508
+  },
+  {
+   "w": "big",
+   "n": 507
+  },
+  {
+   "w": "around",
+   "n": 496
+  },
+  {
+   "w": "road",
+   "n": 487
+  },
+  {
+   "w": "first",
+   "n": 485
+  },
+  {
+   "w": "find",
+   "n": 455
+  },
+  {
+   "w": "getting",
+   "n": 444
+  },
+  {
+   "w": "life",
+   "n": 435
+  },
+  {
+   "w": "free",
+   "n": 428
+  },
+  {
+   "w": "looking",
+   "n": 406
+  },
+  {
+   "w": "ever",
+   "n": 395
+  },
+  {
+   "w": "better",
+   "n": 393
+  },
+  {
+   "w": "always",
+   "n": 383
+  },
+  {
+   "w": "across",
+   "n": 380
+  },
+  {
+   "w": "michael",
+   "n": 377
+  },
+  {
+   "w": "saturday",
+   "n": 374
+  },
+  {
+   "w": "visit",
+   "n": 373
+  },
+  {
+   "w": "done",
+   "n": 370
+  },
+  {
+   "w": "song",
+   "n": 370
+  },
+  {
+   "w": "weekend",
+   "n": 366
+  },
+  {
+   "w": "kilmarnock",
+   "n": 364
+  },
+  {
+   "w": "man",
+   "n": 364
+  },
+  {
+   "w": "people",
+   "n": 364
+  },
+  {
+   "w": "put",
+   "n": 352
+  },
+  {
+   "w": "o'clock",
+   "n": 349
+  },
+  {
+   "w": "best",
+   "n": 343
+  },
+  {
+   "w": "game",
+   "n": 336
+  },
+  {
+   "w": "might",
+   "n": 332
+  },
+  {
+   "w": "three",
+   "n": 331
+  },
+  {
+   "w": "number",
+   "n": 330
+  },
+  {
+   "w": "nothing",
+   "n": 325
+  },
+  {
+   "w": "afternoon",
+   "n": 325
+  },
+  {
+   "w": "feeling",
+   "n": 317
+  },
+  {
+   "w": "trade",
+   "n": 317
+  },
+  {
+   "w": "world",
+   "n": 314
+  },
+  {
+   "w": "old",
+   "n": 310
+  },
+  {
+   "w": "stop",
+   "n": 309
+  },
+  {
+   "w": "years",
+   "n": 308
+  },
+  {
+   "w": "heart",
+   "n": 306
+  },
+  {
+   "w": "head",
+   "n": 300
+  },
+  {
+   "w": "long",
+   "n": 290
+  },
+  {
+   "w": "house",
+   "n": 288
+  },
+  {
+   "w": "year",
+   "n": 287
+  },
+  {
+   "w": "place",
+   "n": 285
+  },
+  {
+   "w": "work",
+   "n": 285
+  },
+  {
+   "w": "another",
+   "n": 278
+  },
+  {
+   "w": "mind",
+   "n": 276
+  },
+  {
+   "w": "run",
+   "n": 271
+  }
+ ],
+ "places": [
+  {
+   "w": "Ayrshire",
+   "n": 1620
+  },
+  {
+   "w": "Kilmarnock",
+   "n": 360
+  },
+  {
+   "w": "Irvine",
+   "n": 142
+  },
+  {
+   "w": "Troon",
+   "n": 130
+  },
+  {
+   "w": "Ayr",
+   "n": 126
+  },
+  {
+   "w": "Brodick",
+   "n": 63
+  },
+  {
+   "w": "Largs",
+   "n": 43
+  },
+  {
+   "w": "Heathfield",
+   "n": 39
+  },
+  {
+   "w": "Dreghorn",
+   "n": 31
+  },
+  {
+   "w": "Cumnock",
+   "n": 28
+  },
+  {
+   "w": "Turnberry",
+   "n": 27
+  },
+  {
+   "w": "Prestwick",
+   "n": 23
+  },
+  {
+   "w": "Girvan",
+   "n": 22
+  },
+  {
+   "w": "Ardrossan",
+   "n": 20
+  },
+  {
+   "w": "Ballantrae",
+   "n": 19
+  },
+  {
+   "w": "Stewarton",
+   "n": 16
+  },
+  {
+   "w": "Carrick",
+   "n": 16
+  },
+  {
+   "w": "Holmston",
+   "n": 15
+  },
+  {
+   "w": "Hurlford",
+   "n": 13
+  },
+  {
+   "w": "Arran",
+   "n": 13
+  },
+  {
+   "w": "Auchinleck",
+   "n": 12
+  },
+  {
+   "w": "Kyle",
+   "n": 11
+  },
+  {
+   "w": "Alloway",
+   "n": 9
+  },
+  {
+   "w": "Dundonald",
+   "n": 9
+  },
+  {
+   "w": "Kilwinning",
+   "n": 7
+  }
+ ],
+ "sponsors": [
+  {
+   "w": "Ayrshire Trade Frames",
+   "n": 112
+  },
+  {
+   "w": "Caledonian Windows",
+   "n": 91
+  },
+  {
+   "w": "LM Motor Company",
+   "n": 86
+  },
+  {
+   "w": "Stagecoach",
+   "n": 65
+  },
+  {
+   "w": "Corrie Skips",
+   "n": 61
+  },
+  {
+   "w": "Ayrshire Climbing Centre",
+   "n": 61
+  },
+  {
+   "w": "Billy Bowie",
+   "n": 47
+  },
+  {
+   "w": "Budget Blinds",
+   "n": 42
+  },
+  {
+   "w": "Kilmarnock FC",
+   "n": 29
+  },
+  {
+   "w": "Thistle Cabs",
+   "n": 22
+  },
+  {
+   "w": "Wellington Square Pharmacy",
+   "n": 20
+  },
+  {
+   "w": "Ayrshire Chip n Logs",
+   "n": 15
+  }
+ ],
+ "halloween": {
+  "total": 190,
+  "words": [
+   {
+    "w": "halloween",
+    "n": 69
+   },
+   {
+    "w": "ghost",
+    "n": 19
+   },
+   {
+    "w": "scary",
+    "n": 19
+   },
+   {
+    "w": "spooky",
+    "n": 18
+   },
+   {
+    "w": "pumpkin",
+    "n": 10
+   },
+   {
+    "w": "haunted",
+    "n": 9
+   },
+   {
+    "w": "monster",
+    "n": 7
+   },
+   {
+    "w": "costume",
+    "n": 4
+   },
+   {
+    "w": "boo",
+    "n": 4
+   },
+   {
+    "w": "zombie",
+    "n": 4
+   },
+   {
+    "w": "pumpkins",
+    "n": 4
+   },
+   {
+    "w": "candy",
+    "n": 3
+   },
+   {
+    "w": "sweeties",
+    "n": 3
+   },
+   {
+    "w": "zombies",
+    "n": 3
+   },
+   {
+    "w": "fright",
+    "n": 2
+   }
+  ],
+  "byPresenter": [
+   {
+    "w": "Billy & Bex",
+    "n": 38
+   },
+   {
+    "w": "Paul Harper",
+    "n": 36
+   },
+   {
+    "w": "Ali & Michael",
+    "n": 22
+   },
+   {
+    "w": "Sunday Service",
+    "n": 20
+   },
+   {
+    "w": "Liam Dolan",
+    "n": 18
+   },
+   {
+    "w": "Weekend Breakfast",
+    "n": 15
+   },
+   {
+    "w": "Now Dance",
+    "n": 14
+   },
+   {
+    "w": "Sideliners",
+    "n": 14
+   },
+   {
+    "w": "Ayrshire Insights",
+    "n": 5
+   },
+   {
+    "w": "Now Ayrshire Amplified Rock Indie And New Music",
+    "n": 4
+   },
+   {
+    "w": "House Party",
+    "n": 3
+   },
+   {
+    "w": "Amanda Jean",
+    "n": 1
+   }
+  ],
+  "byDay": [
+   {
+    "t": 1790596800000,
+    "n": 17
+   },
+   {
+    "t": 1790683200000,
+    "n": 12
+   },
+   {
+    "t": 1791028800000,
+    "n": 19
+   },
+   {
+    "t": 1791115200000,
+    "n": 2
+   },
+   {
+    "t": 1791201600000,
+    "n": 14
+   },
+   {
+    "t": 1791460800000,
+    "n": 12
+   },
+   {
+    "t": 1791547200000,
+    "n": 1
+   },
+   {
+    "t": 1791633600000,
+    "n": 28
+   },
+   {
+    "t": 1791720000000,
+    "n": 23
+   },
+   {
+    "t": 1791806400000,
+    "n": 4
+   },
+   {
+    "t": 1792152000000,
+    "n": 3
+   },
+   {
+    "t": 1792238400000,
+    "n": 21
+   },
+   {
+    "t": 1792324800000,
+    "n": 16
+   },
+   {
+    "t": 1792497600000,
+    "n": 18
+   }
+  ]
+ },
+ "topicsByHour": {
+  "1": {
+   "Weather": 2,
+   "Food & drink": 1,
+   "Music": 2,
+   "Community & events": 1,
+   "Callers & competitions": 2
+  },
+  "2": {
+   "Community & events": 3,
+   "Weather": 1
+  },
+  "3": {
+   "Community & events": 1,
+   "Music": 1
+  },
+  "4": {
+   "Community & events": 4,
+   "Music": 2
+  },
+  "5": {
+   "Weather": 1,
+   "Community & events": 1,
+   "Callers & competitions": 3,
+   "Traffic & travel": 1
+  },
+  "6": {
+   "Music": 25,
+   "Community & events": 50,
+   "Callers & competitions": 62,
+   "Weather": 47,
+   "Sport": 12,
+   "Traffic & travel": 50,
+   "Food & drink": 27,
+   "Halloween": 6
+  },
+  "7": {
+   "Weather": 69,
+   "Traffic & travel": 106,
+   "Music": 64,
+   "Food & drink": 76,
+   "Sport": 40,
+   "Community & events": 72,
+   "Callers & competitions": 100,
+   "Halloween": 14
+  },
+  "8": {
+   "Weather": 63,
+   "Traffic & travel": 91,
+   "Callers & competitions": 115,
+   "Community & events": 110,
+   "Sport": 39,
+   "Food & drink": 76,
+   "Music": 38,
+   "Halloween": 8
+  },
+  "9": {
+   "Weather": 56,
+   "Food & drink": 64,
+   "Traffic & travel": 68,
+   "Sport": 26,
+   "Music": 46,
+   "Callers & competitions": 77,
+   "Community & events": 69,
+   "Halloween": 1
+  },
+  "10": {
+   "Weather": 58,
+   "Traffic & travel": 49,
+   "Community & events": 95,
+   "Callers & competitions": 81,
+   "Music": 37,
+   "Sport": 225,
+   "Food & drink": 8,
+   "Halloween": 11
+  },
+  "11": {
+   "Weather": 84,
+   "Callers & competitions": 104,
+   "Community & events": 115,
+   "Traffic & travel": 52,
+   "Music": 36,
+   "Food & drink": 20,
+   "Sport": 209,
+   "Halloween": 5
+  },
+  "12": {
+   "Callers & competitions": 114,
+   "Sport": 247,
+   "Traffic & travel": 44,
+   "Weather": 70,
+   "Music": 40,
+   "Food & drink": 18,
+   "Community & events": 51,
+   "Halloween": 1
+  },
+  "13": {
+   "Community & events": 90,
+   "Weather": 77,
+   "Traffic & travel": 67,
+   "Music": 82,
+   "Food & drink": 34,
+   "Callers & competitions": 109,
+   "Sport": 289,
+   "Halloween": 6
+  },
+  "14": {
+   "Music": 124,
+   "Callers & competitions": 109,
+   "Weather": 64,
+   "Traffic & travel": 81,
+   "Community & events": 99,
+   "Sport": 59,
+   "Food & drink": 20,
+   "Halloween": 16
+  },
+  "15": {
+   "Traffic & travel": 64,
+   "Weather": 72,
+   "Community & events": 155,
+   "Callers & competitions": 98,
+   "Halloween": 8,
+   "Music": 60,
+   "Sport": 30,
+   "Food & drink": 42
+  },
+  "16": {
+   "Callers & competitions": 103,
+   "Food & drink": 41,
+   "Weather": 103,
+   "Community & events": 99,
+   "Traffic & travel": 147,
+   "Sport": 29,
+   "Music": 65,
+   "Halloween": 23
+  },
+  "17": {
+   "Community & events": 80,
+   "Weather": 98,
+   "Food & drink": 80,
+   "Music": 47,
+   "Traffic & travel": 130,
+   "Callers & competitions": 72,
+   "Halloween": 23,
+   "Sport": 27
+  },
+  "18": {
+   "Sport": 19,
+   "Community & events": 82,
+   "Weather": 51,
+   "Callers & competitions": 54,
+   "Music": 90,
+   "Food & drink": 47,
+   "Traffic & travel": 9,
+   "Halloween": 10
+  },
+  "19": {
+   "Traffic & travel": 4,
+   "Weather": 22,
+   "Community & events": 56,
+   "Music": 99,
+   "Food & drink": 28,
+   "Callers & competitions": 49,
+   "Sport": 9,
+   "Halloween": 1
+  },
+  "20": {
+   "Music": 86,
+   "Community & events": 71,
+   "Callers & competitions": 22,
+   "Weather": 19,
+   "Food & drink": 14,
+   "Sport": 5,
+   "Halloween": 2,
+   "Traffic & travel": 1
+  },
+  "21": {
+   "Music": 84,
+   "Weather": 17,
+   "Callers & competitions": 22,
+   "Community & events": 35,
+   "Food & drink": 3,
+   "Traffic & travel": 4,
+   "Sport": 5
+  },
+  "22": {
+   "Music": 1
+  }
+ },
+ "presenters": [
+  {
+   "name": "Billy & Bex",
+   "shows": 9,
+   "words": 88147,
+   "wpm": 136.7,
+   "talkPct": 48.9,
+   "talkHours": 10.7,
+   "stationMentions": 103,
+   "halloween": 38,
+   "signature": [
+    "frames",
+    "mackie",
+    "blinds",
+    "bathrooms",
+    "mugs",
+    "wayne",
+    "roads",
+    "homestyle",
+    "roundabouts",
+    "trade"
+   ]
+  },
+  {
+   "name": "Sideliners",
+   "shows": 3,
+   "words": 82351,
+   "wpm": 183.1,
+   "talkPct": 14,
+   "talkHours": 7.5,
+   "stationMentions": 38,
+   "halloween": 14,
+   "signature": [
+    "league",
+    "johnny",
+    "rugby",
+    "rangers",
+    "division",
+    "evan",
+    "bailey",
+    "united",
+    "pundit",
+    "cup"
+   ]
+  },
+  {
+   "name": "Ali & Michael",
+   "shows": 6,
+   "words": 77131,
+   "wpm": 143.1,
+   "talkPct": 51.4,
+   "talkHours": 9,
+   "stationMentions": 43,
+   "halloween": 22,
+   "signature": [
+    "corrie",
+    "claims",
+    "dodds",
+    "skips",
+    "windows",
+    "andrew",
+    "caledonian",
+    "jam",
+    "dodgers",
+    "dodger"
+   ]
+  },
+  {
+   "name": "Liam Dolan",
+   "shows": 5,
+   "words": 59058,
+   "wpm": 120.1,
+   "talkPct": 63,
+   "talkHours": 8.2,
+   "stationMentions": 55,
+   "halloween": 18,
+   "signature": [
+    "dodd's",
+    "mackie",
+    "womanizer",
+    "pharmacy",
+    "andrew",
+    "bathrooms",
+    "wellington",
+    "fencing",
+    "autocare",
+    "tyres"
+   ]
+  },
+  {
+   "name": "Paul Harper",
+   "shows": 3,
+   "words": 33554,
+   "wpm": 122.6,
+   "talkPct": 38,
+   "talkHours": 4.6,
+   "stationMentions": 54,
+   "halloween": 36,
+   "signature": [
+    "climbing",
+    "alike",
+    "seekers",
+    "challenges",
+    "explore",
+    "families",
+    "chubby",
+    "mcardle",
+    "annie",
+    "chippy"
+   ]
+  },
+  {
+   "name": "Weekend Breakfast",
+   "shows": 6,
+   "words": 33539,
+   "wpm": 124.7,
+   "talkPct": 18.8,
+   "talkHours": 4.5,
+   "stationMentions": 122,
+   "halloween": 15,
+   "signature": [
+    "pavilion",
+    "finlay",
+    "matt",
+    "relaxed",
+    "golf",
+    "seaside",
+    "coastal",
+    "isle",
+    "clyde",
+    "views"
+   ]
+  },
+  {
+   "name": "Now Dance",
+   "shows": 3,
+   "words": 27785,
+   "wpm": 95,
+   "talkPct": 40.6,
+   "talkHours": 4.9,
+   "stationMentions": 57,
+   "halloween": 14,
+   "signature": [
+    "dun",
+    "handcrafted",
+    "mcardle",
+    "k-todd",
+    "dafter",
+    "colin",
+    "autumn",
+    "sampled",
+    "rave",
+    "sunset"
+   ]
+  },
+  {
+   "name": "Ayrshire Insights",
+   "shows": 4,
+   "words": 18614,
+   "wpm": 146.8,
+   "talkPct": 22.9,
+   "talkHours": 2.1,
+   "stationMentions": 55,
+   "halloween": 5,
+   "signature": [
+    "dubai",
+    "fuel",
+    "litre",
+    "boyce",
+    "item",
+    "elliot",
+    "bargains",
+    "pence",
+    "bargain",
+    "businesses"
+   ]
+  },
+  {
+   "name": "Amanda Jean",
+   "shows": 4,
+   "words": 16419,
+   "wpm": 108.4,
+   "talkPct": 31.6,
+   "talkHours": 2.5,
+   "stationMentions": 46,
+   "halloween": 1,
+   "signature": [
+    "nashville",
+    "country's",
+    "blinds",
+    "climbs",
+    "combs",
+    "universe",
+    "medicine",
+    "boots",
+    "luke",
+    "jean's"
+   ]
+  },
+  {
+   "name": "Sunday Service",
+   "shows": 3,
+   "words": 15239,
+   "wpm": 141.9,
+   "talkPct": 21.7,
+   "talkHours": 1.8,
+   "stationMentions": 45,
+   "halloween": 20,
+   "signature": [
+    "gaslight",
+    "elon",
+    "baltasar",
+    "vegan",
+    "arcade",
+    "sausages",
+    "dental",
+    "dominic",
+    "blackpool",
+    "allergy"
+   ]
+  },
+  {
+   "name": "House Party",
+   "shows": 3,
+   "words": 14777,
+   "wpm": 142.7,
+   "talkPct": 18.2,
+   "talkHours": 1.7,
+   "stationMentions": 81,
+   "halloween": 3,
+   "signature": [
+    "harry's",
+    "anthem",
+    "josh",
+    "rowan",
+    "reviews",
+    "scoop",
+    "sandstorm",
+    "kfc",
+    "hofstad",
+    "marlon"
+   ]
+  },
+  {
+   "name": "Now Ayrshire Amplified Rock Indie And New Music",
+   "shows": 3,
+   "words": 13162,
+   "wpm": 129.8,
+   "talkPct": 18.8,
+   "talkHours": 1.7,
+   "stationMentions": 68,
+   "halloween": 4,
+   "signature": [
+    "album",
+    "mercury",
+    "discovers",
+    "championing",
+    "bands",
+    "albums",
+    "alternative",
+    "charlotte",
+    "artists",
+    "roadworks"
+   ]
+  },
+  {
+   "name": "DJ Mash",
+   "shows": 3,
+   "words": 1275,
+   "wpm": 89.5,
+   "talkPct": 10.9,
+   "talkHours": 0.2,
+   "stationMentions": 1,
+   "halloween": 0,
+   "signature": [
+    "casio",
+    "issues",
+    "knew",
+    "smile",
+    "leave",
+    "every",
+    "night",
+    "dance",
+    "please",
+    "ever"
+   ]
+  }
+ ],
+ "current": {
+  "presenter": "Billy & Bex",
+  "show": "Up the Road with Billy and Bex",
+  "signature": [
+   "frames",
+   "mackie",
+   "blinds",
+   "bathrooms",
+   "mugs",
+   "wayne",
+   "roads",
+   "homestyle",
+   "roundabouts",
+   "trade"
+  ],
+  "known": true
+ }
+}
