@@ -26,6 +26,7 @@
 </div>
 <div class="tickwrap a rise" style="--d:.8s"><div class="tick"><span class="tlab pg" id="tlab"></span><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div></div>
 <script src="js/oa.js"></script>
+<script src="js/onair-now.js"></script>
 <script>
 OA.el('lock').innerHTML = OA.lockup();
 
@@ -40,17 +41,35 @@ function show(v, p, cur) {
   OA.el('cap').textContent = 'Signature words · more ' + p.name + ' than anyone else';
   OA.el('wd').textContent = p.name;
   OA.el('dm').textContent = cur && cur.show ? cur.show : p.shows + ' shows · ' + OA.asOf(v);
-  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"' + (cur ? ' style="--pg:var(--red)"' : '') + '><span class="dot"></span>' + (cur ? 'On air now' : 'Presenter') +
+  OA.el('panel').dataset.onair = cur ? '1' : '0';
+  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"' + (cur ? ' style="--pg:var(--red)"' : '') + '><span class="dot"></span>' + (cur ? 'On air now' : NEUTRAL) +
     '</span><span class="slabel">' + p.shows + ' shows</span></div><div class="stats">' +
     '<div class="stat"><b>' + Math.round(p.wpm) + '</b><u>words / min</u></div><div class="stat"><b>' + Math.round(p.talkPct) + '%</b><u>talk time</u></div>' +
     '<div class="stat"><b>' + OA.n(p.words) + '</b><u>words said</u></div></div>';
   OA.band(p.name, [['Hours talking', p.talkHours], ['Station mentions', p.stationMentions], ['Halloween-o-meter', p.halloween], ['Shows', p.shows]]);
 }
+// On air = Broadcast Studio's own now-playing feed (same origin), never the analytics value or the sample.
+// No live presenter with analytics (automated show, unknown, off air, feed down) → no on-air claim: cycle everyone
+// under a neutral heading.
+var NEUTRAL = 'Voices of Now Ayrshire Radio', NP = OA.p('np', '/api/nowplaying/' + OA.p('station', '7719'));
+var live = null, liveKey = 'none';
+function pollNow() {
+  fetch(NP, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (np) { setLive(np); }).catch(function () { setLive(null); })
+    .then(function () { setTimeout(pollNow, 30000); });
+}
+function setLive(np) {
+  var v = OA.data, names = v ? v.presenters.filter(function (p) { return p.signature && p.signature.length; }).map(function (p) { return p.name; }) : [];
+  live = OANow.match(np, names, Date.now());
+  var k = live ? live.presenter + '|' + live.show : 'none';
+  if (k !== liveKey) { liveKey = k; if (v) render(v); }
+}
 function render(v) {
   clearInterval(timer);
-  var cur = v.current && v.current.known && OA.p('cycle') !== '1' ? v.current : null;
   var list = v.presenters.filter(function (p) { return p.signature && p.signature.length; });
-  if (cur) { show(v, list.filter(function (p) { return p.name === cur.presenter; })[0], cur); return; }
+  var cur = live && OA.p('cycle') !== '1' ? live : null;
+  var p = cur && list.filter(function (x) { return x.name === cur.presenter; })[0];
+  if (p) { show(v, p, cur); return; }
   show(v, list[idx % list.length], null);
   timer = setInterval(function () {
     document.body.classList.remove('in');
@@ -62,7 +81,7 @@ function render(v) {
   if (w.length && document.body.classList.contains('in')) w.forEach(function (e, i) { e.classList.toggle('glow', i !== 0 && i === 1 + (s % (w.length - 1))); });
   setTimeout(glow, 250);
 })();
-OA.boot(render);
+OA.boot(function (v, again) { render(v); if (!again && !pollNow.started) { pollNow.started = true; pollNow(); } });
 
 </script>
 </body></html>

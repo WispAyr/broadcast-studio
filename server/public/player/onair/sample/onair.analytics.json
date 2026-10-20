@@ -1055,21 +1055,5 @@
    ]
   }
  ],
- "current": {
-  "presenter": "Billy & Bex",
-  "show": "Up the Road with Billy and Bex",
-  "signature": [
-   "frames",
-   "mackie",
-   "blinds",
-   "bathrooms",
-   "mugs",
-   "wayne",
-   "roads",
-   "homestyle",
-   "roundabouts",
-   "trade"
-  ],
-  "known": true
- }
+ "current": null
 }

@@ -55,7 +55,7 @@ function render(v) {
   OA.el('dm').textContent = OA.n(v.totals.words) + ' words · ' + OA.asOf(v);
   var top = v.topWords.filter(function (x) { return OA.ok(x.w); });
   OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"><span class="dot"></span>Top words</span><span class="slabel">' + v.totals.shows + ' shows</span></div><div class="rows">' + OA.rows(top, 6) + '</div>';
-  OA.band('On air', [['Shows', v.totals.shows], ['Hours', OA.n(v.totals.hours)], ['Words', OA.n(v.totals.words)],
+  OA.band('So far', [['Shows', v.totals.shows], ['Hours', OA.n(v.totals.hours)], ['Words', OA.n(v.totals.words)],
     ['Most said place', v.places.filter(function (p) { return OA.REGIONS.indexOf(p.w) < 0; })[0].w], ['Halloween-o-meter', v.halloween.total]]);
 }
 var lastS = -1;
