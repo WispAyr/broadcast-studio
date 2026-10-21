@@ -3,7 +3,9 @@
 <title>Now Ayrshire Radio — On-air analytics sequence</title>
 <style>
   /* Cycles the on-air analytics screens (~20 s each) with the studio clock's fade (opacity .5s ease, css/sl.css .a).
-     Its own query string (?demo=1 | ?xp=…&ch=…) is passed to every page. ?pages=words,places,… ?hold=20 (seconds). */
+     Its own query string (?demo=1 | ?xp=…&ch=…) is passed to every page. ?pages=words,places,… ?hold=20 (seconds).
+     'weather' is Weather Visuals' NAR screen (https://weather.wispayr.online/screen/nar, 1920x1080, NAR branding,
+     self-refreshing); it gets no query string (no demo/xp params cross-site). ?weather=<url> overrides it. */
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #151435; }
   iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity .5s ease; }
   iframe.on { opacity: 1; }
@@ -12,15 +14,17 @@
 <script>
 (function () {
   var Q = new URLSearchParams(location.search);
-  var ALL = ['words', 'places', 'halloween', 'presenter'];
+  var ALL = ['words', 'places', 'weather', 'halloween', 'presenter'];
+  var EXT = { weather: 'https://weather.wispayr.online/screen/nar' };
+  if (/^https:\/\//.test(Q.get('weather') || '')) EXT.weather = Q.get('weather');
   var list = (Q.get('pages') || ALL.join(',')).split(',').filter(function (p) { return ALL.indexOf(p) >= 0; });
   if (!list.length) list = ALL;
   var hold = Math.max(8, +Q.get('hold') || 20) * 1000;
-  Q.delete('pages'); Q.delete('hold');
+  Q.delete('pages'); Q.delete('hold'); Q.delete('weather');
   var qs = Q.toString() ? '?' + Q.toString() : '';
   var frames = [0, 1].map(function () { var f = document.createElement('iframe'); f.setAttribute('aria-hidden', 'true'); document.body.appendChild(f); return f; });
   var i = 0, cur = 0;
-  function load(f, k, cb) { f.onload = function () { f.onload = null; cb && cb(); }; f.src = list[k % list.length] + '.html' + qs; }
+  function load(f, k, cb) { f.onload = function () { f.onload = null; cb && cb(); }; var p = list[k % list.length]; f.src = EXT[p] || (p + '.html' + qs); }
   // Next page loads behind (hidden) and gets 2.5 s to fetch data + fonts and play its own entrance before the fade.
   function next() {
     var nf = frames[1 - cur]; i++;
