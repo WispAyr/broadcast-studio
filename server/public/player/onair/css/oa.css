@@ -1,0 +1,62 @@
+/* Shared layout for the on-air analytics screens: the studio clock's grid, lifted as-is.
+   Visual zone = the clock's dial box (110,70 · 800×800). Column = the clock's .col (x 1010, w 800, top 84).
+   Band = the clock's ticker (x 100–1820, y 950, h 76). Backdrop = the clock's hero + three slanted drifting bands. */
+.bg { position: absolute; inset: 0; background: var(--hero); overflow: hidden; }
+.band { position: absolute; top: -10%; bottom: -10%; transform: skewX(-15deg); }
+.b1 { left: -12%; width: 1180px; background: rgba(21, 20, 53, .5); }
+.b2 { left: 63%; width: 110px; background: rgba(250, 166, 26, .12); animation: drift 29s ease-in-out infinite alternate-reverse; }
+.b3 { left: 86%; width: 520px; background: rgba(21, 20, 53, .26); animation: drift 37s ease-in-out infinite alternate; }
+@keyframes drift { to { translate: -120px 0; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+.vis { position: absolute; left: 110px; top: 70px; width: 800px; height: 800px; }
+.vis svg, .vis canvas { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+.col { position: absolute; left: 1010px; width: 800px; top: 84px; display: flex; flex-direction: column; align-items: flex-start; }
+.toprow { display: flex; align-items: center; width: 100%; }
+.toprow { align-items: flex-start; }
+.lock { --k: 26px; --pg: var(--purple); display: inline-block; padding: 26px 60px 26px 44px; margin-left: -6px; }
+.src.demo b { display: none; }
+.src { margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 6px 14px 8px; border: 2px solid rgba(255,255,255,.35);
+  font: 700 19px/1 var(--body); letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+.src b { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.src.sync { border-color: var(--aqua); color: var(--aqua); }
+.src.sync b { animation: pulse 1.6s ease-in-out infinite; }
+.ttl { margin-top: 34px; }
+.ttl .wd { white-space: nowrap; }
+.ttl .wd { font: italic 700 86px/1.02 var(--display); }
+.ttl .dm { margin-top: 6px; font: 300 52px/1.1 var(--body); color: var(--ink-2); }
+.panel { margin-top: 38px; width: 100%; background: var(--navy-glass); border-top: 5px solid var(--amber); }
+.shead { display: flex; align-items: center; padding: 22px 30px 0; }
+.tag { --k: 12px; --pg: var(--purple); padding: 9px 30px 11px 26px; font: 700 28px/1 var(--body); letter-spacing: .18em;
+  text-transform: uppercase; display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.dot { width: 13px; height: 13px; border-radius: 50%; background: currentColor; flex: none; }
+.in .tag .dot { animation: pulse 1.6s ease-in-out infinite; }
+.slabel { margin-left: 22px; font: 700 30px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); white-space: nowrap; }
+.big { display: flex; align-items: baseline; gap: 6px; padding: 12px 30px 22px; font: 700 110px/1 var(--body); font-variant-numeric: tabular-nums; }
+.big u { text-decoration: none; font-size: 42px; color: var(--ink-2); margin: 0 26px 0 6px; letter-spacing: .06em; text-transform: uppercase; }
+
+/* Ranked rows (bars) inside a panel */
+.rows { padding: 14px 30px 26px; display: flex; flex-direction: column; gap: 12px; }
+.row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 18px; }
+.row .nm { font: 700 32px/1 var(--body); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .ct { font: 700 32px/1 var(--body); font-variant-numeric: tabular-nums; color: var(--amber); }
+.row .bar { grid-column: 1 / -1; height: 8px; background: rgba(255,255,255,.11); position: relative; }
+.row .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--f) * 100%); background: var(--amber);
+  box-shadow: 0 0 7px rgba(250,166,26,.85); transform-origin: 0 50%; transform: scaleX(0); transition: transform 1.1s var(--ease) var(--d, 0s); }
+.in .row .bar i { transform: scaleX(1); }
+.row.lead .nm { color: #fff3d6; } .row.lead .bar i { background: #fff3d6; box-shadow: 0 0 10px rgba(250,166,26,1), 0 0 3px #fff; }
+
+/* Bottom band: the clock's ticker, carrying headline counts */
+.tickwrap { position: absolute; left: 100px; right: 100px; top: 950px; height: 76px; }
+.tick { position: absolute; inset: 0; display: flex; align-items: stretch; background: var(--navy-glass); border-top: 4px solid var(--amber); }
+.tlab { --k: 12px; --pg: var(--red); flex: none; display: flex; align-items: center; gap: 12px; margin: 10px 0 10px 14px; padding: 0 30px 0 24px;
+  font: 700 26px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+.tlab.am { --pg: var(--amber); color: var(--navy); }
+.tview { flex: 1; min-width: 0; overflow: hidden; position: relative; margin-left: 20px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 50px), transparent); }
+.trk { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; white-space: nowrap; will-change: transform; }
+.ti { display: inline-flex; align-items: center; gap: 16px; padding: 0 30px; height: 100%; }
+.ti::after { content: ''; width: 10px; height: 30px; background: var(--amber); transform: skewX(-15deg); margin-left: 30px; opacity: .8; }
+.ti .n { font: italic 700 34px/1 var(--display); }
+.ti .s { background: #fff; color: var(--navy); padding: 6px 14px 7px; font: italic 700 34px/1 var(--display); font-variant-numeric: tabular-nums; }

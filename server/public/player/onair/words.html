@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Now Ayrshire Radio — Most said on air</title>
+<link rel="stylesheet" href="css/sl.css"><link rel="stylesheet" href="css/oa.css">
+<style>
+  #cloud text { fill: rgba(255,255,255,.92); transition: fill .4s ease, filter .4s ease; }
+  #cloud text.dim { fill: rgba(255,255,255,.55); }
+  #cloud text.on { fill: var(--amber); filter: drop-shadow(0 0 7px rgba(250, 166, 26, .85)); }
+  #cloud text.lead { fill: #fff3d6; filter: drop-shadow(0 0 10px rgba(250, 166, 26, 1)) drop-shadow(0 0 3px #fff); }
+  #cloud g { opacity: 0; transform: scale(.6); transform-box: fill-box; transform-origin: center;
+    transition: transform .75s var(--ease) var(--d, 0s), opacity .5s ease var(--d, 0s); }
+  .in #cloud g { opacity: 1; transform: none; }
+</style></head>
+<body>
+<div class="bg a fade" style="--d:0s"><div class="band b1"></div><div class="band b2"></div><div class="band b3"></div></div>
+<div class="vis a fade" style="--d:.2s" id="vis"><svg viewBox="0 0 800 800" id="cloud" aria-hidden="true"></svg></div>
+<div class="col">
+  <div class="toprow a wipe" style="--d:.3s"><span id="lock"></span><span class="src" id="src"><b></b><span>Data</span></span></div>
+  <div class="ttl a rise" style="--d:.5s"><div class="wd" id="wd"></div><div class="dm" id="dm"></div></div>
+  <div class="panel a wipe" style="--d:.65s" id="panel"></div>
+</div>
+<div class="tickwrap a rise" style="--d:.8s"><div class="tick"><span class="tlab pg" id="tlab"></span><div class="tview" id="tview"><div class="trk" id="trk"></div></div></div></div>
+<script src="js/oa.js"></script>
+<script>
+OA.el('lock').innerHTML = OA.lockup();
+
+// Live word cloud: the most-said words on air, sized by real counts, packed on a spiral inside the clock's dial box.
+// Motion borrows the clock's seconds ring: one word per second takes the lead glow, walking down the ranking.
+var placed = [];
+function layout(v) {
+  var words = v.topWords.filter(function (x) { return OA.ok(x.w); }).slice(0, 40);
+  var mx = words[0].n, mn = words[words.length - 1].n, cv = document.createElement('canvas').getContext('2d'), boxes = [], out = [];
+  words.forEach(function (x, i) {
+    var f = Math.sqrt(x.n / mx), size = Math.max(46, Math.round(150 * Math.pow(f, 1.6) * Math.pow(.955, i)));   // count-scaled, eased by rank so the flat middle of the list stays readable
+    var disp = i < 3, font = disp ? 'italic 700 ' + size + 'px MuseoModerno' : '700 ' + size + 'px "Darker Grotesque"';
+    cv.font = font; var w = cv.measureText(x.w).width + 14, h = size * (disp ? .95 : .78);
+    for (var t = 0; t < 2400; t += 1) {
+      var a = t * .29, r = 3.1 * Math.sqrt(t) * 3, cx = 400 + r * Math.cos(a) * 1.15, cy = 400 + r * Math.sin(a) * .82;
+      var b = { x: cx - w / 2, y: cy - h / 2, w: w, h: h };
+      if (Math.hypot((cx - 400) / 1.0, cy - 400) + w / 2 > 400) continue;
+      if (b.x < 0 || b.x + b.w > 800 || b.y < 40 || b.y + b.h > 760) continue;
+      if (boxes.some(function (o) { return b.x < o.x + o.w && o.x < b.x + b.w && b.y < o.y + o.h && o.y < b.y + b.h; })) continue;
+      boxes.push(b); out.push({ w: x.w, n: x.n, i: i, x: cx, y: cy + h * .36, font: font, size: size }); break;
+    }
+  });
+  return out;
+}
+function render(v) {
+  placed = layout(v);
+  OA.el('cloud').innerHTML = placed.map(function (p) {
+    return '<g style="--d:' + (.3 + p.i * .035).toFixed(3) + 's"><text x="' + p.x.toFixed(1) + '" y="' + p.y.toFixed(1) + '" text-anchor="middle" style="font:' + p.font +
+      '" class="' + (p.i < 8 ? 'on' : 'dim') + '">' + OA.esc(p.w) + '</text></g>';
+  }).join('');
+  OA.el('wd').textContent = 'Most said on air';
+  OA.el('dm').textContent = OA.n(v.totals.words) + ' words · ' + OA.asOf(v);
+  var top = v.topWords.filter(function (x) { return OA.ok(x.w); });
+  OA.el('panel').innerHTML = '<div class="shead"><span class="tag pg"><span class="dot"></span>Top words</span><span class="slabel">' + v.totals.shows + ' shows</span></div><div class="rows">' + OA.rows(top, 6) + '</div>';
+  OA.band('So far', [['Shows', v.totals.shows], ['Hours', OA.n(v.totals.hours)], ['Words', OA.n(v.totals.words)],
+    ['Most said place', v.places.filter(function (p) { return OA.REGIONS.indexOf(p.w) < 0; })[0].w], ['Halloween-o-meter', v.halloween.total]]);
+}
+var lastS = -1;
+(function lead() {
+  var s = Math.floor(Date.now() / 1000);
+  if (s !== lastS && placed.length && document.body.classList.contains('in')) {
+    lastS = s; var k = s % Math.min(placed.length, 24), t = OA.el('cloud').querySelectorAll('text');
+    t.forEach(function (e, j) { e.classList.toggle('lead', j === k); });
+  }
+  requestAnimationFrame(lead);
+})();
+OA.boot(render);
+
+</script>
+</body></html>
