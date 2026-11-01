@@ -51,6 +51,8 @@ app.use('/api/studios/:studioId/variables', variablesRouter);
 app.use('/api/studios/:studioId/api-keys', apiKeysRouter);
 app.use('/api/studios', require('./routes/studios'));
 app.use('/api/screens', require('./routes/screens'));
+// NAR intranet Graphics Studio → one screen (take / clear). 404s unless GFX_AIR_ENABLED=1. docs/gfx-air.md
+app.use('/api/gfx-air', require('./routes/gfx-air').makeGfxAir({ getIO: require('./ws').getIO, db: require('./db').db }));
 app.use('/api/bingo', require('./routes/bingo'));   // bingo game engine + caller control
 app.use('/api/screen-groups', require('./routes/screen-groups'));
 // MUST be mounted BEFORE /api/cutaway — Express matches in order and the cutaway
