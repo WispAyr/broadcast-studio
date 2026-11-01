@@ -366,8 +366,28 @@ function CutawayCamOverlay({ overlay }) {
   );
 }
 
+// gfx-air (NAR intranet Graphics Studio): a full-frame transparent iframe of the intranet's air player. The player
+// stays blank until it is cued, so it is told 'in' once loaded and 'out' when removed (it keeps 650 ms to play out).
+// Screen state only: a reload comes back without it, so a take never replays on load. docs/gfx-air.md
+const GFX_AIR_OUT_MS = 650;
+const isGfxAir = (t) => typeof t === 'string' && t.startsWith('gfx_air_');
+function GfxAirOverlay({ overlay }) {
+  const ref = useRef(null);
+  const origin = (() => { try { return new URL(overlay.url).origin; } catch { return null; } })();
+  const cue = (m) => { try { if (origin) ref.current?.contentWindow?.postMessage({ gfx: m, take: overlay.take_id || null }, origin); } catch { /* gone */ } };
+  useEffect(() => { if (overlay._leaving) cue('out'); }, [overlay._leaving]);
+  if (!origin) return null;
+  return (
+    <iframe ref={ref} src={overlay.url} title="gfx-air" onLoad={() => { if (!overlay._leaving) cue('in'); }}
+      sandbox="allow-scripts allow-same-origin" allowtransparency="true"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, background: 'transparent', colorScheme: 'normal', pointerEvents: 'none' }} />
+  );
+}
+
 function OverlayRenderer({ overlay, audioOutput, onStingEnd }) {
   const baseStyle = { position: 'absolute', animation: 'overlayIn 0.5s ease-out' };
+
+  if (isGfxAir(overlay.type)) return <GfxAirOverlay overlay={overlay} />;
 
   if (overlay.type === 'claim_cutaway') {
     return <CutawayCamOverlay overlay={overlay} />;
@@ -892,6 +912,13 @@ export default function ScreenDisplay() {
     });
 
     socket.on('remove_overlay', (data) => {
+      if (isGfxAir(data.overlayType)) {
+        // Play the gfx-air graphic out, then unmount it (only the copy that was leaving: a new take survives).
+        const t = data.overlayType;
+        setOverlays(prev => prev.map(o => (o.type === t ? { ...o, _leaving: true } : o)));
+        setTimeout(() => setOverlays(prev => prev.filter(o => !(o.type === t && o._leaving))), GFX_AIR_OUT_MS);
+        return;
+      }
       setOverlays(prev => prev.filter(o => o.type !== data.overlayType));
     });
 
@@ -1283,7 +1310,7 @@ export default function ScreenDisplay() {
       {overlays.length > 0 && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}>
           {overlays.map(ov => (
-            <OverlayRenderer key={ov.type} overlay={ov} audioOutput={audioOutput}
+            <OverlayRenderer key={isGfxAir(ov.type) ? `${ov.type}:${ov.take_id}` : ov.type} overlay={ov} audioOutput={audioOutput}
               onStingEnd={() => setOverlays(prev => prev.filter(o => o.type !== 'sting'))} />
           ))}
         </div>
